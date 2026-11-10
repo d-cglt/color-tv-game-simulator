@@ -1,0 +1,6 @@
+# CMake build trees and release artifacts
+/build*/
+
+# Local editor and operating-system files
+.cache/
+.DS_Store

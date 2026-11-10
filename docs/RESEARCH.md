@@ -1,0 +1,161 @@
+# Research: Color TV-Game and Libretro
+
+Research date: 2026-11-08. This is a preliminary research note, not a hardware specification or a claim that an emulator exists.
+
+**Naming context:** The original public A/B names, matching those used in the reference simulation and historical observations below, have been restored after a temporary inversion. IDs and gameplay never changed. A photo of CTG-15 confirms A/B labels but does not establish their correspondence to CTG-6 games. Previously generated files retain their names and IDs, including files from the inverted-label period.
+
+## Reference repository and licensing
+
+The specified reference is [ThomasVisvader/Pong][R1], specifically `Nintendo Color TV-Game 15`. The inspected default-branch commit is [`e654c5ff909851dac9360000c2c269562cf0c735`][R2] (2021-02-16). The target directory contains a Python script, a README, three WAV files and a font with its own documentation and license. [R3–R6]
+
+**The simulation code's reuse permission is unresolved.** GitHub's repository metadata reports `license: null`, its license API returned 404, and the root listing shows no license file. The inspected Python script has no license notice. This is evidence that no repository-wide grant was found, not proof that no permission exists elsewhere. Public availability is not a license to copy or port the source. Obtain explicit permission or a clear applicable license from the rights holder before reuse; no reference code or assets were copied into this project. Sound-file provenance and licensing were not established, and the entire repository and its history were not audited. [R1, R3, R7]
+
+The target's `text/license.txt` is **not a license for the repository or simulation**: it identifies the bundled `Nintendo` font by TommySVK and states FontStruct Non-Commercial Software EULA 1.0 terms. It restricts commercial use without prior written permission, distribution and modification, provides a narrow embedding provision and requires attribution for publicly accessible work. Its neighboring font readme also discusses accompanying files on redistribution; do not infer that this overrides the EULA's distribution restriction. Avoid bundling this font; obtain appropriate permission or use an independently licensed replacement. [R5, R6] This summary is not legal advice.
+
+The Libretro development guide describes the API as an open specification and distinguishes the MIT-licensed API from the GPLv3 RetroArch frontend. The canonical `libretro.h` itself says its MIT permission notice applies to that header, and requires preservation of the copyright and permission notices when applicable. This does **not** determine the license of a separate emulator, other Libretro files, game ROMs, artwork, or hardware documentation. Review each separately; seek legal advice if needed. [L1, L2]
+
+## Reference simulation behavior
+
+These findings describe the reference's README and static Python source, **not verified original-hardware behavior**. The simulation was not executed: the available terminal could not start its sandbox executable. [R3, R4]
+
+- The README describes seven two-player modes, each with singles and doubles, plus a one-player shooting mode: 7 × 2 + 1 = 15 described variations. Its mode names are Tennis A/B, Hockey A/B, Volleyball A/B, Ping Pong and Shooting. It says mode selection is available once a game has started. [R4]
+- Tennis A uses center blocks that can alter vertical motion; Tennis B has a decorative net. Hockey A has side walls and a stateful center barrier; Hockey B lacks the center barrier. Volleyball A blocks can reverse horizontal travel; Volleyball B introduces a chance of vertical reversal at the center. Ping Pong has a central obstacle; Shooting uses a moving target, with shots and hits counted separately. These are the README's descriptions and the source contains corresponding mode-specific logic; edge cases were not runtime-tested. [R3, R4]
+- The README describes a 15-point finish in the competitive games and 15 shots in Shooting. Defaults are singles, long paddles, slow ball and mouse input; keys independently toggle paddle sizes, speed and doubles. Space starts/resets, keypad 1–8 selects a mode, and X fires in Shooting. Mouse control alternates between players according to ball direction; keyboard input uses W/S and up/down. The hockey drawing functions force keyboard mode in the code. [R3, R4]
+- The script is a standalone Pygame program, not a Libretro core or a hardware-level simulation: it draws rectangles, updates a ball and paddles, uses random values for serves and some collision behavior, loads a font and WAV effects, and drives its own event loop. It targets 60 FPS using a Pygame clock, derives movement delta and delays from wall-clock time, and calls a Windows-specific DPI function. These are properties of the reference, not measured console timing. [R3]
+- The script uses collision position to determine paddle rebound and has mode-specific obstacle collision logic. Its second paddles track the corresponding primary paddle's vertical position; the hockey modes position them across the field. The source also moves the shooting target by a fixed amount per loop, unlike the time-scaled normal paddle movement. Behavior can depend on frame scheduling and random state, so it should not be presumed deterministic or suitable for Libretro save states without redesign. [R3]
+
+The README and code are evidence of the author's model, not independent confirmation of game rules, authentic colors, audio, dimensions or timing. Hardware measurements, original manuals, a live run and comparison against a real unit are still needed. Any new implementation should be independently developed from appropriately licensed specifications and evidence; do not translate or copy the unlicensed code.
+
+## Tennis B Singles: evidence and first-playable proposal
+
+### What the evidence actually establishes
+
+- The secondary historical overview [H1] identifies TV-Game 15 as a dedicated console with detachable controllers and describes the earlier TV-Game 6 as having light-tennis variations. It does not establish a Tennis B Singles control mapping, point target or collision rules. The names and the distinction between Tennis A and B below come from the independently authored simulation's documentation, not a verified Nintendo mode-selection table. [R4]
+- The reference README describes Tennis B's center net as decorative and competitive games as ending at 15 points; it also describes singles and a two-player keyboard alternative. These are useful leads, but the source is an unlicensed, unverified recreation, not independent hardware evidence. [R4] Do not reproduce or translate its implementation or assets.
+- As a genre comparison only, the separately documented Atari arcade Pong has opposing vertically moving paddles, awards a point when the opponent misses, and uses an 11-point target. [H2] Its rules are **not** evidence that Nintendo used the same target, rebound angles or service procedure. The conflicting 11 and 15 refer to different reported games, not a measured disagreement about TV-Game 15.
+
+### Visual reference for the current simulation
+
+The Tennis B display follows the reference simulation's observed blue surround, brown court, pale walls and dashed center net, colored side strips, light-green paddles and light-blue scores. The 320×240 rendering approximates its 1280×960 layout; the score digits are drawn independently rather than using the reference's restricted font. This is a comparison to a simulation, not verification against an original console. Geometry and colors are not hardware measurements. [R3]
+
+### Speed and paddle-size settings
+
+The CTG-15S manual describes a high/low speed switch and independent large/small racket controls, with small half the height of large. The Visvader simulation uses nominal horizontal ball speeds of 11.5 and 23 display pixels per frame and paddle heights of 130 and 65 pixels at its 1280×960 resolution. [R3] Our menu offers Low/High and independent P1/P2 Large/Small choices; high doubles the existing approximate velocity, and small halves the rendered paddle height. Shooting applies speed to shots and sizes to the shooter and target. The manual does not establish the numerical speed ratio or precisely how the switches affect Shooting; calibration and hardware verification remain open.
+
+## CTG-6 / CTG-15 availability investigation
+
+[Before Mario's CTG-6 overview](http://blog.beforemario.com/2011/04/nintendo-color-tv-game-6-6-1977.html) describes Tennis, Hockey and Volleyball, each with Singles and Doubles, and shows the console and manuals. The [CTG-15S manual OCR](https://archive.org/download/color-tv-game-15-manual-1977-nintendo-jp/Color%20TV-Game%2015%20Manual%20%281977%29%28Nintendo%29%28JP%29_djvu.txt) lists A and B for each of those sports, plus Ping-Pong Singles/Doubles and Shooting. The consulted textual sources do not establish whether each CTG-6 game corresponds to the A or B variant on CTG-15, nor do matching names establish identical behavior. Accordingly the association of IDs 2, 3, 6, 7, 10 and 11 with CTG-6, expressed by their `6 + 15` filename suffix, remains a hypothesis, not a verified match. These IDs were labeled B after the temporary inversion and are now publicly labeled Original; their gameplay and suffix remain unchanged. Original is a project label, not a verified historical designation. Compare readable original CTG-6 game diagrams or recordings with the CTG-15 manual and hardware before confirming or changing the mapping. The collector also describes a controller-travel difference between CTG-6S and CTG-6V, so a mode match would not imply identical controls across revisions.
+
+The user found the community-edited [Nintendo Encyclopedia wiki entry](https://w.atwiki.jp/nitendo/pages/9742.html), which lists shared games as Tennis A (decorative center net), Hockey B (no obstacles), and Volleyball A (zigzag obstacles); CTG-15-only games are Tennis B (zigzag obstacles), Hockey A (center barrier), and Volleyball B (interactive center line). Its Tennis A doubles description inconsistently calls it Tennis B. Its Tennis and Volleyball labels therefore conflict with the reference simulation's labels, although the described layouts resemble the same gameplay pairings. This unsourced, editable secondary account is evidence of a competing naming convention, not conclusive proof of the original labels or console availability. Compare original diagrams or hardware before changing names or availability.
+
+## Original manual: rebounds and long rallies
+
+Nintendo's [CTG-15S instruction manual](https://archive.org/details/color-tv-game-15-manual-1977-nintendo-jp) describes a manually selectable high/low ball speed, automatic serving, and a 15-point finish. Its rebound description says upward or downward paddle movement affects the ball's outgoing direction, and that a stopped paddle's preceding movement also matters. The [scanned rebound passage and diagrams](https://archive.org/details/color-tv-game-15-manual-1977-nintendo-jp/page/n2/mode/1up) show four directions including horizontal for each paddle movement direction: horizontal plus three upward or downward slopes. They do not specify how the particular direction is selected, exact slopes, or how long movement history persists. Other translation remains based on imperfect [Japanese OCR](https://archive.org/download/color-tv-game-15-manual-1977-nintendo-jp/Color%20TV-Game%2015%20Manual%20%281977%29%28Nintendo%29%28JP%29_djvu.txt); check the scans for exact wording and diagrams. This is materially different from the current engine's hit-position-only approximation.
+
+The manual also describes mode-specific changes at center lines. It does not establish whether these are random. No automatic rally timeout, random perturbation, or anti-stalemate mechanism was identified in the passages reviewed; this is not proof that none exists. Whether a fixed-paddle rally can repeat indefinitely remains unverified. Do not add an automatic classic-mode intervention without evidence.
+
+A [CTG-15V service-manual article](http://blog.beforemario.com/2011/12/nintendo-color-tv-game-15-service.html) reproduces hardware documentation. Its [circuit schematic image](https://1.bp.blogspot.com/-UxlWrEoRrss/TvhJy10E1cI/AAAAAAAACRg/Y9Zejr0dg-E/s1600/tvgame_15_service_manual_06.jpg) shows external controller connections, game-selector and option switches, a clock driver, video/audio connections and RF circuitry. It is useful for tracing hardware controls and signal paths, but does not expose the game IC's internal logic or prove its physics. Model differences also require investigation before applying a CTG-15S manual to every revision.
+
+## Hockey B Singles implementation
+
+The reference simulation describes side walls with central goal openings and no center barrier in Hockey B. Its green court, contrasting paddles, pale-green walls and dark surround inform the independently drawn display; the [museum's Hockey B screenshots](https://www.musee-des-jeux-video.com/fr/game/Hockey-B/144/2/67668) show a similar layout. The current engine approximates wall and opening geometry and reuses paddle rebounds and procedural sound from Tennis B. It hides scores during rallies and shows them during an approximately 130-frame serve delay; serves use independently generated deterministic pseudo-random vertical positions near the side that missed. Exact serve placement, direction distribution, timing and the random sequence differ or remain unverified against the reference. Neither implementation is verified against original hardware. [R3, R4]
+
+### Hockey B goal-mouth edge investigation
+
+A proposed vertical rebound at the goal-mouth edge was checked against the Visvader simulation and rejected: static inspection indicates that reaching the scoring-side boundary suppresses its normal wall checks during that excursion, with no separate goal-mouth vertical rebound. The original manual describes goals but does not specify this edge case. The reference latches a scoring-side flag on reaching either court edge and suppresses top/bottom and Hockey side-wall checks until scoring resets it. The Hockey engine now models this latch, with tests for both goals and reset. Geometry and movement ordering remain approximate. Static inspection indicates that the reference awards the left player a point if the ball reaches an extreme top or bottom display boundary, checked before movement even if the left scoring boundary is also reached. The Hockey engine now approximates that condition and priority, with automated boundary tests. This asymmetric behavior is a simulation observation, not a verified original-console rule. [R3, R4]
+
+### Hockey A Singles and Doubles
+
+In the Visvader simulation a side end-wall rebound closes the center opening; a subsequent qualifying center-wall rebound reopens it. The displayed barrier consists of separated dashes even when its collision region is closed. Both implementations approximate this behavior and retain the barrier state across points, but reset it for a new game. Doubles uses the alternating Hockey paddle arrangement. Static inspection suggests the reference may also retain it across resets; that remains a known difference. [R3, R4]
+
+The CTG-15S manual's imperfect OCR describes the opening closing at the end line and a sequence involving hitting the closed center line and receiving the returning ball with the paddle. It does not establish exact collision geometry or the precise reopening frame; check the scan and hardware before treating the simulation's transition as original-console behavior.
+
+### Hockey B Doubles
+
+The CTG-15S manual and the reference describe alternating player paddles across the field. The implementation assigns them P1, P2, P1, P2 from left to right; each pair moves together. Inner paddles rebound from either side in our approximation. Collision edges, angles, motion limits and behavior against the reference and original hardware still require verification.
+
+### Hockey B comparison targets and remaining gaps
+
+Static inspection of [R3] gives the following simulation targets at its 1280×960 resolution (not measurements of the original console): a 1000×810 court at (140, 65), 30×130 default paddles at x=190 and x=1060, a 26×20 ball, and side openings around y=325–615. The score is hidden during rallies. Its serves appear at the paddle-side positions, use variable angles and positions, and follow an approximately 130/60-second pause. The CTG-15S manual confirms selectable speed and describes movement-dependent rebounds, but does not establish these numerical measurements or the simulation's hit-position rebound model.
+
+The current 320×240 renderer approximates those visual dimensions; Hockey serves now appear near the paddle-side positions and ball pixels beyond the court change color. Serves now use varied deterministic integer slopes and a restricted vertical range; horizontal serves are excluded because they can get trapped outside the goal under the current physics. This exclusion is an approximation, not an established original-console rule. Hockey paddle collision faces and vertical overlap now follow the rendered ball and clipped paddle geometry, and paddles clip at the court edges; paddle travel limits remain approximations. Remaining differences include collision edge cases, limited rebound angles, serve distribution and win-screen presentation. Current physics chooses angles by contact position rather than the paddle movement/history described in the manual. Static inspection is not a frame-by-frame runtime comparison. [R3, R4]
+
+### Tennis A Singles
+
+Static inspection of the Visvader simulation shows 24 staggered red and green center blocks in four columns on the same brown court as Tennis B. In the simulation, red blocks reverse downward vertical movement and green blocks reverse upward movement; horizontal movement is unchanged. The independent Singles and Doubles implementations approximate this layout and directional behavior at 320×240; Doubles uses two linked paddles on each player's side. Its integer physics, paddle rebounds, serve distribution and audio remain approximations. The CTG-15S manual describes a possible vertical direction change at the center line, but does not establish the simulation's exact block geometry or color-specific rule. [R3, R4]
+
+### Shooting Game
+
+The Visvader simulation uses a teal field, yellow shooter and automatically moving, blinking target. A shot travels horizontally; hits flash the field red, and the left and right counters show shots and hits. Its README describes a 15-shot game. The independent implementation approximates this single-player behavior, timing, geometry, audio and result display. [R3, R4]
+
+The CTG-15S manual's imperfect Japanese OCR describes operating the right racket control to move the blinking target, operating the left racket to aim and using the fire button. It does not establish that the target moves automatically. The core now offers manual P2 target control by default alongside an optional automatic reference-inspired mode. Its precise manual-control movement and wrapping are approximations; verify the scan and hardware before claiming authenticity. The shooting-specific 15-shot finish is sourced from the simulation, not independently established from that manual passage.
+
+### Ping-Pong Singles and Doubles
+
+The Visvader simulation shows a black court, lavender paddles, a white lower boundary and two visible white net segments. Its lower net acts as a continuous horizontal collision region despite the visual gap; above the net, an upward-moving ball may be directed downward. Both independent implementations approximate those rules, colors and geometry with integer physics; Doubles uses linked paddles on each player's side. The CTG-15S manual describes a side-view table and possible vertical direction changes above the net, but its imperfect OCR does not establish the exact collision region or upward-only condition. [R3, R4]
+
+### Volleyball A Singles and Doubles
+
+The Visvader simulation uses a blue court and 24 staggered red/green blocks in the same layout as Tennis A. Static inspection indicates overlapping blocks reverse horizontal direction and can also change the vertical angle, depending on contact, direction and internal state. The CTG-15S manual's imperfect OCR similarly suggests horizontal and vertical direction can change at the center, but does not establish the simulation's exact rules. Both implementations now reverse horizontal direction and can adjust vertical velocity based on block color, approach, contact and a deterministic random choice; Doubles uses paired paddles on each player's side. They approximate the reference with integer angles, resolve the first crossed block rather than every overlap, and use an independent PRNG. Exact behavior is not hardware-verified. [R3, R4]
+
+### Volleyball B Singles
+
+The CTG-15S manual describes the ball sometimes changing vertical direction at the center line, but the imperfect OCR does not establish randomness or its probability. In the Visvader simulation, static inspection shows a narrow central band that can trigger a vertical reversal with approximately 90% probability per qualifying update, including repeated checks while in the band; horizontal velocity is unchanged. Its 1280×960 display uses a green surround (25,181,55), blue court (109,112,249), pale-blue paddles (166,230,255) and net (199,219,253), and yellow scores (237,253,132). The court begins at (140,65) and measures 1000×810. [R3, R4]
+
+The reference describes Doubles with two paddles per player on that player's side, like Tennis Doubles. The shared implementation provides that arrangement for ID 11. Our independent implementation checks a quantized center band on each qualifying update, with an approximately 90% deterministic pseudo-random reversal chance; repeated checks are possible. The random sequence and pixel quantization differ from the reference. Integer physics, collision geometry, serving, audio and win presentation also remain approximate; no hardware or frame-by-frame verification has been performed. [R3, R4]
+
+### Tennis B Doubles implementation
+
+The reference README describes two paddles per player on that player's side, with inner paddles allowing a ball approaching from behind to pass through, possibly with a slight deflection. The shared engine moves each player's two paddles together and allows behind-side passage without deflection; paddle placement and that lack of deflection are approximations, not verified hardware behavior. [R4]
+
+### Explicit approximations for a first playable game
+
+The following are proposed project decisions, not claims about original hardware or a transcription of [R3]. They provide a testable baseline until better evidence is available:
+
+- **Field and play:** one paddle per side, both moving vertically; one ball travels between them. Top and bottom edges reflect the ball, a paddle hit returns it toward the other player, and the visible center net has no collision. Keep ball speed fixed initially; the rendering follows the reference simulation's layout and palette, not verified hardware measurements. The non-colliding net is consistent with [R4] but not hardware-verified.
+- **Input:** map each player's frontend RetroPad up/down independently to their own paddle; clamp the paddle to the playable vertical area. This digital mapping approximates paddle-like movement, not original analog response. Provide a frontend reset/start action; exact physical controls, sensitivity and any one-player opponent remain unknown. Two human players are the baseline, with no implied CPU player.
+- **Scoring:** start at 0–0; when the ball passes the left or right scoring boundary, award one point to the opposite player exactly once and end the rally. First to 15 wins, without a win-by-two requirement; freeze play at the result until reset. Fifteen is a provisional target informed only by [R4]; point ownership, tie handling and win-by-two behavior are not verified for this mode.
+- **Serve and reset:** Tennis B now displays the score for approximately 130 frames, then serves near the side that missed, with independently generated deterministic pseudo-random height and slope. A fixed initial serving side and the exact serve distribution remain approximations. Reset restores centered paddles and zero scores. The reference uses wall-clock timing and random serves; the manual confirms automatic serving but not these timings or distributions.
+- **Collision:** make return angle depend on where the ball meets the paddle, with a bounded nonzero horizontal component; resolve a wall or paddle contact only once per crossing. Exact angle bands, edge/corner priority, paddle sizes, motion rates and whether a center hit can be horizontal remain open. [H2] describes angle variation in Atari Pong, not this hardware.
+
+**Verification needed:** obtain and interpret an original TV-Game 15 manual or selector diagram, then capture multiple real-unit Tennis B Singles matches with controls and display visible. Check mode identity, paddle travel, net interaction, wall and paddle edge cases, first and subsequent serves, point attribution, target/ties, end-of-game and reset. Measure video timing, dimensions, colors and audio separately. Until then, call this an independently implemented playable approximation, not an accurate emulation.
+
+## Hardware family: scope and evidence
+
+The following is a high-level summary of the secondary overview [H1], not independently verified hardware behavior. Its five-model grouping includes Computer TV-Game, which has a different name; a project may choose to exclude it but should say so explicitly. The variants are dedicated systems, not a demonstrated shared cartridge platform.
+
+| Model | Reported year | Reported games and controls | Implication for planning |
+| --- | --- | --- | --- |
+| Color TV-Game 6 | 1977 | Six selectable light-tennis variations; paddle controls. | A narrow first target, but rules, timing and electronics need verification. |
+| Color TV-Game 15 | 1977 | Fifteen selectable variations; detachable controllers. | Shared behavior with 6 is plausible, but exact differences need evidence. [H1] claims both contain the same 15 games, with only six accessible on an unmodified 6; treat that as unverified, not an implementation fact. |
+| Racing 112 | 1978 | Top-down racing; a detachable steering wheel and two paddle controllers; 112 combinations reported. | Separate input and game logic; do not interpret 112 as 112 independently verified games. |
+| Block Kuzushi / Block Breaker | 1979 | Six reported block-breaking variations. | A distinct game and controls require their own validation. |
+| Computer TV-Game | 1980 | Computer Othello; [H1] reports an arcade system board. | Potentially a substantially different implementation and ROM-rights problem; do not assume shared hardware or available dumps. |
+
+Cosmetic or promotional editions also exist according to [H1]; their hardware equivalence is not established here. Source [H1] cites historical references, but those underlying publications and original manuals were not examined. No schematics, chip documentation, recordings, measurements, ROM availability, exact controls, frame rates, sound frequencies, game-selection truth tables, or accuracy tests have been verified. A Nintendo history URL attempted during research returned HTTP 404; it is not evidence for these claims. Seek original manuals, board photographs, captures and independently documented hardware measurements before claiming accuracy.
+
+## Libretro integration findings
+
+The [official core guide][L1] describes cores as libraries exposing the Libretro interface while the frontend supplies platform-specific input, video and audio. Consult the [canonical header][L2] for the current precise ABI, callback contracts and feature negotiation.
+
+- Implement the required exported interface, report `RETRO_API_VERSION`, store frontend callbacks, provide static system information, and support lifecycle operations including initialization, loading, unloading and deinitialization. [L1, L2]
+- Each `retro_run()` advances a frame, invokes video once and polls input at least once. Report accurate, fixed video and audio rates; let the frontend handle pacing rather than sleeping against a wall clock. [L1]
+- Use RetroPad/analog abstractions as appropriate for paddles and wheel; mapping and calibration require design and testing, not assumptions about the original hardware. [L1, L2]
+- Audio can use either sample or batch callbacks; batch data is interleaved stereo signed 16-bit samples. [L1]
+- Save states are optional: return zero from `retro_serialize_size()` if unsupported. If supported, comply with the documented size and lifetime rules and serialize all state needed for deterministic restoration. [L1]
+- Dedicated systems suggest investigating no-content launch and core options for model/variation selection; frontend support and exact behavior must be checked against [L2] and tested. Do not invent a ROM requirement or ship copyrighted assets by default.
+- The guide describes core naming, metadata and distribution steps; those are future integration work, not evidence that this project has been accepted into Libretro infrastructure. [L1]
+
+## Sources
+
+- [L1] Libretro, [Developing Libretro Cores](https://docs.libretro.com/development/cores/developing-cores/) — official developer guide, accessed 2026-11-08.
+- [L2] Libretro, [canonical `libretro.h`](https://github.com/libretro/libretro-common/blob/master/include/libretro.h) — API declarations and header license, accessed 2026-11-08; moving branch, not a pinned revision.
+- [R1] GitHub, [repository metadata](https://api.github.com/repos/ThomasVisvader/Pong) and [root listing](https://github.com/ThomasVisvader/Pong/tree/e654c5ff909851dac9360000c2c269562cf0c735); metadata accessed 2026-11-08.
+- [R2] GitHub, [inspected commit](https://github.com/ThomasVisvader/Pong/commit/e654c5ff909851dac9360000c2c269562cf0c735).
+- [R3] ThomasVisvader/Pong, [TV-Game 15 Python simulation](https://github.com/ThomasVisvader/Pong/blob/e654c5ff909851dac9360000c2c269562cf0c735/Nintendo%20Color%20TV-Game%2015/Color%20TV-Game%2015.py).
+- [R4] ThomasVisvader/Pong, [TV-Game 15 README](https://github.com/ThomasVisvader/Pong/blob/e654c5ff909851dac9360000c2c269562cf0c735/Nintendo%20Color%20TV-Game%2015/README.txt).
+- [R5] ThomasVisvader/Pong, [bundled font license](https://github.com/ThomasVisvader/Pong/blob/e654c5ff909851dac9360000c2c269562cf0c735/Nintendo%20Color%20TV-Game%2015/text/license.txt) and [font readme](https://github.com/ThomasVisvader/Pong/blob/e654c5ff909851dac9360000c2c269562cf0c735/Nintendo%20Color%20TV-Game%2015/text/readme.txt).
+- [R6] GitHub, [target directory](https://github.com/ThomasVisvader/Pong/tree/e654c5ff909851dac9360000c2c269562cf0c735/Nintendo%20Color%20TV-Game%2015), including `sounds` and `text` subdirectories.
+- [R7] GitHub, [repository license API](https://api.github.com/repos/ThomasVisvader/Pong/license), returned HTTP 404 on 2026-11-08.
+- [H1] Wikipedia, [Color TV-Game](https://en.wikipedia.org/w/index.php?title=Color_TV-Game&oldid=1384325574) — secondary historical overview, accessed 2026-11-08. It cites further sources; those were not independently consulted for this note.
+- [H2] Wikipedia, [Pong](https://en.wikipedia.org/w/index.php?title=Pong&oldid=1382484581), Gameplay and Development sections — secondary account of Atari's arcade game, accessed 2026-11-08; genre context only, not Nintendo-specific evidence. Wikipedia text is available under CC BY-SA 4.0; the note summarizes facts rather than copying text or media.

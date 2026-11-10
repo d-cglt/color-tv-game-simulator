@@ -3,6 +3,7 @@ set -eu
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd -P)
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+tmp=$(CDPATH= cd -- "$tmp" && pwd -P)
 project=$tmp/project\ with\ spaces
 mkdir -p "$project/scripts" "$project/content" "$project/build" "$tmp/bin"
 cp "$root"/scripts/*.sh "$root/scripts/launcher-input.cfg" "$project/scripts/"

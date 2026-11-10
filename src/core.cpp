@@ -15,6 +15,7 @@
 #include <filesystem>
 #include <fstream>
 #include <random>
+#include <string>
 #include <cerrno>
 #ifdef _WIN32
 #ifndef NOMINMAX

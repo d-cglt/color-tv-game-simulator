@@ -1,0 +1,2 @@
+# CTG selectors are five-byte binary files; never convert their line endings.
+*.ctg binary

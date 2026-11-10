@@ -1,0 +1,58 @@
+name: Build and test
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            platform: linux-x86_64
+            configure: -DCMAKE_BUILD_TYPE=Release
+            core: build/colortvgame_libretro.so
+          - runner: windows-2022
+            platform: windows-x86_64
+            configure: -A x64
+            core: build/Release/colortvgame_libretro.dll
+          - runner: macos-15-intel
+            platform: macos-x86_64
+            configure: -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=x86_64
+            core: build/colortvgame_libretro.dylib
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S . -B build ${{ matrix.configure }}
+      - name: Build Release
+        run: cmake --build build --config Release --parallel
+      - name: Run tests
+        run: ctest --test-dir build -C Release --output-on-failure
+      - name: Verify macOS binary architecture
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          archs=$(lipo -archs "${{ matrix.core }}")
+          echo "Mach-O architectures: $archs"
+          test "$archs" = x86_64
+      - name: Prepare artifact
+        shell: bash
+        env:
+          CORE: ${{ matrix.core }}
+        run: |
+          mkdir -p artifact
+          cp "$CORE" LICENSE artifact/
+          cp docs/CI_ARTIFACT.md artifact/README.md
+          sed -n '1,28p' third_party/libretro/libretro.h > artifact/LICENSE-libretro.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: colortvgame-${{ matrix.platform }}
+          path: artifact/
+          if-no-files-found: error

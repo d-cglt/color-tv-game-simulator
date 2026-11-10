@@ -42,7 +42,13 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-On Linux the shared core is `build/colortvgame_libretro.so`; the extension and output location can differ by platform or build configuration. Tests use a simulated frontend, not RetroArch.
+On Linux the shared core is `build/colortvgame_libretro.so`; the extension and output location can differ by platform or build configuration. For multi-configuration generators such as Visual Studio, use `cmake --build build --config Release` and `ctest --test-dir build -C Release --output-on-failure`. Tests use a simulated frontend, not RetroArch.
+
+## GitHub Actions builds
+
+The [build workflow](.github/workflows/build.yml) is configured to build Release and run the applicable CTest suite on GitHub-hosted Linux x86-64, Windows x86-64 and macOS x86-64 runners. The macOS job requests x86-64 and checks the built Mach-O architecture with `lipo`. Successful jobs upload separately named artifacts containing the core, both license notices and [usage instructions](docs/CI_ARTIFACT.md). The Linux-only package test and Unix launcher test run only on their applicable platforms.
+
+The workflow and hosted runner environments have not yet been verified by GitHub Actions runs; runner images and availability can change. These artifacts are not the approved Linux release package and have not been validated in a real frontend. Windows and macOS frontend compatibility, runtime requirements and distribution readiness remain unverified; matching architecture alone does not guarantee that a frontend can load the core.
 
 ## Linux release package
 

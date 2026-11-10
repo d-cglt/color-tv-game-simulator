@@ -1,6 +1,6 @@
 # Color TV-Game Simulator — CI build
 
-This artifact contains a libretro core, the project `LICENSE`, and the vendored libretro header's MIT notice in `LICENSE-libretro.txt`. It does not include RetroArch, content, launchers, or core metadata. These are automated builds, not frontend-validated releases.
+This artifact contains a libretro core, the project `LICENSE`, and the vendored libretro header's MIT notice in `LICENSE-libretro.txt`. It does not include RetroArch, content, launchers, or core metadata. These are automated build artifacts, not release packages; the artifacts themselves have not been validated in a real frontend. Windows x86-64 and macOS Intel are experimental targets; Apple Silicon is not built by this workflow.
 
 Extract the artifact and use RetroArch's **Load Core** to select `colortvgame_libretro.so` (Linux), `colortvgame_libretro.dll` (Windows), or `colortvgame_libretro.dylib` (macOS). The frontend must match the artifact's CPU architecture and have compatible operating system and runtime libraries. macOS may require allowing a downloaded, unsigned library in system security settings. Sandboxed frontends may need access to the extracted file.
 

@@ -48,17 +48,17 @@ On Linux the shared core is `build/colortvgame_libretro.so`; the extension and o
 
 The [build workflow](.github/workflows/build.yml) is configured to build Release and run the applicable CTest suite on GitHub-hosted Linux x86-64, Windows x86-64 and macOS x86-64 runners. The macOS job requests x86-64 and checks the built Mach-O architecture with `lipo`. Successful jobs upload separately named artifacts containing the core, both license notices and [usage instructions](docs/CI_ARTIFACT.md). The Linux-only package test and Unix launcher test run only on their applicable platforms.
 
-The workflow and hosted runner environments have not yet been verified by GitHub Actions runs; runner images and availability can change. These artifacts are not the approved Linux release package and have not been validated in a real frontend. Windows and macOS frontend compatibility, runtime requirements and distribution readiness remain unverified; matching architecture alone does not guarantee that a frontend can load the core.
+[GitHub Actions run 42813010356](https://github.com/d-cglt/color-tv-game-simulator/actions/runs/42813010356) succeeded on all three runners and uploaded their artifacts, including a macOS x86-64 architecture check. That run predates the 0.1.1 source changes; runner images and availability can change. CI artifacts are not the packaged Linux release and have not themselves been validated in a real frontend. Windows x86-64 and macOS Intel are intended experimental targets for 0.1.1; frontend compatibility, runtime requirements and distribution readiness remain unverified. Apple Silicon is not built; matching architecture alone does not guarantee that a frontend can load the core.
 
 ## Linux release package
 
-The first approved release is **0.1.0**. Build and test a Release configuration, then assemble the versioned package from that exact core:
+The first release was **0.1.0**; the source is being prepared for **0.1.1**. Build and test a Release configuration, then assemble the versioned package from that exact core:
 
 ```sh
 cmake -S . -B build-release -DCMAKE_BUILD_TYPE=Release
 cmake --build build-release
 ctest --test-dir build-release --output-on-failure
-sh scripts/package-linux.sh build-release/colortvgame_libretro.so build-release/colortvgame-0.1.0-linux.tar.gz
+sh scripts/package-linux.sh build-release/colortvgame_libretro.so build-release/colortvgame-0.1.1-linux.tar.gz
 ```
 
 The archive contains the Color TV-Game Simulator core, project license, vendored libretro header's MIT notice, and [end-user instructions](docs/LINUX_RELEASE.md). The script packages the supplied binary as-is; build it on an appropriate Linux target and verify runtime compatibility for distribution. The CMake project version controls the version reported by the core; choose an archive name matching the built binary, since the script does not verify its version or revision. It does not guarantee byte-identical archives or bundle RetroArch, metadata, launchers, or content. CTest assembles and extracts a package, checks its payload and notices, and dynamically loads the packaged core; this is not a substitute for frontend validation.

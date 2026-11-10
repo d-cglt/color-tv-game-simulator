@@ -216,7 +216,7 @@ int main() {
     CHECK(support && retro_api_version() == RETRO_API_VERSION);
     retro_system_info info{}; retro_get_system_info(&info);
     CHECK(info.library_name && std::strcmp(info.library_name, "Color TV-Game Simulator") == 0);
-    CHECK(info.library_version && std::strcmp(info.library_version, "0.1.0") == 0);
+    CHECK(info.library_version && std::strcmp(info.library_version, "0.1.1") == 0);
     CHECK(std::strlen(info.library_name) == 23);
     CHECK(!info.need_fullpath && std::strcmp(info.valid_extensions, "ctg") == 0);
     retro_system_av_info av{}; retro_get_system_av_info(&av);

@@ -196,7 +196,8 @@ Latest development check: a clean Linux Debug build with `-Wall -Wextra -Wpedant
 ## Milestone 7: Libretro options and integration — in progress
 
 - [x] Add a **Vibration** core option, Off by default: briefly vibrate the relevant player's controller on paddle hits and shots, but not automatic serves. Use Libretro rumble where available, exclude demos and AI-controlled players, and handle unsupported frontends or controllers gracefully. Automated tests cover events and lifecycle; this is a modern convenience rather than an original controller feature.
-- [ ] Confirm vibration and the Off default with a supported controller in RetroArch.
+- [x] User confirmed vibration works well with a controller in RetroArch.
+- [ ] Confirm the Off default in RetroArch; automated tests cover it.
 
 - [x] Use the selected core display name **Color TV-Game Simulator** instead of the provisional name; retain the binary filename, option keys, generated content names and save paths. Add API regression coverage.
 - [x] User confirmed the new core display name in RetroArch after rebuilding the stale launcher core.
@@ -241,10 +242,19 @@ Latest development check: a clean Linux Debug build with `-Wall -Wextra -Wpedant
 
 **Acceptance:** options and metadata work as documented, unsupported state operations fail safely, and frontend behavior is recorded.
 
+## RetroArch Core Downloader preparation
+
+- [x] Draft `colortvgame_libretro.info` and document its fields and installation in [CORE_INFO.md](CORE_INFO.md); automated metadata checks do not replace frontend validation.
+- [x] Review Libretro build integration: the existing CMake target matches the prospective `colortvgame` core ID and libretro-super's CMake rule, but registration, buildbot output paths and platform toolchains remain untested.
+- [x] An isolated, bounded RetroDECK RetroArch 1.22.2 test using temporary core and info directories produced a parsed core-info cache entry with `has_info = true`, matching name, `ctg`, MIT and no-content support. This does not verify menu presentation.
+- [x] User confirmed **Main Menu → Information → Core Information** and version 0.1.2 visually using the corrected `scripts/core-info-test.sh`; no upstream submission has been made.
+- [ ] Coordinate with Libretro maintainers on buildbot integration, platform targets and CI requirements. The [official core development guide](https://docs.libretro.com/development/cores/developing-cores/) calls for core info in libretro-super and a `.gitlab-ci.yml`; validate actual requirements before submitting. Downloader availability depends on maintainer acceptance.
+
 ## Milestone 8: Testing and releases — in progress
 
 - [x] Publish the source under `d-cglt` and create the [0.1.0 GitHub release](https://github.com/d-cglt/color-tv-game-simulator/releases/tag/v0.1.0) with the Linux x86-64 archive. RetroArch Core Downloader inclusion is a separate, unsubmitted process.
 - [x] Publish [0.1.1](https://github.com/d-cglt/color-tv-game-simulator/releases/tag/v0.1.1) with CI-tested Linux, Windows x86-64 and macOS Intel artifacts; Windows and macOS are labeled experimental pending frontend tests.
+- [x] Publish [0.1.2](https://github.com/d-cglt/color-tv-game-simulator/releases/tag/v0.1.2) with settings persistence, Shooting options and optional vibration; all three hosted builds passed automated tests, with Windows and macOS frontend validation still pending.
 
 Linux release-readiness review: on 2026-11-10 a CMake Release build succeeded and all 8 CTest tests passed, including assembling, extracting, checking and dynamically loading the Linux package. A standalone Linux x86-64 archive was also assembled and its contents listed. The package includes the project license, the vendored libretro header's MIT notice and installation/usage instructions. Prior user-confirmed RetroArch testing covers the playable core; the earlier packaged-binary frontend smoke test and its isolation caveat are recorded below; it predates the 0.1.0 version update. Version 0.1.0 is approved for the first release; the rebuilt versioned package has not been frontend tested. The user confirms being the sole contributor and chose MIT licensing and pseudonymous publication; a pseudonym has not yet been specified. Before distribution, review attribution, target runtime compatibility, and suitable frontend metadata. Manual core loading has already worked without a `.info` file; metadata requirements depend on the distribution target. At that review, Windows was unverified and no release revision was verified.
 
@@ -252,7 +262,7 @@ Linux release-readiness review: on 2026-11-10 a CMake Release build succeeded an
   - Isolation caveat: despite a temporary HOME, XDG directories and explicit temporary config with `config_save_on_exit = false`, RetroArch logged writing its persistent RetroDECK `config/retroarch/playlists/builtin/content_history.lpl` and `config/retroarch/config/Color TV-Game Simulator/Color TV-Game Simulator.opt`. Their prior contents were not captured, so they were not restored. It also logged persistent save/state paths, but skipped SRAM loading; no save/state write was logged. Avoid claiming this run left permanent frontend files untouched.
 - [x] GitHub Actions [run 42813010356](https://github.com/d-cglt/color-tv-game-simulator/actions/runs/42813010356) built and passed automated tests on hosted Linux x86-64, Windows x86-64 and macOS Intel runners and uploaded artifacts. The macOS binary architecture was checked. Windows and macOS RetroArch frontend validation remains pending; Apple Silicon is not built.
 
-For 0.1.2, Linux is the established target; Windows x86-64 and macOS Intel remain experimental, not frontend-validated platforms. The recorded successful CI run predates the 0.1.1 and 0.1.2 source changes. User-confirmed settings persistence and Shooting Random behavior are recorded above; vibration remains unconfirmed in a real frontend. See the [draft release notes](RELEASE_NOTES_0.1.2.md). CI artifacts are separate from the Linux release package; prepare and verify release assets before distribution.
+For 0.1.2, Linux is the established target; Windows x86-64 and macOS Intel remain experimental, not frontend-validated platforms. The recorded successful CI run predates the 0.1.1 and 0.1.2 source changes. User-confirmed settings persistence, Shooting Random behavior and working vibration are recorded above. See the [draft release notes](RELEASE_NOTES_0.1.2.md). CI artifacts are separate from the Linux release package; prepare and verify release assets before distribution.
 - [ ] Run the existing automated suite and build release artifacts for each intended release platform; record results. Portability and sanitizer checks are optional unless needed to investigate a failure.
 - [ ] Use existing frontend confirmations where applicable and perform only a concise smoke test of content loading, controls, video, audio and lifecycle on each intended release platform; investigate failures rather than repeating complete playthroughs.
 - [ ] Review licenses and asset rights; prepare versioned artifacts, core metadata, installation instructions, controls and known limitations.

@@ -104,5 +104,6 @@ If loading fails, check that the frontend accepts XRGB8888 and that the core and
 
 - [Roadmap](docs/ROADMAP.md) — implementation status, frontend validation, and milestones 0–8.
 - [Content format](docs/CONTENT_FORMAT.md) — five-byte format and provisional slots.
+- [Core information](docs/CORE_INFO.md) — optional frontend metadata, installation, and validation limits.
 - [Research](docs/RESEARCH.md) — preliminary sources and unresolved evidence and licensing questions.
 - [Future development](docs/FUTURE_DEVELOPMENT.md) — additional proposed work.

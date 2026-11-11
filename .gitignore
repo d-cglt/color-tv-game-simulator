@@ -1,6 +1,9 @@
 # CMake build trees and release artifacts
 /build*/
 
+# Private working drafts
+/drafts/
+
 # Local editor and operating-system files
 .cache/
 .DS_Store

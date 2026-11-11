@@ -92,6 +92,7 @@ unsigned TennisB::step(TennisInput input) {
         if (--state_.serve_wait == 0) {
             hockey_serve();
             tennis_spawning_ = !state_.hockey && !state_.volleyball;
+
         }
         return sound_none;
     }
@@ -272,7 +273,7 @@ unsigned TennisB::step(TennisInput input) {
                 state_.ball_x = 2 * face - state_.ball_x;
                 state_.ball_vx = -state_.ball_vx;
                 state_.ball_vy = paddle_rebound(owner, offset);
-                sounds |= sound_paddle;
+                sounds |= sound_paddle | (owner == 0 ? event_player1_hit : event_player2_hit);
                 break;
             }
         }
@@ -291,7 +292,7 @@ unsigned TennisB::step(TennisInput input) {
                 state_.ball_vx = -state_.ball_vx;
                 state_.ball_vy = paddle_rebound(i, offset);
                 if (state_.volleyball_a) volleyball_block_bounces_ = 0;
-                sounds |= sound_paddle;
+                sounds |= sound_paddle | (i == 0 ? event_player1_hit : event_player2_hit);
                 break;
             }
         }
@@ -315,7 +316,7 @@ unsigned TennisB::step(TennisInput input) {
             state_.ball_vx = -state_.ball_vx;
             state_.ball_vy = paddle_rebound(i, offset);
             if (state_.volleyball_a) volleyball_block_bounces_ = 0;
-            sounds |= sound_paddle;
+            sounds |= sound_paddle | (i == 0 ? event_player1_hit : event_player2_hit);
         }
     }
 

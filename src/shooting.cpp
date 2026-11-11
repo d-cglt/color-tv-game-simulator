@@ -7,8 +7,15 @@ unsigned Shooting::step(int direction, bool fire, int target_direction, bool aut
     if (state_.finished) return sound_none;
     state_.shooter_y = std::clamp(state_.shooter_y + std::clamp(direction, -1, 1) * 3, 24, 211);
     if (automatic_target) {
-        target_position_ += 11;
-        if (target_position_ >= 875) target_position_ = -65;
+        if (target_speed_ == 11 && target_direction_ > 0) {
+            // Preserve the original automatic movement's wrap at the default setting.
+            target_position_ += 11;
+            if (target_position_ >= 875) target_position_ = -65;
+        } else {
+            int offset = target_position_ + 65;
+            int movement = static_cast<int>(target_speed_ % 940) * target_direction_;
+            target_position_ = (offset + movement + 940) % 940 - 65;
+        }
     } else {
         target_position_ += std::clamp(target_direction, -1, 1) * 12;
         if (target_position_ >= 875) target_position_ -= 940;
@@ -23,7 +30,7 @@ unsigned Shooting::step(int direction, bool fire, int target_direction, bool aut
         state_.shot_y = state_.shooter_y;
         shot_position_ = 190;
         state_.shot_x = shot_position_ / 4;
-        events |= sound_paddle;
+        events |= sound_paddle | event_player1_shot;
     }
     if (state_.flying) {
         shot_position_ += high_speed_ ? 24 : 12;

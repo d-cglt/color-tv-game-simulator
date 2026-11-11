@@ -125,7 +125,9 @@ constexpr bool titles_fit_selector() {
 }
 static_assert(titles_fit_selector(), "Game titles must fit the selector highlight");
 unsigned content_id = 0, previous = 0;
-bool loaded = false, detail = false, automatic_target = false;
+bool loaded = false, detail = false;
+unsigned shooting_target = 0, shooting_direction = 0, shooting_blinking = 1;
+std::mt19937 shooting_random{std::random_device{}()};
 bool selector = false, paused = false;
 unsigned selector_choice = 0, menu_choice = 1, pause_choice = 0, result_choice = 0;
 unsigned rotation_frames = 0;
@@ -134,6 +136,29 @@ unsigned repeat_frames = 0;
 constexpr unsigned repeat_delay = 24, repeat_interval = 6;
 bool playable() { return content_id < ctg::slot_count; }
 std::array<bool, 2> joypad{{true, true}};
+retro_rumble_interface rumble{};
+std::array<unsigned, 2> rumble_frames{};
+bool rumble_enabled = false;
+constexpr unsigned sound_mask = ctg::sound_wall | ctg::sound_paddle | ctg::sound_point | ctg::sound_win;
+
+void stop_rumble(unsigned port) {
+    if (rumble_frames[port] && rumble.set_rumble_state)
+        rumble.set_rumble_state(port, RETRO_RUMBLE_STRONG, 0);
+    rumble_frames[port] = 0;
+}
+void stop_rumble() {
+    for (unsigned port = 0; port < rumble_frames.size(); ++port) stop_rumble(port);
+}
+void pulse_rumble(unsigned port) {
+    if (!rumble_enabled || !joypad[port] || !rumble.set_rumble_state) return;
+    rumble.set_rumble_state(port, RETRO_RUMBLE_STRONG, 0x8000);
+    rumble_frames[port] = 6;
+}
+void advance_rumble() {
+    for (unsigned port = 0; port < rumble_frames.size(); ++port)
+        if (rumble_frames[port] && --rumble_frames[port] == 0 && rumble.set_rumble_state)
+            rumble.set_rumble_state(port, RETRO_RUMBLE_STRONG, 0);
+}
 ctg::TennisB tennis;
 ctg::Opponent opponent;
 ctg::RallyDifficulty rally_difficulty;
@@ -166,6 +191,7 @@ void step_demo(unsigned id) {
         demo_tennis.set_rebound_mode(paddle_movement_rebound);
         demo_tennis.set_anti_stalemate(anti_stalemate);
         demo_shooting = ctg::Shooting{};
+        demo_shooting.set_target_behavior(11, 1, true);
         for (auto& ai : demo_opponents) ai.reset();
     }
     unsigned events = 0;
@@ -189,6 +215,7 @@ void step_demo(unsigned id) {
             for (auto& ai : demo_opponents) ai.reset();
         }
     }
+    events &= sound_mask;
     if (demo_sounds && events) {
         demo_tone.period = (events & ctg::sound_win) ? 80 : (events & ctg::sound_point) ? 120 :
                            (id == 14 || (events & ctg::sound_paddle)) ? 60 : 100;
@@ -201,8 +228,23 @@ bool high_speed = false;
 std::array<bool, 2> small_paddle{};
 unsigned winning_score = ctg::TennisB::winning_score;
 unsigned shot_limit = ctg::Shooting::default_shot_limit;
+bool preferences_dirty = false;
 void apply_options() { tennis.set_anti_stalemate(anti_stalemate); tennis.set_rebound_mode(paddle_movement_rebound); tennis.set_options(high_speed, small_paddle); tennis.set_winning_score(winning_score); shooting.set_options(high_speed, small_paddle); shooting.set_shot_limit(shot_limit); }
-unsigned option_count() { return 7; }
+enum ShootingRow : unsigned { shooting_return, shooting_start, shooting_target_row, shooting_direction_row,
+                              shooting_blinking_row, shooting_speed_row, shooting_p1_size_row,
+                              shooting_p2_size_row, shooting_shots_row, shooting_row_count };
+unsigned option_count() { return content_id == 14 ? shooting_row_count : 7; }
+void resolve_shooting_settings() {
+    const unsigned target = shooting_target == 4 ? std::uniform_int_distribution<unsigned>(1, 3)(shooting_random) : shooting_target;
+    const unsigned direction = shooting_target != 0 && shooting_direction == 2 ? std::uniform_int_distribution<unsigned>(0, 1)(shooting_random) : shooting_direction;
+    const unsigned blinking = shooting_blinking == 2 ? std::uniform_int_distribution<unsigned>(0, 1)(shooting_random) : shooting_blinking;
+    const unsigned speeds[] = {11, 6, 11, 16};
+    shooting.set_target_behavior(speeds[target], direction == 0 ? 1 : -1, blinking != 0);
+}
+void start_shooting_match() {
+    resolve_shooting_settings();
+    shooting.reset();
+}
 struct LaunchLayout {
     unsigned first, rows, y, spacing;
     bool scroll;
@@ -515,16 +557,32 @@ void render() {
             } else if (i == 1) {
                 centered_text(y + 3, "START", color);
             } else {
+                if (content_id == 14) {
+                    const char* targets[] = {"MANUAL", "SLOW", "NORMAL", "FAST", "RANDOM"};
+                    const char* directions[] = {"DOWN", "UP", "RANDOM"};
+                    const char* blinkings[] = {"OFF", "ON", "RANDOM"};
+                    const char* labels[] = {"TARGET", "DIRECTION", "BLINKING", "SPEED", "P1 SIZE", "P2 SIZE", "SHOTS"};
+                    char shots[4];
+                    std::snprintf(shots, sizeof shots, "%u", shot_limit);
+                    const char* values[] = {targets[shooting_target], directions[shooting_direction], blinkings[shooting_blinking],
+                                            high_speed ? "HIGH" : "LOW", small_paddle[0] ? "SMALL" : "LARGE",
+                                            small_paddle[1] ? "SMALL" : "LARGE", shots};
+                    const std::uint32_t row_color = i == shooting_direction_row && shooting_target == 0 ? 0x888888 : color;
+                    text(87, y + 3, labels[i - shooting_target_row], row_color);
+                    horizontal_arrow(151, y + 6, true, row_color);
+                    text(167, y + 3, values[i - shooting_target_row], row_color);
+                    horizontal_arrow(218, y + 6, false, row_color);
+                    continue;
+                }
                 const unsigned setting = i - 2;
-                const bool target = content_id == 14 && setting == 0;
-                const bool mode = content_id != 14 && setting == 0;
+                const bool mode = setting == 0;
                 const unsigned option = setting - 1;
                 const bool score = i == 6;
-                const char* label = mode ? "MODE" : target ? "TARGET" : score ? (content_id == 14 ? "SHOTS" : "SCORE") : option == 0 ? "SPEED" : option == 1 ? "P1 SIZE" : "P2 SIZE";
+                const char* label = mode ? "MODE" : score ? "SCORE" : option == 0 ? "SPEED" : option == 1 ? "P1 SIZE" : "P2 SIZE";
                 const char* modes[] = {"2 PLAYERS", "1P EASY", "1P NORMAL", "1P HARD"};
                 char score_text[4];
-                std::snprintf(score_text, sizeof score_text, "%u", content_id == 14 ? shot_limit : winning_score);
-                const char* value = mode ? modes[opponent_modes[content_id]] : target ? (automatic_target ? "AUTO" : "MANUAL") : score ? score_text : option == 0 ? (high_speed ? "HIGH" : "LOW") : (small_paddle[option - 1] ? "SMALL" : "LARGE");
+                std::snprintf(score_text, sizeof score_text, "%u", winning_score);
+                const char* value = mode ? modes[opponent_modes[content_id]] : score ? score_text : option == 0 ? (high_speed ? "HIGH" : "LOW") : (small_paddle[option - 1] ? "SMALL" : "LARGE");
                 if (mode) {
                     text(87, y + 3, label, color);
                     horizontal_arrow(151, y + 6, true, color);
@@ -589,16 +647,16 @@ std::mt19937& random_engine() {
     return engine;
 }
 
-std::filesystem::path last_game_path() {
+std::filesystem::path save_path(const char* name) {
     const char* directory = nullptr;
     if (!environment || !environment(RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY, &directory) ||
         !directory || !*directory) return {};
-    return std::filesystem::u8path(directory) / "colortvgame-last-game";
+    return std::filesystem::u8path(directory) / name;
 }
 
 unsigned read_last_game() noexcept {
     try {
-        const auto path = last_game_path();
+        const auto path = save_path("colortvgame-last-game");
         if (path.empty()) return selector_order[0];
         std::ifstream file(path, std::ios::binary);
         char id;
@@ -608,9 +666,9 @@ unsigned read_last_game() noexcept {
     } catch (...) { return selector_order[0]; }
 }
 
-bool write_last_game(unsigned id) noexcept {
+bool atomic_write(const char* name, const unsigned char* data, std::size_t size) noexcept {
     try {
-        const auto path = last_game_path();
+        const auto path = save_path(name);
         if (path.empty()) return false;
         for (unsigned attempt = 0; attempt < 16; ++attempt) {
             auto temporary = path;
@@ -622,18 +680,24 @@ bool write_last_game(unsigned id) noexcept {
             const int fd = open(temporary.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0600);
 #endif
             if (fd < 0) { if (errno == EEXIST) continue; return false; }
-            const unsigned char value = static_cast<unsigned char>(id);
+            std::size_t offset = 0;
+            while (offset < size) {
 #ifdef _WIN32
-            int written;
-            do { written = _write(fd, &value, 1); } while (written < 0 && errno == EINTR);
+                const int written = _write(fd, data + offset, static_cast<unsigned>(size - offset));
+#else
+                const ssize_t written = write(fd, data + offset, size - offset);
+#endif
+                if (written < 0 && errno == EINTR) continue;
+                if (written <= 0) break;
+                offset += static_cast<std::size_t>(written);
+            }
+#ifdef _WIN32
             const int closed = _close(fd);
-            const bool replaced = written == 1 && closed == 0 &&
+            const bool replaced = offset == size && closed == 0 &&
                 MoveFileExW(temporary.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING) != 0;
 #else
-            ssize_t written;
-            do { written = write(fd, &value, 1); } while (written < 0 && errno == EINTR);
             const int closed = close(fd);
-            const bool replaced = written == 1 && closed == 0 &&
+            const bool replaced = offset == size && closed == 0 &&
                 std::rename(temporary.c_str(), path.c_str()) == 0;
 #endif
             if (!replaced) { std::error_code ec; std::filesystem::remove(temporary, ec); }
@@ -641,6 +705,55 @@ bool write_last_game(unsigned id) noexcept {
         }
     } catch (...) {}
     return false;
+}
+
+bool write_last_game(unsigned id) noexcept {
+    const unsigned char value = static_cast<unsigned char>(id);
+    return atomic_write("colortvgame-last-game", &value, 1);
+}
+
+// CTGP, version 1, then eight single-byte settings and one mode per rally game ID.
+using PreferenceData = std::array<unsigned char, 27>;
+PreferenceData preference_data() {
+    PreferenceData data{{'C', 'T', 'G', 'P', 1,
+        static_cast<unsigned char>(high_speed), static_cast<unsigned char>(small_paddle[0]),
+        static_cast<unsigned char>(small_paddle[1]), static_cast<unsigned char>(winning_score),
+        static_cast<unsigned char>(shot_limit), static_cast<unsigned char>(shooting_target),
+        static_cast<unsigned char>(shooting_direction), static_cast<unsigned char>(shooting_blinking)}};
+    for (std::size_t i = 0; i < opponent_modes.size(); ++i)
+        data[13 + i] = static_cast<unsigned char>(opponent_modes[i]);
+    return data;
+}
+void read_preferences() noexcept {
+    if (preferences_dirty) return;
+    // Invalid or unavailable files leave the current session's preferences intact.
+    try {
+        const auto path = save_path("colortvgame-preferences");
+        if (path.empty()) return;
+        std::ifstream file(path, std::ios::binary);
+        PreferenceData data{};
+        if (!file.read(reinterpret_cast<char*>(data.data()), data.size()) ||
+            file.peek() != std::char_traits<char>::eof() || file.bad()) return;
+        if (data[0] != 'C' || data[1] != 'T' || data[2] != 'G' || data[3] != 'P' || data[4] != 1 ||
+            data[5] > 1 || data[6] > 1 || data[7] > 1 ||
+            data[8] < 5 || data[8] > 30 || data[8] % 5 ||
+            data[9] < 5 || data[9] > 30 || data[9] % 5 ||
+            data[10] > 4 || data[11] > 2 || data[12] > 2) return;
+        for (std::size_t i = 13; i < data.size(); ++i) if (data[i] > 3) return;
+        high_speed = data[5]; small_paddle = {{bool(data[6]), bool(data[7])}};
+        winning_score = data[8]; shot_limit = data[9]; shooting_target = data[10];
+        shooting_direction = data[11]; shooting_blinking = data[12];
+        for (std::size_t i = 0; i < opponent_modes.size(); ++i) opponent_modes[i] = data[13 + i];
+        apply_options();
+    } catch (...) {}
+}
+void save_preferences(bool notify = true) {
+    const auto data = preference_data();
+    preferences_dirty = !atomic_write("colortvgame-preferences", data.data(), data.size());
+    if (preferences_dirty && notify) message("Could not save menu preferences");
+}
+void retry_preferences() {
+    if (preferences_dirty) save_preferences(false);
 }
 
 unsigned initial_selector_choice() {
@@ -711,6 +824,8 @@ void retro_set_environment(retro_environment_t cb) {
             static retro_core_option_v2_definition definitions[] = {
                 {"colortvgame_generate_files", "Generate game files", nullptr, description, nullptr, nullptr,
                  {{"Ready", nullptr}, {"Generate", nullptr}, {nullptr, nullptr}}, "Ready"},
+                {"colortvgame_vibration", "Vibration", nullptr, "Vibrate controllers during gameplay.", nullptr, nullptr,
+                 {{"Off", nullptr}, {"On", nullptr}, {nullptr, nullptr}}, "Off"},
                 {"colortvgame_demo_sounds", "Demo sounds", nullptr, "Play sounds during menu previews.", nullptr, nullptr,
                  {{"On", nullptr}, {"Off", nullptr}, {nullptr, nullptr}}, "On"},
                 {"colortvgame_start_game", "Selected game at start", nullptr, "Choose the initial game in the no-content selector.", nullptr, nullptr,
@@ -734,6 +849,8 @@ void retro_set_environment(retro_environment_t cb) {
             static retro_core_option_definition definitions[] = {
                 {"colortvgame_generate_files", "Generate game files", description,
                  {{"Ready", nullptr}, {"Generate", nullptr}, {nullptr, nullptr}}, "Ready"},
+                {"colortvgame_vibration", "Vibration", "Vibrate controllers during gameplay.",
+                 {{"Off", nullptr}, {"On", nullptr}, {nullptr, nullptr}}, "Off"},
                 {"colortvgame_demo_sounds", "Demo sounds", "Play sounds during menu previews.",
                  {{"On", nullptr}, {"Off", nullptr}, {nullptr, nullptr}}, "On"},
                 {"colortvgame_start_game", "Selected game at start", "Choose the initial game in the no-content selector.",
@@ -755,6 +872,7 @@ void retro_set_environment(retro_environment_t cb) {
         } else {
             static retro_variable variables[] = {
                 {"colortvgame_generate_files", "Generate game files; Ready|Generate"},
+                {"colortvgame_vibration", "Vibration; Off|On"},
                 {"colortvgame_demo_sounds", "Demo sounds; On|Off"},
                 {"colortvgame_start_game", "Selected game at start; Last used|First|Random"},
                 {"colortvgame_demo_rotation", "Demo game rotation; Random every 15 seconds|Off|Every 15 seconds"},
@@ -773,14 +891,19 @@ void retro_set_audio_sample(retro_audio_sample_t cb) { audio = cb; }
 void retro_set_audio_sample_batch(retro_audio_sample_batch_t cb) { audio_batch = cb; }
 void retro_set_input_poll(retro_input_poll_t cb) { poll = cb; }
 void retro_set_input_state(retro_input_state_t cb) { input = cb; }
-void retro_init() { reset_demo(); rf_noise_frame = 0; option_known = false; selector_choice = 0; opponent_modes = {}; opponent.reset(); rally_difficulty.reset(); high_speed = false; small_paddle = {}; winning_score = ctg::TennisB::winning_score; shot_limit = ctg::Shooting::default_shot_limit; apply_options(); repeat_menu = -1; repeat_direction = 0; repeat_frames = 0; content_id = previous = 0; loaded = detail = automatic_target = selector = paused = false; menu_choice = 1; pause_choice = result_choice = 0; joypad = {{true, true}}; tennis.reset(); shooting.reset(); tone_remaining = 0; }
-void retro_deinit() { reset_demo(); demo_sounds = false; loaded = detail = false; previous = content_id = 0; }
+void retro_init() { preferences_dirty = false; rumble = {}; rumble_frames = {}; rumble_enabled = false; if (environment) environment(RETRO_ENVIRONMENT_GET_RUMBLE_INTERFACE, &rumble); reset_demo(); rf_noise_frame = 0; option_known = false; selector_choice = 0; opponent_modes = {}; opponent.reset(); rally_difficulty.reset(); high_speed = false; small_paddle = {}; winning_score = ctg::TennisB::winning_score; shot_limit = ctg::Shooting::default_shot_limit; apply_options(); repeat_menu = -1; repeat_direction = 0; repeat_frames = 0; content_id = previous = 0; loaded = detail = selector = paused = false; shooting_target = 0; shooting_direction = 0; shooting_blinking = 1; menu_choice = 1; pause_choice = result_choice = 0; joypad = {{true, true}}; tennis.reset(); shooting.reset(); tone_remaining = 0; }
+void retro_deinit() { retry_preferences(); stop_rumble(); rumble = {}; rumble_enabled = false; reset_demo(); demo_sounds = false; loaded = detail = false; previous = content_id = 0; }
 unsigned retro_api_version() { return RETRO_API_VERSION; }
 void retro_get_system_info(retro_system_info* info) { *info = {"Color TV-Game Simulator", CORE_VERSION, "ctg", false, false}; }
 void retro_get_system_av_info(retro_system_av_info* info) { *info = {{width, height, width, height, 4.0f / 3.0f}, {60.0, 48000.0}}; }
-void retro_set_controller_port_device(unsigned port, unsigned device) { if (port < joypad.size()) joypad[port] = (device == RETRO_DEVICE_JOYPAD || device == RETRO_DEVICE_ANALOG); }
-void retro_reset() { reset_demo(); opponent.reset(); rally_difficulty.reset(); repeat_menu = -1; repeat_direction = 0; repeat_frames = 0; detail = false; selector = paused = false; menu_choice = 1; tennis.reset(); shooting.reset(); tone_remaining = 0; }
+void retro_set_controller_port_device(unsigned port, unsigned device) { if (port < joypad.size()) { stop_rumble(port); joypad[port] = (device == RETRO_DEVICE_JOYPAD || device == RETRO_DEVICE_ANALOG); } }
+void retro_reset() { stop_rumble(); reset_demo(); opponent.reset(); rally_difficulty.reset(); repeat_menu = -1; repeat_direction = 0; repeat_frames = 0; detail = false; selector = paused = false; menu_choice = 1; tennis.reset(); shooting.reset(); tone_remaining = 0; }
 void retro_run() {
+    retro_variable vibration_option{"colortvgame_vibration", nullptr};
+    rumble_enabled = environment && environment(RETRO_ENVIRONMENT_GET_VARIABLE, &vibration_option) &&
+                     vibration_option.value && std::strcmp(vibration_option.value, "On") == 0;
+    if (!rumble_enabled) stop_rumble();
+    else advance_rumble();
     update_generate_option();
     retro_variable rebound_option{"colortvgame_rebound", nullptr};
     const bool rebound = environment && environment(RETRO_ENVIRONMENT_GET_VARIABLE, &rebound_option) &&
@@ -897,7 +1020,9 @@ void retro_run() {
             if (navigation & (up | down)) result_choice = 1 - result_choice;
             else if (pressed & (1u << RETRO_DEVICE_ID_JOYPAD_A)) {
                 if (result_choice == 1) { detail = false; menu_choice = 1; }
-                rally_difficulty.reset(); tennis.reset(); opponent.reset(); shooting.reset(); tone_remaining = 0; result_choice = 0;
+                rally_difficulty.reset(); tennis.reset(); opponent.reset();
+                if (content_id == 14 && result_choice == 0) start_shooting_match(); else shooting.reset();
+                tone_remaining = 0; result_choice = 0;
             }
         } else if (paused) {
             if (pressed & ((1u << 31) | (1u << RETRO_DEVICE_ID_JOYPAD_START))) paused = false;
@@ -907,7 +1032,9 @@ void retro_run() {
                 paused = false;
                 if (pause_choice != 0) {
                     if (pause_choice == 2) { detail = false; menu_choice = 1; }
-                    rally_difficulty.reset(); tennis.reset(); opponent.reset(); shooting.reset(); tone_remaining = 0;
+                    rally_difficulty.reset(); tennis.reset(); opponent.reset();
+                    if (content_id == 14 && pause_choice == 1) start_shooting_match(); else shooting.reset();
+                    tone_remaining = 0;
                 }
             }
         } else if (detail) {
@@ -932,7 +1059,10 @@ void retro_run() {
                         int digital = (input(1, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_DOWN) != 0) - (input(1, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_UP) != 0);
                         if (digital) target_direction = digital;
                     }
-                    unsigned events = shooting.step(direction, pressed & ((1u << RETRO_DEVICE_ID_JOYPAD_A) | (1u << RETRO_DEVICE_ID_JOYPAD_Y)), target_direction, automatic_target);
+                    unsigned events = shooting.step(direction, pressed & ((1u << RETRO_DEVICE_ID_JOYPAD_A) | (1u << RETRO_DEVICE_ID_JOYPAD_Y)), target_direction, shooting_target != 0);
+                    if (events & ctg::event_player1_shot) pulse_rumble(0);
+                    if (events & ctg::sound_point) resolve_shooting_settings();
+                    events &= sound_mask;
                     if (events) {
                         if (events & ctg::sound_win) result_choice = 0;
                         tone_period = (events & ctg::sound_win) ? 80 : (events & ctg::sound_point) ? 120 : 60;
@@ -958,7 +1088,10 @@ void retro_run() {
                     }
                     const ctg::TennisState before = tennis.state();
                     unsigned events = tennis.step({directions[0], directions[1]});
-                    rally_difficulty.advance(before, events);
+                    rally_difficulty.advance(before, events & sound_mask);
+                    if (events & ctg::event_player1_hit) pulse_rumble(0);
+                    if (!opponent_modes[content_id] && (events & ctg::event_player2_hit)) pulse_rumble(1);
+                    events &= sound_mask;
                     if (events) {
                         if (events & ctg::sound_win) result_choice = 0;
                         tone_period = (events & ctg::sound_win) ? 80 : (events & ctg::sound_point) ? 120 : (events & ctg::sound_paddle) ? 60 : 100;
@@ -973,11 +1106,22 @@ void retro_run() {
             else if (navigation & up) menu_choice = (menu_choice + count - 1) % count;
             else if (navigation & down) menu_choice = (menu_choice + 1) % count;
             else if (menu_choice >= 2 && (pressed & ((1u << RETRO_DEVICE_ID_JOYPAD_LEFT) | (1u << RETRO_DEVICE_ID_JOYPAD_RIGHT)))) {
-                if (content_id != 14 && menu_choice == 2) {
+                const auto before = preference_data();
+                if (content_id == 14) {
+                    const int delta = (pressed & (1u << RETRO_DEVICE_ID_JOYPAD_RIGHT)) ? 1 : -1;
+                    switch (menu_choice) {
+                    case shooting_target_row: shooting_target = (shooting_target + 5 + delta) % 5; break;
+                    case shooting_direction_row: if (shooting_target != 0) shooting_direction = (shooting_direction + 3 + delta) % 3; break;
+                    case shooting_blinking_row: shooting_blinking = (shooting_blinking + 3 + delta) % 3; break;
+                    case shooting_speed_row: high_speed = !high_speed; apply_options(); break;
+                    case shooting_p1_size_row: case shooting_p2_size_row:
+                        small_paddle[menu_choice - shooting_p1_size_row] = !small_paddle[menu_choice - shooting_p1_size_row]; apply_options(); break;
+                    case shooting_shots_row: shot_limit = ((shot_limit / 5 - 1 + 6 + delta) % 6 + 1) * 5; apply_options(); break;
+                    }
+                } else if (menu_choice == 2) {
                     const int delta = (pressed & (1u << RETRO_DEVICE_ID_JOYPAD_RIGHT)) ? 1 : -1;
                     opponent_modes[content_id] = (opponent_modes[content_id] + 4 + delta) % 4;
-                } else if (content_id == 14 && menu_choice == 2) automatic_target = !automatic_target;
-                else if (menu_choice == 6) {
+                } else if (menu_choice == 6) {
                     const int delta = (pressed & (1u << RETRO_DEVICE_ID_JOYPAD_RIGHT)) ? 1 : -1;
                     unsigned& value = content_id == 14 ? shot_limit : winning_score;
                     value = ((value / 5 - 1 + 6 + delta) % 6 + 1) * 5;
@@ -988,13 +1132,15 @@ void retro_run() {
                     else small_paddle[option - 1] = !small_paddle[option - 1];
                     apply_options();
                 }
+                if (preference_data() != before) save_preferences();
             }
             else if (pressed & confirm) {
                 if (menu_choice == 0) { selector = true; selector_choice = selector_position(content_id); select_game(content_id); }
-                else if (menu_choice == 1) { detail = true; opponent.reset(); rally_difficulty.reset(); if (content_id == 14) shooting.reset(); else tennis.reset(); }
+                else if (menu_choice == 1) { detail = true; opponent.reset(); rally_difficulty.reset(); if (content_id == 14) start_shooting_match(); else tennis.reset(); }
             }
         }
         const bool preview = selector || !detail;
+        if (preview || paused || result()) stop_rumble();
         if (preview) step_demo(content_id);
         else demo_tone = {};
         if (detail && !paused && !result() && content_id == 14) render_shooting(shooting); else if (detail && !paused && !result() && playable()) render_tennis(tennis); else render();
@@ -1043,21 +1189,24 @@ bool retro_unserialize(const void*, size_t) { return false; }
 void retro_cheat_reset() {}
 void retro_cheat_set(unsigned, bool, const char*) {}
 bool retro_load_game(const retro_game_info* game) {
+    stop_rumble();
     reset_demo();
-    opponent_modes = {}; opponent.reset(); rally_difficulty.reset();
+    opponent.reset(); rally_difficulty.reset();
     repeat_menu = -1; repeat_direction = 0; repeat_frames = 0;
-    loaded = detail = automatic_target = selector = paused = false; high_speed = false; small_paddle = {}; winning_score = ctg::TennisB::winning_score; shot_limit = ctg::Shooting::default_shot_limit; apply_options(); menu_choice = 1; pause_choice = 0; content_id = previous = 0; tone_remaining = 0; tennis.reset(); shooting.reset();
+    loaded = detail = selector = paused = false; menu_choice = 1; pause_choice = 0; content_id = previous = 0; tone_remaining = 0; tennis.reset(); shooting.reset();
     auto id = game ? ctg::parse_content(game->data, game->size) : std::optional<std::uint8_t>{0};
     if (!id) { message("Invalid CTG1 content: expected five bytes and ID 0-14"); return false; }
     retro_pixel_format format = RETRO_PIXEL_FORMAT_XRGB8888;
     if (!environment || !environment(RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, &format)) { message("XRGB8888 video is required"); return false; }
+    if (preferences_dirty) retry_preferences();
+    else read_preferences();
     selector = !game;
     selector_choice = selector ? initial_selector_choice() : selector_position(*id);
     select_game(selector ? selector_order[selector_choice] : *id);
     loaded = true; return true;
 }
 bool retro_load_game_special(unsigned, const retro_game_info*, size_t) { return false; }
-void retro_unload_game() { reset_demo(); loaded = detail = false; content_id = previous = 0; tone_remaining = 0; tennis.reset(); }
+void retro_unload_game() { retry_preferences(); stop_rumble(); reset_demo(); loaded = detail = false; content_id = previous = 0; tone_remaining = 0; tennis.reset(); }
 unsigned retro_get_region() { return RETRO_REGION_NTSC; }
 void* retro_get_memory_data(unsigned) { return nullptr; }
 size_t retro_get_memory_size(unsigned) { return 0; }

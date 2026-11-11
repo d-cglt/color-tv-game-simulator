@@ -4,7 +4,7 @@ Checkboxes distinguish implemented work from pending work; they do not establish
 
 ## Release priority
 
-The user approved 0.1.0 as the first release, confirmed RetroArch displays version 0.1.0, plans to publish under a pseudonym with an independence disclaimer, and considers current gameplay and filters playable and acceptable for release. Prioritize a bounded release-readiness pass: build and automated tests, a concise real-frontend smoke test per release platform, licensing and redistribution review, and verified packages and instructions. Use existing successful tests and user confirmations; do not repeat full playthroughs without a specific regression or release blocker. Historical fidelity, additional comparisons, filter refinements and exploratory testing are deferred until new evidence or a concrete problem arises. Existing unchecked research items below are not release blockers by themselves.
+The user approved 0.1.0 as the first release and the current source for preparation as 0.1.2, confirmed RetroArch displays version 0.1.0, chose pseudonymous publication with an independence disclaimer, and considers current gameplay and filters playable and acceptable for release. Prioritize a bounded release-readiness pass: build and automated tests, a concise real-frontend smoke test per release platform, licensing and redistribution review, and verified packages and instructions. Use existing successful tests and user confirmations; do not repeat full playthroughs without a specific regression or release blocker. Historical fidelity, additional comparisons, filter refinements and exploratory testing are deferred until new evidence or a concrete problem arises. Existing unchecked research items below are not release blockers by themselves.
 
 ## Public label decision and history
 
@@ -152,6 +152,9 @@ Latest development check: a clean Linux Debug build with `-Wall -Wextra -Wpedant
 - [ ] Verify no-content launch, centered menus, navigation and return behavior interactively in RetroArch.
 - [x] Add a six-row game selector with arrow indicators, game menu with Return/Start and inline options, translucent black panel, pause menu with Resume/Restart/Exit, and matching game-over menu with Restart/Exit; action buttons no longer exit gameplay, B does not dismiss pause, and Start always resumes without activating the selected row.
 - [x] Move Shooting target selection directly into the game menu as a row changed with left/right and draw matching directional arrow icons; other settings remain pending.
+- [x] Expand Shooting settings: TARGET Manual/Slow/Normal/Fast/Random; direction Down/Up/Random, grayed out in Manual; and blinking Off/On/Random. Default to Manual/Down/On. Resolve random choices at match start or restart and after successful target hits, not on misses or continuously; fixed choices and the demo remain unaffected. With blinking Off, targets are continuously hittable. Slow and Fast are approximations, not historically verified. Add automated tests.
+- [x] User confirmed in RetroArch that Shooting's Random behavior works after successful hits and makes the game more interesting.
+- [ ] Verify the remaining new Shooting settings individually in RetroArch.
 - [x] Add held up/down menu navigation repeat for D-pad, analog and keyboard with automated tests.
 - [x] Center the game-selection list and adjacent scroll arrows within the translucent panel. Show all game-menu items without arrows when there are seven or fewer; use five-row scrolling for longer menus. Add layout regression tests.
 - [x] User confirmed pause Resume/Restart/Exit and game-over menu in RetroArch.
@@ -164,6 +167,9 @@ Latest development check: a clean Linux Debug build with `-Wall -Wextra -Wpedant
 - [x] Add SCORE for competitive games and a separate SHOTS setting for Shooting: 5, 10, 15, 20, 25 or 30, defaulting to 15. Automated tests cover scoring, result screens and restart.
 - [x] User tested a 30-point winning score and reported it seems good.
 - [ ] Verify other winning-score settings and the Shooting shot limit interactively across representative games and AI modes.
+- [x] Persist game-menu preferences in the frontend save directory across reset, exit and subsequent direct `.ctg` and no-content launches: speed, paddle sizes, score, shot limit, per-game opponent mode, and Shooting target, direction and blinking choices. Save Random preferences rather than transient outcomes. This is independent of core options, last-game selection and unsupported save states. Failed saves are reported and retried while retaining session values.
+- [x] Add automated persistence coverage for launch paths, reset, reload, preference types, per-game modes and invalid or unavailable storage.
+- [x] User confirmed game-menu settings persistence in RetroArch across reset, full exits and direct `.ctg` / no-content launches.
 - [x] Investigate paddle rebounds without changing gameplay: the CTG-15S manual describes dependence on current or preceding paddle movement, whereas the reference and current implementation use contact position. Exact slope selection and motion-history lifetime remain unverified.
 - [ ] Evaluate a separately selectable movement-history rebound prototype against current hit-position behavior; test all paddle ownership paths, AI and horizontal-rally edge cases before deciding whether to change defaults. Do not claim hardware accuracy without evidence.
 - [ ] Design optional rally behavior choices: a baseline based on the Thomas Visvader simulation and an optional modern long-rally intervention (final name to be decided). Keep intervention off by default, clearly distinguish it from original behavior, and document how it works.
@@ -188,6 +194,9 @@ Latest development check: a clean Linux Debug build with `-Wall -Wextra -Wpedant
 **Acceptance:** applicable games offer a usable computer opponent, AI tests pass, and behavior, settings and historical uncertainty are documented.
 
 ## Milestone 7: Libretro options and integration — in progress
+
+- [x] Add a **Vibration** core option, Off by default: briefly vibrate the relevant player's controller on paddle hits and shots, but not automatic serves. Use Libretro rumble where available, exclude demos and AI-controlled players, and handle unsupported frontends or controllers gracefully. Automated tests cover events and lifecycle; this is a modern convenience rather than an original controller feature.
+- [ ] Confirm vibration and the Off default with a supported controller in RetroArch.
 
 - [x] Use the selected core display name **Color TV-Game Simulator** instead of the provisional name; retain the binary filename, option keys, generated content names and save paths. Add API regression coverage.
 - [x] User confirmed the new core display name in RetroArch after rebuilding the stale launcher core.
@@ -235,6 +244,7 @@ Latest development check: a clean Linux Debug build with `-Wall -Wextra -Wpedant
 ## Milestone 8: Testing and releases — in progress
 
 - [x] Publish the source under `d-cglt` and create the [0.1.0 GitHub release](https://github.com/d-cglt/color-tv-game-simulator/releases/tag/v0.1.0) with the Linux x86-64 archive. RetroArch Core Downloader inclusion is a separate, unsubmitted process.
+- [x] Publish [0.1.1](https://github.com/d-cglt/color-tv-game-simulator/releases/tag/v0.1.1) with CI-tested Linux, Windows x86-64 and macOS Intel artifacts; Windows and macOS are labeled experimental pending frontend tests.
 
 Linux release-readiness review: on 2026-11-10 a CMake Release build succeeded and all 8 CTest tests passed, including assembling, extracting, checking and dynamically loading the Linux package. A standalone Linux x86-64 archive was also assembled and its contents listed. The package includes the project license, the vendored libretro header's MIT notice and installation/usage instructions. Prior user-confirmed RetroArch testing covers the playable core; the earlier packaged-binary frontend smoke test and its isolation caveat are recorded below; it predates the 0.1.0 version update. Version 0.1.0 is approved for the first release; the rebuilt versioned package has not been frontend tested. The user confirms being the sole contributor and chose MIT licensing and pseudonymous publication; a pseudonym has not yet been specified. Before distribution, review attribution, target runtime compatibility, and suitable frontend metadata. Manual core loading has already worked without a `.info` file; metadata requirements depend on the distribution target. At that review, Windows was unverified and no release revision was verified.
 
@@ -242,10 +252,51 @@ Linux release-readiness review: on 2026-11-10 a CMake Release build succeeded an
   - Isolation caveat: despite a temporary HOME, XDG directories and explicit temporary config with `config_save_on_exit = false`, RetroArch logged writing its persistent RetroDECK `config/retroarch/playlists/builtin/content_history.lpl` and `config/retroarch/config/Color TV-Game Simulator/Color TV-Game Simulator.opt`. Their prior contents were not captured, so they were not restored. It also logged persistent save/state paths, but skipped SRAM loading; no save/state write was logged. Avoid claiming this run left permanent frontend files untouched.
 - [x] GitHub Actions [run 42813010356](https://github.com/d-cglt/color-tv-game-simulator/actions/runs/42813010356) built and passed automated tests on hosted Linux x86-64, Windows x86-64 and macOS Intel runners and uploaded artifacts. The macOS binary architecture was checked. Windows and macOS RetroArch frontend validation remains pending; Apple Silicon is not built.
 
-For 0.1.1, Linux is the established target; Windows x86-64 and macOS Intel are intended experimental targets, not frontend-validated platforms. The successful CI run predates the 0.1.1 source changes. CI artifacts are separate from the Linux release package; prepare and verify release assets before distribution.
+For 0.1.2, Linux is the established target; Windows x86-64 and macOS Intel remain experimental, not frontend-validated platforms. The recorded successful CI run predates the 0.1.1 and 0.1.2 source changes. User-confirmed settings persistence and Shooting Random behavior are recorded above; vibration remains unconfirmed in a real frontend. See the [draft release notes](RELEASE_NOTES_0.1.2.md). CI artifacts are separate from the Linux release package; prepare and verify release assets before distribution.
 - [ ] Run the existing automated suite and build release artifacts for each intended release platform; record results. Portability and sanitizer checks are optional unless needed to investigate a failure.
 - [ ] Use existing frontend confirmations where applicable and perform only a concise smoke test of content loading, controls, video, audio and lifecycle on each intended release platform; investigate failures rather than repeating complete playthroughs.
 - [ ] Review licenses and asset rights; prepare versioned artifacts, core metadata, installation instructions, controls and known limitations.
 - [ ] Record test environments and results, and verify packages before distribution.
 
 **Acceptance:** passing tests and reproducible builds for the platforms actually shipped, recorded essential frontend checks, and release packages with documented licensing and limitations. Windows and macOS Intel remain experimental targets; do not claim frontend support without validation. Upstream acceptance is a separate process and is not assumed.
+
+## Future milestones — research first, after current release priorities
+
+These are future projects, not release blockers or claims of verified hardware behavior. Names, counts, controls and mechanics below are research targets or tentative interpretations. Consult manuals, advertisements and commercials, photographs, recordings and original hardware where available; record sources, translations, discrepancies, rights and unresolved questions in [RESEARCH.md](RESEARCH.md). Implement independently without copying protected code or assets. Split work into small, independently testable increments and revise plans when evidence warrants.
+
+## Milestone 9: Shared multi-system architecture — pending
+
+- [ ] Design a system registry and separate model-specific state, rules, rendering, audio and controls; share only genuinely common frontend, timing and utility code. Do not assume the consoles share hardware or game engines.
+- [ ] Plan model and game selection, direct content loading, menus, demos, input descriptors, configuration, reset and lifecycle isolation. Preserve existing 0–14 IDs, five-byte `.ctg` descriptors, generated files, saved selections and direct-launch behavior; design and document a backward-compatible way to identify new systems without reinterpreting existing content. Do not assign new stable IDs or change the format until the design is reviewed.
+- [ ] Define mappings and accessible alternatives for steering, paddles, buttons and board selection, including analog and digital input, calibration, player assignment and unsupported devices. Consider the existing Vibration option separately for each system and gracefully handle unavailable rumble.
+- [ ] Add compatibility and isolation tests for old content, selection persistence, invalid descriptors, reset, unload/reload and switching systems; verify menus and representative controls in a real frontend.
+
+**Acceptance:** a documented, backward-compatible system design and tested integration support new independent models without regressions to existing IDs, content or gameplay; frontend limitations and approximations are recorded.
+
+## Milestone 10: Racing 112 — pending
+
+- [ ] Research the reported seven base games and 16 variations each (112 combinations): identify and name each base game, settings and valid combinations from primary evidence rather than treating 112 as 112 independently established games. Record the evidence and uncertainties for each.
+- [ ] Research analog steering response, the two-position gear lever, two paddle controllers, start/reset and configuration switches; verify controller attachment and player modes. Map controls to analog and digital alternatives, including gamepad sensitivity, calibration and player assignment.
+- [ ] Recreate the seven reported configurations and all 16 combinations of four binary difficulty switches, exposing all 112 advertised combinations with intuitive settings and original numbering where verified. Research wide/narrow roads, speed combinations, independent two-player tracks and fixed speed, straight/zigzag traffic, optional roadside collisions, bad-road steering hazards, one/two opponents, road scrolling and markers, crashes, scoring, timers, game-over, restart, graphics and sound. Investigate optional AI assistance only as a clearly labeled modern addition; do not assume any details verified.
+- [ ] Test every base game and its 16 combinations or document evidence-backed exceptions; cover steering limits, digital and analog input, multiplayer, collision boundaries, scoring, timing, configuration, restart and transitions with deterministic tests. Compare visuals, sound and play with recordings and hardware where available, then record representative real-frontend playthroughs and limitations.
+
+**Acceptance:** the researched mode/variation matrix is selectable and playable, with automated coverage of all supported combinations, documented control mappings and frontend checks; any unverified mechanics and unsupported combinations are explicit.
+
+## Milestone 11: Block Kuzushi — pending
+
+- [ ] Research the six secondary-source names and distinguishing rules: Standard Block Kuzushi (traditional), Easy (missing row), Safe (protective blocks), Block Through (timed, ball passes through), Block Flash (flashing targets), and Block Kill (a reported Through/Flash combination with a different layout). Verify names, translations, arrangements and rules against manual illustrations and gameplay before implementation.
+- [ ] Research rotary paddle and serve button, ball-count choices reported as 3/5/7, block layouts and colors, rebound physics, score/high score, time limits, flashing timing, game-over, restart and sound. Verify the reported ceiling-triggered half-width paddle and restoration after a lost ball.
+- [ ] Analyze the period commercial frame by frame for layouts, paddle and ball movement, block destruction, flashing, scores, colors and proportions. Treat edits, staging and speed changes as possible; cross-check against manual illustrations and gameplay recordings rather than inferring exact timing or physics from the commercial.
+- [ ] Independently implement a basic playable block-breaking mode, then add each of the other five researched modes and their distinct layouts and rules in manageable increments. Preserve documented uncertainties and distinguish optional modern behavior from historical behavior.
+- [ ] Add deterministic tests for all six modes, block removal and special blocks, collision and rebound edges, paddle resizing, score, ball count and exhaustion, mode selection, reset and input; compare with the commercial and other evidence where applicable and record real-frontend checks for each mode.
+
+**Acceptance:** all six evidence-identified modes are selectable and playable, with their names, differences, ball-count behavior, automated tests and frontend results documented; unresolved details remain explicitly tentative.
+
+## Milestone 12: Computer TV-Game — pending
+
+- [ ] Research Computer TV-Game and Computer Othello using manuals, hardware, recordings and reliable board documentation. Investigate its reported relationship to the arcade board, but treat the home system and arcade game as distinct targets until similarities and differences are evidenced.
+- [ ] Design an independent, original Othello implementation requiring no ROM, dump or copyrighted assets; do not bundle or depend on arcade ROMs. Research board presentation, controls, legal moves, flipping, passes, scoring, end conditions, computer opponent, difficulty, timing, visuals and sound before choosing approximations. Document provenance and any fidelity limitations.
+- [ ] Implement board interaction and rules first, then an independently designed computer opponent and model-specific presentation and controls. Do not claim arcade-perfect behavior or original AI equivalence without evidence.
+- [ ] Test legal and illegal moves, directional flips, passes, full board and no-move endings, scoring, AI legality, reset, input and deterministic behavior where applicable; compare with reliable home-system evidence and record a complete frontend game and remaining differences.
+
+**Acceptance:** an independently implemented, ROM-free playable Computer TV-Game approximation passes rules and opponent tests and a recorded frontend game; its relationship to the arcade version and all unverified behavior are clearly documented.

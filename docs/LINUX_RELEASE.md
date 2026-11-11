@@ -12,4 +12,4 @@ Start the core without content to open the game selector. Navigate and select a 
 
 ## Limitations
 
-All 15 provisional variants are playable approximations; historical identities, behavior and presentation are not verified. The frontend must support XRGB8888 video. Save states and rewind are unsupported. Automated tests use a simulated frontend. The 0.1.1 package has not been tested in a frontend; earlier Linux frontend testing predates this version. Broader real-frontend and platform validation remains pending. If loading fails, check architecture, runtime dependencies and sandbox access.
+All 15 provisional variants are playable approximations; historical identities, behavior and presentation are not verified. The frontend must support XRGB8888 video. Save states and rewind are unsupported. Automated tests use a simulated frontend. The 0.1.2 package has not yet been tested in a frontend; user-confirmed feature checks do not establish validation of the packaged binary. Vibration remains unconfirmed in a real frontend. Broader real-frontend and platform validation remains pending. If loading fails, check architecture, runtime dependencies and sandbox access.

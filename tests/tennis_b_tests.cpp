@@ -483,6 +483,8 @@ int main() {
             const unsigned events = doubles.step();
             const bool front = player == 0 ? direction < 0 : direction > 0;
             CHECK(bool(events & ctg::sound_paddle) == front);
+            CHECK((events & (ctg::event_player1_hit | ctg::event_player2_hit)) ==
+                  (front ? (player == 0 ? ctg::event_player1_hit : ctg::event_player2_hit) : 0u));
             CHECK(s.ball_vx == (front ? -direction : direction) * 4);
             CHECK(s.ball_x == (front ? x - direction * (ctg::TennisB::ball_radius + 2)
                                      : x - direction * (ctg::TennisB::ball_radius - 2)));
@@ -536,7 +538,9 @@ int main() {
     ctg::TennisB hockey_twin(false, true);
     CHECK(h.serve_wait == ctg::TennisB::hockey_serve_delay);
     for (unsigned i = 0; i < ctg::TennisB::hockey_serve_delay; ++i) {
-        CHECK(hockey.step({-1, 1}) == hockey_twin.step({-1, 1}));
+        const unsigned events = hockey.step({-1, 1});
+        CHECK(events == ctg::sound_none);
+        CHECK(events == hockey_twin.step({-1, 1}));
         CHECK(same(h, hockey_twin.state()));
         CHECK(h.serve_wait == ctg::TennisB::hockey_serve_delay - i - 1);
     }
@@ -557,6 +561,8 @@ int main() {
                 const bool contact = center + 3 > top && center - 2 < bottom;
                 const unsigned events = hockey.step();
                 CHECK(bool(events & ctg::sound_paddle) == contact);
+                CHECK((events & (ctg::event_player1_hit | ctg::event_player2_hit)) ==
+                      (contact ? (player == 0 ? ctg::event_player1_hit : ctg::event_player2_hit) : 0u));
                 CHECK(h.ball_vx == (contact ? (player == 0 ? 4 : -4) : (player == 0 ? -4 : 4)));
             }
         }
@@ -752,6 +758,8 @@ int main() {
                 const bool hit = ctg::hockey_y(y) + 3 > top && ctg::hockey_y(y) - 2 < bottom;
                 const unsigned events = hockey_doubles.step();
                 CHECK(bool(events & ctg::sound_paddle) == hit);
+                CHECK((events & (ctg::event_player1_hit | ctg::event_player2_hit)) ==
+                      (hit ? (inner == 0 ? ctg::event_player2_hit : ctg::event_player1_hit) : 0u));
                 CHECK(hd.ball_vx == (hit ? -direction : direction) * 4);
                 if (hit) CHECK(!(hockey_doubles.step() & ctg::sound_paddle));
             }

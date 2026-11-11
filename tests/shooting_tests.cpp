@@ -1,10 +1,59 @@
 #include "shooting.h"
 #include "tennis_b.h"
 #include <cstdio>
+#include <limits>
 
 #define CHECK(x) do { if (!(x)) { std::fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, #x); return 1; } } while (0)
 
 int main() {
+    {
+        for (unsigned speed : {6u, 11u, 16u}) {
+            for (int direction : {-1, 1}) {
+                ctg::Shooting target;
+                target.set_target_behavior(speed, direction, true);
+                target.step(0, false, 0, true);
+                CHECK(target.state().target_y == (405 + static_cast<int>(speed) * direction) / 4);
+                target.reset();
+                target.step(0, false, 0, true);
+                CHECK(target.state().target_y == (405 + static_cast<int>(speed) * direction) / 4);
+            }
+        }
+        ctg::Shooting manual;
+        manual.set_target_behavior(16, -1, false);
+        manual.step(0, false, 1);
+        CHECK(manual.state().target_y == (405 + 12) / 4);
+        manual.step(0, false, -1);
+        CHECK(manual.state().target_y == 405 / 4);
+    }
+    {
+        for (int direction : {-1, 1}) {
+            ctg::Shooting target;
+            const unsigned speed = std::numeric_limits<unsigned>::max();
+            target.set_target_behavior(speed, direction, false);
+            int position = 405;
+            for (int i = 0; i < 100; ++i) {
+                position = (position + 65 + static_cast<int>(speed % 940) * direction + 940) % 940 - 65;
+                target.step(0, false, 0, true);
+                CHECK(target.state().target_y == position / 4);
+                CHECK(target.target_visible());
+            }
+        }
+        ctg::Shooting legacy;
+        for (int i = 0; i < 42; ++i) legacy.step(0, false, 0, true);
+        CHECK(legacy.state().target_y == 867 / 4);
+        legacy.step(0, false, 0, true);
+        CHECK(legacy.state().target_y == -65 / 4);
+    }
+    {
+        for (bool blinking : {false, true}) {
+            ctg::Shooting target;
+            target.set_target_behavior(6, -1, blinking);
+            for (int i = 0; i < 19; ++i) target.step(0, false);
+            target.step(0, true);
+            while (target.state().flying) target.step(0, false);
+            CHECK(target.state().hits == (blinking ? 0u : 1u));
+        }
+    }
     {
         ctg::Shooting slow, fast;
         fast.set_options(true, {true, false});
@@ -65,9 +114,10 @@ int main() {
     for (int i = 0; i < 40; ++i) { game.step(0, false); hidden |= !game.target_visible(); visible |= game.target_visible(); }
     CHECK(hidden && visible);
     game.reset();
-    CHECK(game.step(0, true) & ctg::sound_paddle);
+    CHECK(game.step(0, false) == ctg::sound_none);
+    CHECK(game.step(0, true) == (ctg::sound_paddle | ctg::event_player1_shot));
     CHECK(game.state().flying);
-    game.step(0, true);
+    CHECK(!(game.step(0, true) & ctg::event_player1_shot));
     CHECK(game.state().shots == 0);
     for (int i = 0; i < 100 && game.state().flying; ++i) game.step(0, false);
     CHECK(game.state().shots == 1 && !game.state().flying);

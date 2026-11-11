@@ -118,7 +118,7 @@ bool test_variant(unsigned id) {
     CHECK(video_calls == unloaded_video && audio_calls == unloaded_audio);
     CHECK(retro_load_game(&game));
     retro_run();
-    CHECK(frame == default_menu);
+    CHECK(frame == configured_menu);
     retro_unload_game();
     return true;
 }

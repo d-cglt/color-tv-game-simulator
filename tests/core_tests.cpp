@@ -24,7 +24,16 @@ std::string demo_sounds_value, demo_sounds_definition;
 std::string rebound_value, rebound_definition;
 std::string anti_stalemate_value, anti_stalemate_definition;
 unsigned core_options_version = 0;
-bool anti_stalemate_modern_definition = false;
+bool anti_stalemate_modern_definition = false, vibration_modern_definition = false;
+std::string vibration_value, vibration_definition;
+void set_vibration(const char* value) { vibration_value = value; variable_updated = true; }
+struct RumbleCall { unsigned port; retro_rumble_effect effect; uint16_t strength; };
+std::vector<RumbleCall> rumble_calls;
+bool rumble_available = false, rumble_accept = true;
+unsigned rumble_queries = 0;
+bool rumble(unsigned port, retro_rumble_effect effect, uint16_t strength) {
+    rumble_calls.push_back({port, effect, strength}); return rumble_accept;
+}
 void set_rebound(const char* value) { rebound_value = value; variable_updated = true; }
 std::string color_value = "On", color_definition;
 std::string rf_filter_value, rf_filter_definition;
@@ -56,6 +65,18 @@ bool env(unsigned cmd, void* data) {
             }
             return false;
         };
+        auto check_vibration = [](const auto* definitions) {
+            for (auto* d = definitions; d->key; ++d) {
+                if (std::strcmp(d->key, "colortvgame_vibration") == 0)
+                    return std::strcmp(d->default_value, "Off") == 0 &&
+                           std::strcmp(d->values[0].value, "Off") == 0 &&
+                           std::strcmp(d->values[1].value, "On") == 0 && !d->values[2].value;
+            }
+            return false;
+        };
+        vibration_modern_definition = cmd == RETRO_ENVIRONMENT_SET_CORE_OPTIONS
+            ? check_vibration(static_cast<retro_core_option_definition*>(data))
+            : check_vibration(static_cast<retro_core_options_v2*>(data)->definitions);
         anti_stalemate_modern_definition = cmd == RETRO_ENVIRONMENT_SET_CORE_OPTIONS
             ? check(static_cast<retro_core_option_definition*>(data))
             : check(static_cast<retro_core_options_v2*>(data)->definitions);
@@ -67,6 +88,7 @@ bool env(unsigned cmd, void* data) {
             if (std::strcmp(variable->key, "colortvgame_generate_files") == 0) generate_definition = variable->value;
             if (std::strcmp(variable->key, "colortvgame_demo_sounds") == 0) demo_sounds_definition = variable->value;
             if (std::strcmp(variable->key, "colortvgame_rebound") == 0) rebound_definition = variable->value;
+            if (std::strcmp(variable->key, "colortvgame_vibration") == 0) vibration_definition = variable->value;
             if (std::strcmp(variable->key, "colortvgame_anti_stalemate") == 0) anti_stalemate_definition = variable->value;
             if (std::strcmp(variable->key, "colortvgame_color") == 0) color_definition = variable->value;
             if (std::strcmp(variable->key, "colortvgame_rf_filter") == 0) rf_filter_definition = variable->value;
@@ -84,6 +106,7 @@ bool env(unsigned cmd, void* data) {
         if (std::strcmp(variable->key, "colortvgame_generate_files") == 0) variable->value = generate_value.c_str();
         else if (std::strcmp(variable->key, "colortvgame_demo_sounds") == 0 && !demo_sounds_value.empty()) variable->value = demo_sounds_value.c_str();
         else if (std::strcmp(variable->key, "colortvgame_rebound") == 0 && !rebound_value.empty()) variable->value = rebound_value.c_str();
+        else if (std::strcmp(variable->key, "colortvgame_vibration") == 0 && !vibration_value.empty()) variable->value = vibration_value.c_str();
         else if (std::strcmp(variable->key, "colortvgame_anti_stalemate") == 0 && !anti_stalemate_value.empty()) variable->value = anti_stalemate_value.c_str();
         else if (std::strcmp(variable->key, "colortvgame_color") == 0 && !color_value.empty()) variable->value = color_value.c_str();
         else if (std::strcmp(variable->key, "colortvgame_rf_filter") == 0 && !rf_filter_value.empty()) variable->value = rf_filter_value.c_str();
@@ -99,6 +122,12 @@ bool env(unsigned cmd, void* data) {
         if (!set_variable_supported) return false;
         if (last_set_key != "colortvgame_generate_files") return false;
         generate_value = last_set_value; variable_updated = true; return true;
+    }
+    if (cmd == RETRO_ENVIRONMENT_GET_RUMBLE_INTERFACE) {
+        ++rumble_queries;
+        if (!rumble_available) return false;
+        static_cast<retro_rumble_interface*>(data)->set_rumble_state = rumble;
+        return true;
     }
     if (cmd == RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY) {
         ++system_queries;
@@ -151,10 +180,11 @@ int main() {
     CHECK(generate_definition.find("; Ready|Generate") != std::string::npos);
     CHECK(rebound_definition == "Rebound behavior; Hit position|Paddle movement");
     CHECK(anti_stalemate_definition == "Anti-stalemate; On|Off");
+    CHECK(vibration_definition.find("; Off|On") != std::string::npos);
     for (unsigned version : {1u, 2u}) {
-        core_options_version = version; anti_stalemate_modern_definition = false;
+        core_options_version = version; anti_stalemate_modern_definition = false; vibration_modern_definition = false;
         retro_set_environment(env);
-        CHECK(anti_stalemate_modern_definition);
+        CHECK(anti_stalemate_modern_definition && vibration_modern_definition);
     }
     core_options_version = 0; retro_set_environment(env);
     CHECK(retro_load_game(nullptr)); retro_run();
@@ -216,7 +246,7 @@ int main() {
     CHECK(support && retro_api_version() == RETRO_API_VERSION);
     retro_system_info info{}; retro_get_system_info(&info);
     CHECK(info.library_name && std::strcmp(info.library_name, "Color TV-Game Simulator") == 0);
-    CHECK(info.library_version && std::strcmp(info.library_version, "0.1.1") == 0);
+    CHECK(info.library_version && std::strcmp(info.library_version, "0.1.2") == 0);
     CHECK(std::strlen(info.library_name) == 23);
     CHECK(!info.need_fullpath && std::strcmp(info.valid_extensions, "ctg") == 0);
     retro_system_av_info av{}; retro_get_system_av_info(&av);
@@ -310,9 +340,9 @@ int main() {
             animated |= outside_changed(preview_first, frame);
         }
         CHECK(animated && nonzero_audio == preview_audio);
-        CHECK(demo_pixel(frame, 75, 103) == 0x295166); // START is still selected before 10 seconds.
+        CHECK(demo_pixel(frame, 75, id == 14 ? 114 : 103) == 0x295166); // START is still selected before 10 seconds.
         for (int i = 0; i < 20; ++i) retro_run();
-        CHECK(demo_pixel(frame, 75, 103) != 0x295166);
+        CHECK(demo_pixel(frame, 75, id == 14 ? 114 : 103) != 0x295166);
         // The centered demo prompt remains visible while the menu is hidden.
         const char prompt[] = "DEMO MODE - PRESS ANY BUTTON TO SHOW MENU";
         const int prompt_x = (320 - (sizeof(prompt) - 1) * 6) / 2;
@@ -323,9 +353,9 @@ int main() {
         for (int y = 42; y < 75; ++y) for (int x : {74, 80, 86, 234, 240, 246})
             CHECK(demo_pixel(frame, x, y) != (id == 14 ? 0xffc9fa : 0xcdf0ff));
         buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
-        CHECK(demo_pixel(frame, 75, 103) == 0x295166); // Wake does not start.
+        CHECK(demo_pixel(frame, 75, id == 14 ? 114 : 103) == 0x295166); // Wake does not start.
         for (int i = 0; i < 30; ++i) retro_run();
-        CHECK(demo_pixel(frame, 75, 103) == 0x295166); // Nor does holding the wake button.
+        CHECK(demo_pixel(frame, 75, id == 14 ? 114 : 103) == 0x295166); // Nor does holding the wake button.
         buttons = 0; retro_run(); buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
         auto after_preview_start = frame;
         retro_reset(); buttons = 0; retro_run(); buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
@@ -384,16 +414,15 @@ int main() {
         CHECK(at(initial, 60, 150) == ((0x46a79a & 0xfefefe) >> 1));
     CHECK(at(initial, 60, 200) == ((0x46a79a & 0xfefefe) >> 1));
     CHECK(at(initial, 60, 204) == 0x46a79a);
-    CHECK(at(initial, 75, 103) == 0x295166);
-    CHECK(at(initial, 151, 124) == 0xffffff && at(initial, 222, 124) == 0xffffff);
-    CHECK(at(initial, 130, 94) == 0xffffff);
+    CHECK(at(initial, 75, 114) == 0x295166);
+    CHECK(at(initial, 151, 136) == 0xffffff && at(initial, 222, 136) == 0xffffff);
     keys[RETROK_p] = true; retro_run(); CHECK(same_menu(frame, initial));
     keys[RETROK_p] = false; retro_run();
     auto press = [&](unsigned id) { buttons = 0; retro_run(); buttons = 1u << id; retro_run(); };
     auto exit_pause = [&]() { press(RETRO_DEVICE_ID_JOYPAD_START); press(RETRO_DEVICE_ID_JOYPAD_UP); press(RETRO_DEVICE_ID_JOYPAD_A); };
     press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(same_menu(frame, initial));
     press(RETRO_DEVICE_ID_JOYPAD_DOWN); auto option = frame; CHECK(!same_menu(option, initial));
-    CHECK(at(option, 75, 118) == 0x295166 && at(option, 151, 124) == 0x70e0ff && at(option, 222, 124) == 0x70e0ff);
+    CHECK(at(option, 75, 130) == 0x295166 && at(option, 151, 136) == 0x70e0ff && at(option, 222, 136) == 0x70e0ff);
     press(RETRO_DEVICE_ID_JOYPAD_A); CHECK(same_menu(frame, option));
     keys[RETROK_p] = true; retro_run(); CHECK(same_menu(frame, option));
     keys[RETROK_p] = false; retro_run();
@@ -878,6 +907,7 @@ int main() {
     press(RETRO_DEVICE_ID_JOYPAD_RIGHT); auto auto_option = frame;
     press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(!same_menu(frame, auto_option));
     press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(same_menu(frame, auto_option));
+    press(RETRO_DEVICE_ID_JOYPAD_RIGHT); // Normal matches the original automatic speed.
     press(RETRO_DEVICE_ID_JOYPAD_UP);
     auto auto_menu = frame; CHECK(!same_menu(auto_menu, shooting_menu));
     press(RETRO_DEVICE_ID_JOYPAD_START);
@@ -900,7 +930,10 @@ int main() {
     buttons = 0; retro_run(); CHECK(pixel(265, 101) == 0x46a79a);
     exit_pause(); CHECK(same_menu(frame, auto_menu));
     retro_reset(); buttons = 0; retro_run(); CHECK(same_menu(frame, auto_menu));
-    retro_unload_game(); CHECK(retro_load_game(&game)); retro_run(); CHECK(same_menu(frame, shooting_menu));
+    retro_unload_game(); CHECK(retro_load_game(&game)); retro_run(); CHECK(same_menu(frame, auto_menu));
+    // Start the following gameplay checks with defaults and no save directory.
+    retro_unload_game(); retro_deinit(); retro_init(); buttons = 0;
+    CHECK(retro_load_game(&game)); retro_run(); CHECK(same_menu(frame, shooting_menu));
     // Finish with A held: the scoring input must not confirm the result.
     press(RETRO_DEVICE_ID_JOYPAD_START);
     for (int shot = 0; shot < 15; ++shot) {
@@ -1074,21 +1107,138 @@ int main() {
     buttons = 0; retro_run();
     retro_unload_game();
 
+    // Shooting settings survive reset, game switching, and reload even when the
+    // save directory is unavailable; a fresh core starts with defaults.
+    buttons = buttons2 = 0; keys.fill(false); axes = {{0, 0}};
+    bytes[4] = 14; CHECK(retro_load_game(&game)); retro_run();
+    const auto shooting_defaults = frame;
+    press(RETRO_DEVICE_ID_JOYPAD_DOWN); // TARGET: Manual, Slow, Normal, Fast, Random.
+    std::vector<std::vector<unsigned char>> targets{frame};
+    for (int i = 0; i < 4; ++i) {
+        press(RETRO_DEVICE_ID_JOYPAD_RIGHT);
+        for (const auto& value : targets) CHECK(!same_menu(frame, value));
+        targets.push_back(frame);
+    }
+    press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(same_menu(frame, targets[0]));
+    press(RETRO_DEVICE_ID_JOYPAD_DOWN); // DIRECTION is disabled in Manual.
+    const auto disabled_direction = frame;
+    press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(same_menu(frame, disabled_direction));
+    press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(same_menu(frame, disabled_direction));
+    press(RETRO_DEVICE_ID_JOYPAD_UP); press(RETRO_DEVICE_ID_JOYPAD_RIGHT); // Slow.
+    press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    std::vector<std::vector<unsigned char>> directions{frame}; // Down, Up, Random.
+    for (int i = 0; i < 2; ++i) {
+        press(RETRO_DEVICE_ID_JOYPAD_RIGHT);
+        for (const auto& value : directions) CHECK(!same_menu(frame, value));
+        directions.push_back(frame);
+    }
+    press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(same_menu(frame, directions[0]));
+    press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(same_menu(frame, directions[2]));
+    press(RETRO_DEVICE_ID_JOYPAD_DOWN); // BLINKING: On, Random, Off.
+    std::vector<std::vector<unsigned char>> blinkings{frame};
+    for (int i = 0; i < 2; ++i) {
+        press(RETRO_DEVICE_ID_JOYPAD_RIGHT);
+        for (const auto& value : blinkings) CHECK(!same_menu(frame, value));
+        blinkings.push_back(frame);
+    }
+    press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(same_menu(frame, blinkings[0]));
+    press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(same_menu(frame, blinkings[2]));
+    retro_reset(); buttons = 0; retro_run();
+    for (int i = 0; i < 3; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    CHECK(same_menu(frame, blinkings[2]));
+    press(RETRO_DEVICE_ID_JOYPAD_B); press(RETRO_DEVICE_ID_JOYPAD_UP); press(RETRO_DEVICE_ID_JOYPAD_A);
+    press(RETRO_DEVICE_ID_JOYPAD_B); press(RETRO_DEVICE_ID_JOYPAD_DOWN); press(RETRO_DEVICE_ID_JOYPAD_A);
+    for (int i = 0; i < 3; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    CHECK(same_menu(frame, blinkings[2]));
+    retro_unload_game(); buttons = 0; CHECK(retro_load_game(&game)); retro_run();
+    for (int i = 0; i < 3; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    CHECK(same_menu(frame, blinkings[2]));
+    retro_unload_game(); retro_deinit(); retro_init(); buttons = 0;
+    CHECK(retro_load_game(&game)); retro_run(); CHECK(same_menu(frame, shooting_defaults));
+    retro_unload_game();
+
+    // Match the rendered target against every valid once-per-match resolution.
+    // Sampling both before and after a shot rules out re-rolling during play, without
+    // requiring any particular random draw or assuming consecutive draws differ.
+    struct TargetCandidate { int speed, direction, position; bool blinking, valid; };
+    auto check_random_match = [&](bool manual) {
+        std::vector<TargetCandidate> candidates;
+        for (int speed : {6, 11, 16}) for (int direction : {-1, 1}) for (bool blinking : {false, true})
+            if (!manual || (speed == 6 && direction == -1))
+                candidates.push_back({speed, direction, 405, blinking, true});
+        for (int tick = 1; tick <= 200; ++tick) {
+            buttons = tick == 26 ? 1u << RETRO_DEVICE_ID_JOYPAD_Y : 0;
+            buttons2 = manual && tick >= 5 && tick < 10 ? 1u << RETRO_DEVICE_ID_JOYPAD_DOWN : 0;
+            retro_run();
+            for (auto& c : candidates) {
+                if (manual) c.position += buttons2 ? 12 : 0;
+                else if (c.speed == 11 && c.direction == 1) {
+                    c.position += 11;
+                    if (c.position >= 875) c.position = -65;
+                } else c.position = (c.position + 65 + c.speed * c.direction + 940) % 940 - 65;
+                // The shot may cross the target column or flash the screen here.
+                if (tick > 25 && tick < 130) continue;
+                const bool visible = !c.blinking || tick % 32 < 26;
+                const int top = c.position / 4;
+                for (int y = 0; y < 240; ++y) {
+                    const bool target_ink = pixel(272, y) == 0xf3d66b;
+                    if (target_ink != (visible && y >= top && y < top + 33)) { c.valid = false; break; }
+                }
+            }
+        }
+        buttons = buttons2 = 0;
+        for (const auto& c : candidates) if (c.valid) return true;
+        return false;
+    };
+    for (bool manual : {false, true}) {
+        retro_deinit(); retro_init();
+        buttons = buttons2 = 0; keys.fill(false); axes = {{0, 0}};
+        bytes[4] = 14; CHECK(retro_load_game(&game)); retro_run();
+        press(RETRO_DEVICE_ID_JOYPAD_DOWN); // TARGET
+        if (!manual) press(RETRO_DEVICE_ID_JOYPAD_LEFT); // Random
+        press(RETRO_DEVICE_ID_JOYPAD_DOWN); // DIRECTION
+        if (!manual) press(RETRO_DEVICE_ID_JOYPAD_LEFT); // Random
+        press(RETRO_DEVICE_ID_JOYPAD_DOWN); // BLINKING
+        press(RETRO_DEVICE_ID_JOYPAD_RIGHT); // Random
+        for (int i = 0; i < 3; ++i) press(RETRO_DEVICE_ID_JOYPAD_UP);
+        press(RETRO_DEVICE_ID_JOYPAD_START);
+        CHECK(check_random_match(manual));
+        // One shot was already fired by the trajectory check; fourteen more
+        // must finish the default 15-shot match, including after result restart.
+        for (int round = 0; round < 2; ++round) {
+            for (int shot = 0; shot < 14; ++shot) {
+                press(RETRO_DEVICE_ID_JOYPAD_Y);
+                buttons = 0; for (int i = 0; i < 100; ++i) retro_run();
+                CHECK((pixel(75, 99) == 0x295166) == (shot == 13));
+            }
+            press(RETRO_DEVICE_ID_JOYPAD_A); // Result restart resolves a new match.
+            CHECK(check_random_match(manual));
+        }
+        press(RETRO_DEVICE_ID_JOYPAD_START); // Pause restart resolves another match.
+        press(RETRO_DEVICE_ID_JOYPAD_DOWN); press(RETRO_DEVICE_ID_JOYPAD_A);
+        CHECK(check_random_match(manual));
+        retro_unload_game();
+    }
+
     // Each title exposes speed and both sizes; shooting also keeps its target mode.
     for (unsigned id = 0; id < 15; ++id) {
+        retro_deinit(); retro_init();
         buttons = buttons2 = 0; keys.fill(false); axes = {{0, 0}};
         bytes[4] = static_cast<unsigned char>(id);
         CHECK(retro_load_game(&game)); retro_run();
         auto defaults = frame;
-        // All choices stay in place and no vertical scroll arrows appear.
-        const unsigned count = 7, y = 88, spacing = 15;
+        // Shooting scrolls through nine rows; other titles show all seven.
+        const unsigned count = id == 14 ? 9 : 7;
         for (unsigned row = 0; row < count; ++row) {
-            CHECK(at(frame, 75, y + ((row + 1) % count) * spacing) == 0x295166);
-            CHECK(at(frame, 160, 87) != 0xffffff && at(frame, 156, 181) != 0xffffff);
+            const unsigned choice = (row + 1) % count;
+            const unsigned visible = id == 14 ? (choice >= 5 ? 4 : choice) : choice;
+            CHECK(at(frame, 75, (id == 14 ? 98 : 88) + visible * (id == 14 ? 16 : 15)) == 0x295166);
+            if (id != 14) CHECK(at(frame, 160, 87) != 0xffffff && at(frame, 156, 181) != 0xffffff);
             press(RETRO_DEVICE_ID_JOYPAD_DOWN);
         }
         CHECK(same_menu(frame, defaults));
         press(RETRO_DEVICE_ID_JOYPAD_DOWN); // Mode or target.
+        if (id == 14) { press(RETRO_DEVICE_ID_JOYPAD_DOWN); press(RETRO_DEVICE_ID_JOYPAD_DOWN); }
         press(RETRO_DEVICE_ID_JOYPAD_DOWN); // Speed.
         auto low = frame; press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(!same_menu(frame, low));
         press(RETRO_DEVICE_ID_JOYPAD_DOWN); // Left size.
@@ -1097,7 +1247,13 @@ int main() {
         press(RETRO_DEVICE_ID_JOYPAD_DOWN); // Right size.
         auto large_right = frame; press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(!same_menu(frame, large_right));
 
-        retro_reset(); retro_run(); CHECK(!same_menu(frame, defaults)); // Switches survive reset.
+        retro_reset(); retro_run();
+        if (id == 14) {
+            // The changed speed and sizes are below the initial viewport.
+            for (int i = 0; i < 4; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+            CHECK(at(frame, 75, 162) == 0x295166);
+            for (int i = 0; i < 4; ++i) press(RETRO_DEVICE_ID_JOYPAD_UP);
+        } else CHECK(!same_menu(frame, defaults)); // Switches survive reset.
         press(RETRO_DEVICE_ID_JOYPAD_START);
         const auto paddle_color = id == 14 ? 0xf3d66b : id >= 12 ? 0x9b8cff : id >= 8 ? 0xa6e6ff : id >= 4 ? 0xff9fff : 0xd0ecb2;
         CHECK(at(frame, 48, 117) == paddle_color);
@@ -1106,10 +1262,13 @@ int main() {
         press(RETRO_DEVICE_ID_JOYPAD_DOWN); press(RETRO_DEVICE_ID_JOYPAD_A);
         CHECK(at(frame, 48, 103) != paddle_color);
         retro_unload_game(); buttons = 0;
-        CHECK(retro_load_game(&game)); retro_run(); CHECK(same_menu(frame, defaults));
+        CHECK(retro_load_game(&game)); retro_run();
+        for (int i = 0; i < (id == 14 ? 4 : 2); ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+        CHECK(!same_menu(frame, low));
         retro_unload_game();
     }
     // Competitive score cycles through all targets and survives reset, restart and game switching.
+    retro_deinit(); retro_init();
     buttons = buttons2 = 0; bytes[4] = 2; CHECK(retro_load_game(&game)); retro_run();
     for (int i = 0; i < 5; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
     std::vector<std::vector<unsigned char>> scores{frame};
@@ -1158,12 +1317,13 @@ int main() {
     }
     retro_unload_game(); buttons = 0; CHECK(retro_load_game(&game)); retro_run();
     for (int i = 0; i < 5; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
-    CHECK(same_menu(frame, scores[0]) && !same_menu(frame, retained_score));
+    CHECK(same_menu(frame, retained_score) && !same_menu(frame, scores[0]));
     retro_unload_game();
 
     // SHOTS cycles independently of SCORE and survives switches, reset, and both restarts.
+    retro_deinit(); retro_init();
     buttons = buttons2 = 0; bytes[4] = 14; CHECK(retro_load_game(&game)); retro_run();
-    for (int i = 0; i < 5; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    for (int i = 0; i < 7; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
     std::vector<std::vector<unsigned char>> shots{frame};
     for (int i = 0; i < 5; ++i) {
         press(RETRO_DEVICE_ID_JOYPAD_RIGHT);
@@ -1174,16 +1334,16 @@ int main() {
     press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(same_menu(frame, shots[5]));
     press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(same_menu(frame, shots[4])); // 5
     retro_reset(); buttons = 0; retro_run();
-    for (int i = 0; i < 5; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    for (int i = 0; i < 7; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
     CHECK(same_menu(frame, shots[4]));
     press(RETRO_DEVICE_ID_JOYPAD_B); press(RETRO_DEVICE_ID_JOYPAD_UP); press(RETRO_DEVICE_ID_JOYPAD_A);
     for (int i = 0; i < 5; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
     auto competitive_default = frame;
     press(RETRO_DEVICE_ID_JOYPAD_RIGHT); auto competitive_changed = frame;
     press(RETRO_DEVICE_ID_JOYPAD_B); press(RETRO_DEVICE_ID_JOYPAD_DOWN); press(RETRO_DEVICE_ID_JOYPAD_A);
-    for (int i = 0; i < 5; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    for (int i = 0; i < 7; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
     CHECK(same_menu(frame, shots[4]));
-    for (int i = 0; i < 5; ++i) press(RETRO_DEVICE_ID_JOYPAD_UP);
+    for (int i = 0; i < 7; ++i) press(RETRO_DEVICE_ID_JOYPAD_UP);
     press(RETRO_DEVICE_ID_JOYPAD_START);
     press(RETRO_DEVICE_ID_JOYPAD_START); press(RETRO_DEVICE_ID_JOYPAD_DOWN); press(RETRO_DEVICE_ID_JOYPAD_A);
     for (int round = 0; round < 2; ++round) {
@@ -1195,10 +1355,10 @@ int main() {
         if (round == 0) press(RETRO_DEVICE_ID_JOYPAD_A);
     }
     press(RETRO_DEVICE_ID_JOYPAD_DOWN); press(RETRO_DEVICE_ID_JOYPAD_A);
-    for (int i = 0; i < 5; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    for (int i = 0; i < 7; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
     CHECK(same_menu(frame, shots[4]));
     press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(same_menu(frame, shots[3])); // 30
-    for (int i = 0; i < 5; ++i) press(RETRO_DEVICE_ID_JOYPAD_UP);
+    for (int i = 0; i < 7; ++i) press(RETRO_DEVICE_ID_JOYPAD_UP);
     press(RETRO_DEVICE_ID_JOYPAD_START);
     for (int shot = 0; shot < 30; ++shot) {
         press(RETRO_DEVICE_ID_JOYPAD_Y);
@@ -1211,12 +1371,13 @@ int main() {
     for (int i = 0; i < 5; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
     CHECK(same_menu(frame, competitive_changed) && !same_menu(frame, competitive_default));
     retro_unload_game(); buttons = 0; CHECK(retro_load_game(&game)); retro_run();
-    for (int i = 0; i < 5; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
-    CHECK(same_menu(frame, shots[0]));
+    for (int i = 0; i < 7; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    CHECK(same_menu(frame, shots[3]));
     retro_unload_game();
 
     // P2 modes are available for every tennis-family title and cycle in both directions.
     for (unsigned id = 0; id < 14; ++id) {
+        retro_deinit(); retro_init();
         buttons = buttons2 = 0; axes = {{0, 0}};
         bytes[4] = static_cast<unsigned char>(id);
         CHECK(retro_load_game(&game)); retro_run();
@@ -1237,6 +1398,7 @@ int main() {
     // AI ignores both digital and analog P2 input, while classic responds to it.
     // Replaying after reset must reproduce the same frame sequence for every mode.
     for (unsigned mode = 0; mode < 4; ++mode) {
+        retro_deinit(); retro_init();
         buttons = buttons2 = 0; axes = {{0, 0}}; bytes[4] = 2;
         CHECK(retro_load_game(&game)); retro_run();
         press(RETRO_DEVICE_ID_JOYPAD_DOWN);
@@ -1278,8 +1440,9 @@ int main() {
         retro_unload_game();
     }
 
-    // A selection belongs to its content ID, survives a game change and reset,
-    // and is cleared by loading content again (including no-content loads).
+    // Without a save directory, selections remain associated with their content
+    // IDs across game changes, reset and reload for the lifetime of the core.
+    retro_deinit(); retro_init();
     buttons = buttons2 = 0; axes = {{0, 0}};
     CHECK(retro_load_game(nullptr)); retro_run();
     press(RETRO_DEVICE_ID_JOYPAD_A);
@@ -1301,9 +1464,106 @@ int main() {
     retro_unload_game(); buttons = 0;
     CHECK(retro_load_game(nullptr)); retro_run(); press(RETRO_DEVICE_ID_JOYPAD_A);
     press(RETRO_DEVICE_ID_JOYPAD_DOWN);
-    CHECK(same_menu(frame, classic_p2));
+    CHECK(same_menu(frame, easy_p2) && !same_menu(frame, classic_p2));
     retro_unload_game();
     retro_deinit();
+
+    // Persist menu settings independently of the selected-game startup setting.
+    // Compare rendered rows rather than depending on the settings file format.
+    const auto settings_temp = fs::temp_directory_path() / ("ctg-settings-test-" +
+        std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+    CHECK(fs::create_directory(settings_temp));
+    const auto settings_file = settings_temp / "colortvgame-preferences";
+    save_directory = settings_temp.u8string(); save_available = true;
+    start_game_value = "First";
+    buttons = buttons2 = 0; axes = {{0, 0}}; keys.fill(false);
+    retro_init();
+    auto load_direct = [&](unsigned id) {
+        char path[512]; std::snprintf(path, sizeof path, "%s/slot-%02u.ctg", CONTENT_DIR, id);
+        std::ifstream in(path, std::ios::binary);
+        if (!in) return false;
+        std::vector<unsigned char> content((std::istreambuf_iterator<char>(in)), {});
+        retro_game_info direct{}; direct.path = path; direct.data = content.data(); direct.size = content.size();
+        buttons = 0;
+        if (!retro_load_game(&direct)) return false;
+        retro_run(); return true;
+    };
+    auto menu_rows = [&](unsigned id) {
+        std::vector<std::vector<unsigned char>> rows{frame};
+        for (unsigned row = 1; row < (id == 14 ? 9u : 7u); ++row) {
+            press(RETRO_DEVICE_ID_JOYPAD_DOWN); rows.push_back(frame);
+        }
+        return rows;
+    };
+    auto check_rows = [&](unsigned id, const std::vector<std::vector<unsigned char>>& expected) {
+        const auto actual = menu_rows(id);
+        if (actual.size() != expected.size()) return false;
+        for (size_t row = 0; row < actual.size(); ++row)
+            if (!same_menu(actual[row], expected[row])) return false;
+        return true;
+    };
+    std::vector<std::vector<std::vector<unsigned char>>> default_rows, saved_rows;
+    for (unsigned id = 0; id < 15; ++id) {
+        CHECK(load_direct(id)); default_rows.push_back(menu_rows(id)); retro_unload_game();
+    }
+    // Set all shared competitive controls to non-default values.
+    CHECK(load_direct(2));
+    for (int row = 0; row < 2; ++row) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    for (int row = 0; row < 4; ++row) {
+        press(RETRO_DEVICE_ID_JOYPAD_RIGHT); press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    }
+    retro_unload_game();
+    // Give every competitive title its own mode, including untouched defaults.
+    for (unsigned id = 0; id < 14; ++id) {
+        CHECK(load_direct(id)); press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+        for (unsigned choice = 0; choice < id % 4; ++choice) press(RETRO_DEVICE_ID_JOYPAD_RIGHT);
+        retro_unload_game();
+    }
+    CHECK(load_direct(14));
+    press(RETRO_DEVICE_ID_JOYPAD_DOWN); press(RETRO_DEVICE_ID_JOYPAD_RIGHT); // target
+    press(RETRO_DEVICE_ID_JOYPAD_DOWN); press(RETRO_DEVICE_ID_JOYPAD_RIGHT); // direction
+    press(RETRO_DEVICE_ID_JOYPAD_DOWN); press(RETRO_DEVICE_ID_JOYPAD_RIGHT); // blinking
+    for (int row = 0; row < 4; ++row) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    press(RETRO_DEVICE_ID_JOYPAD_LEFT); // shots, independent of score
+    retro_unload_game();
+    for (unsigned id = 0; id < 15; ++id) {
+        CHECK(load_direct(id)); saved_rows.push_back(menu_rows(id)); retro_unload_game();
+        CHECK(!same_menu(saved_rows[id][0], default_rows[id][0]));
+    }
+    CHECK(fs::exists(settings_file));
+    // Reset and reload must preserve every row, including the scrolled shooting rows.
+    for (unsigned id = 0; id < 15; ++id) {
+        CHECK(load_direct(id)); retro_reset(); buttons = 0; retro_run();
+        CHECK(check_rows(id, saved_rows[id])); retro_unload_game();
+    }
+    retro_deinit(); retro_init();
+    for (unsigned id = 0; id < 15; ++id) {
+        CHECK(load_direct(id)); CHECK(check_rows(id, saved_rows[id])); retro_unload_game();
+    }
+    // Selector launches and direct launches share the same persisted settings.
+    CHECK(retro_load_game(nullptr)); buttons = 0; retro_run();
+    for (unsigned position = 0; position < display_ids.size(); ++position) {
+        const unsigned id = display_ids[position];
+        press(RETRO_DEVICE_ID_JOYPAD_A); CHECK(check_rows(id, saved_rows[id]));
+        press(RETRO_DEVICE_ID_JOYPAD_B); press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    }
+    retro_unload_game(); retro_deinit();
+    // Missing, unavailable and malformed settings must never inherit stale values.
+    for (int invalid = 0; invalid < 4; ++invalid) {
+        fs::remove(settings_file);
+        if (invalid >= 2) {
+            std::ofstream out(settings_file, std::ios::binary | std::ios::trunc);
+            if (invalid == 3) out << "not a valid settings record\n";
+            CHECK(out.good());
+        }
+        save_available = invalid != 1;
+        retro_init();
+        for (unsigned id = 0; id < 15; ++id) {
+            CHECK(load_direct(id)); CHECK(check_rows(id, default_rows[id])); retro_unload_game();
+        }
+        retro_deinit();
+    }
+    fs::remove_all(settings_temp); save_available = true;
 
     // Startup selection applies only to no-content launches. Keep this fixture
     // separate from the older tests and their system-directory fixture.
@@ -1788,5 +2048,81 @@ int main() {
     retro_unload_game(); retro_deinit();
 
     CHECK(rf_quality_definition.find("; 100%|90%|80%|70%|60%|50%|40%|30%|20%|10%|0%") != std::string::npos);
+
+    // Exercise rumble through the frontend interface rather than engine event bits.
+    set_color("On"); set_rf_filter("Off");
+    bytes[4] = 14; buttons = buttons2 = 0; keys.fill(false); axes = {{0, 0}};
+    rumble_available = true; rumble_calls.clear(); vibration_value.clear();
+    retro_init(); CHECK(retro_load_game(&game)); retro_run();
+    buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
+    buttons = 0; retro_run(); buttons = 1u << RETRO_DEVICE_ID_JOYPAD_Y; retro_run();
+    for (const auto& call : rumble_calls) CHECK(call.strength == 0);
+    retro_unload_game(); retro_deinit();
+
+    set_vibration("On"); rumble_queries = 0; rumble_calls.clear(); buttons = 0;
+    retro_init(); CHECK(retro_load_game(&game));
+    for (int i = 0; i < 1200; ++i) retro_run();
+    CHECK(rumble_queries > 0);
+    for (const auto& call : rumble_calls) CHECK(call.strength == 0);
+    retro_unload_game(); retro_deinit();
+
+    // Starting each ball game and completing its initial automatic serve is silent
+    // on both controllers, before the first ball movement or paddle collision.
+    for (unsigned id = 0; id < 14; ++id) {
+        bytes[4] = static_cast<unsigned char>(id);
+        set_vibration("On"); buttons = buttons2 = 0; rumble_calls.clear();
+        retro_init(); CHECK(retro_load_game(&game)); retro_run();
+        buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
+        buttons = 0;
+        for (int i = 0; i < 130; ++i) retro_run();
+        CHECK(rumble_calls.empty());
+        retro_unload_game(); retro_deinit();
+    }
+    bytes[4] = 14;
+
+    // Start a fresh shot for each interruption so a previous stop cannot mask it.
+    for (int interruption = 0; interruption < 4; ++interruption) {
+        set_vibration("On"); buttons = 0; rumble_calls.clear();
+        retro_init(); CHECK(retro_load_game(&game)); retro_run();
+        buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
+        buttons = 0; retro_run(); rumble_calls.clear();
+        buttons = 1u << RETRO_DEVICE_ID_JOYPAD_Y; retro_run();
+        bool active[2] = {};
+        for (const auto& call : rumble_calls) {
+            CHECK(call.port == 0);
+            CHECK(call.effect == RETRO_RUMBLE_STRONG || call.effect == RETRO_RUMBLE_WEAK);
+            active[static_cast<unsigned>(call.effect)] = call.strength != 0;
+        }
+        CHECK(active[0] || active[1]);
+        rumble_calls.clear(); buttons = 0;
+        if (interruption == 0) { set_vibration("Off"); retro_run(); }
+        if (interruption == 1) retro_unload_game();
+        if (interruption == 2) retro_reset();
+        if (interruption == 3) { buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run(); }
+        for (const auto& call : rumble_calls) {
+            CHECK(call.port == 0);
+            CHECK(call.effect == RETRO_RUMBLE_STRONG || call.effect == RETRO_RUMBLE_WEAK);
+            active[static_cast<unsigned>(call.effect)] = call.strength != 0;
+        }
+        CHECK(!active[0] && !active[1]);
+        if (interruption != 1) retro_unload_game();
+        retro_deinit();
+    }
+
+    // A missing interface or a controller that rejects rumble must not prevent play.
+    for (int unavailable = 0; unavailable < 2; ++unavailable) {
+        rumble_available = unavailable != 0; rumble_accept = false;
+        set_vibration("On"); buttons = 0; rumble_calls.clear(); rumble_queries = 0;
+        retro_init(); CHECK(retro_load_game(&game)); retro_run();
+        buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
+        buttons = 0; retro_run();
+        const unsigned before = nonzero_audio;
+        buttons = 1u << RETRO_DEVICE_ID_JOYPAD_Y; retro_run();
+        CHECK(rumble_queries > 0 && nonzero_audio > before);
+        if (!rumble_available) CHECK(rumble_calls.empty());
+        else CHECK(!rumble_calls.empty());
+        retro_unload_game(); retro_deinit();
+    }
+    rumble_available = false; rumble_accept = true; vibration_value.clear(); buttons = 0;
     return 0;
 }

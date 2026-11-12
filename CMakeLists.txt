@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(ColorTVGameSimulator VERSION 0.1.3 LANGUAGES CXX)
+project(ColorTVGameSimulator VERSION 0.1.4 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -16,8 +16,26 @@ target_include_directories(tennis_b PUBLIC src)
 set_target_properties(tennis_b PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_link_libraries(colortvgame_libretro PRIVATE tennis_b)
 
+add_executable(generate_selectors scripts/generate-selectors.cpp src/generator.cpp)
+target_include_directories(generate_selectors PRIVATE src)
+find_package(Python3 COMPONENTS Interpreter QUIET)
+if(Python3_Interpreter_FOUND)
+  add_custom_target(package_selectors
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/package-selectors.py"
+      "$<TARGET_FILE:generate_selectors>" "${CMAKE_CURRENT_SOURCE_DIR}/docs/SELECTORS_README.md"
+      "${CMAKE_CURRENT_BINARY_DIR}/colortvgame-selectors.zip"
+    DEPENDS generate_selectors
+    VERBATIM)
+endif()
+
 include(CTest)
 if(BUILD_TESTING)
+  if(Python3_Interpreter_FOUND)
+    add_test(NAME package_selectors_tests COMMAND "${Python3_EXECUTABLE}"
+      "${CMAKE_CURRENT_SOURCE_DIR}/tests/package_selectors_tests.py"
+      "$<TARGET_FILE:generate_selectors>" "${CMAKE_CURRENT_SOURCE_DIR}"
+      "${CMAKE_CURRENT_BINARY_DIR}")
+  endif()
   add_executable(tennis_b_tests tests/tennis_b_tests.cpp)
   target_link_libraries(tennis_b_tests PRIVATE tennis_b)
   add_test(NAME tennis_b_tests COMMAND tennis_b_tests)

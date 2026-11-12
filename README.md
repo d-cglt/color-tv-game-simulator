@@ -58,17 +58,17 @@ On Linux the shared core is `build/colortvgame_libretro.so`; the extension and o
 
 The [build workflow](.github/workflows/build.yml) is configured to build Release and run the applicable CTest suite on GitHub-hosted Linux x86-64, Windows x86-64 and macOS x86-64 runners. The macOS job requests x86-64 and checks the built Mach-O architecture with `lipo`. Successful jobs upload separately named artifacts containing the core, both license notices and [usage instructions](docs/CI_ARTIFACT.md). The Linux-only package test and Unix launcher test run only on their applicable platforms.
 
-[GitHub Actions run 42813010356](https://github.com/d-cglt/color-tv-game-simulator/actions/runs/42813010356) succeeded on all three runners and uploaded their artifacts, including a macOS x86-64 architecture check. That run predates the 0.1.1 source changes; runner images and availability can change. CI artifacts are not the packaged Linux release and have not themselves been validated in a real frontend. Windows x86-64 and macOS Intel remain experimental targets for 0.1.3; frontend compatibility, runtime requirements and distribution readiness remain unverified. Apple Silicon is not built; matching architecture alone does not guarantee that a frontend can load the core.
+[GitHub Actions run 43233049758](https://github.com/d-cglt/color-tv-game-simulator/actions/runs/43233049758) built and tested the 0.1.3 tag on all three runners, including a macOS x86-64 architecture check. Releases should include Linux x86-64, Windows x86-64 and macOS Intel builds when available; report any unavailable platform rather than silently omitting it. Windows and macOS release archives contain CI-built artifacts and have not been validated in a real frontend. They remain experimental: frontend compatibility, runtime requirements and distribution readiness are unverified. Apple Silicon is not built; matching architecture alone does not guarantee that a frontend can load the core.
 
 ## Linux release package
 
-Versions **0.1.0**, **0.1.1**, and **0.1.2** have been released; the current source is version **0.1.3**. See the [0.1.3 release notes](docs/RELEASE_NOTES_0.1.3.md). This does not imply a 0.1.3 package has been published or frontend-tested. Build and test a Release configuration, then assemble the versioned package from that exact core:
+Version **0.1.4** fixes generator option detection and provides a separate 16-selector archive; see the [release notes](docs/RELEASE_NOTES_0.1.4.md). Packaged binaries have not been frontend-tested. Build and test a Release configuration, then assemble the versioned package from that exact core:
 
 ```sh
 cmake -S . -B build-release -DCMAKE_BUILD_TYPE=Release
 cmake --build build-release
 ctest --test-dir build-release --output-on-failure
-sh scripts/package-linux.sh build-release/colortvgame_libretro.so build-release/colortvgame-0.1.3-linux.tar.gz
+sh scripts/package-linux.sh build-release/colortvgame_libretro.so build-release/colortvgame-0.1.4-linux.tar.gz
 ```
 
 The archive contains the Color TV-Game Simulator core, project license, vendored libretro header's MIT notice, and [end-user instructions](docs/LINUX_RELEASE.md). The script packages the supplied binary as-is; build it on an appropriate Linux target and verify runtime compatibility for distribution. The CMake project version controls the version reported by the core; choose an archive name matching the built binary, since the script does not verify its version or revision. It does not guarantee byte-identical archives or bundle RetroArch, metadata, launchers, or content. CTest assembles and extracts a package, checks its payload and notices, and dynamically loads the packaged core; this is not a substitute for frontend validation.
@@ -85,6 +85,17 @@ Build the core as above. To open the game selector without a content file, run `
 Use `tennis`, `hockey`, or `volleyball`, followed by `original` or `variant`, and `singles` or `doubles`. Other names are `ping-pong-singles`, `ping-pong-doubles`, and `shooting-game-original`. Existing A/B names and individual scripts remain supported: A selects Variant and B selects Original (for example, `./scripts/tennis-b-singles.sh` selects ID 2). All selectors open playable implementations; fidelity and interactive validation remain in progress. The launcher prefers `retroarch` on `PATH`, otherwise it tries the RetroDECK Flatpak (`net.retrodeck.retrodeck`). Set `CTG_FRONTEND=native` or `CTG_FRONTEND=retrodeck` to force a choice. RetroDECK runs its bundled `retroarch` with temporary read-only filesystem access to the project; no persistent Flatpak permissions or frontend configuration are changed. Flatpak must be installed and RetroDECK must include its RetroArch executable at `/app/retrodeck/components/retroarch/bin/retroarch`. If the sandbox or installation cannot load the core, use native RetroArch instead. Paths with spaces are supported; Flatpak filesystem syntax does not support a colon in the project path. The launcher expects `build/colortvgame_libretro.so` and reports missing files or frontends.
 
 The project launchers append `scripts/launcher-input.cfg` for that RetroArch session only: player 1 can use an assigned gamepad (including Xbox-compatible controllers), while keyboard Up/Down control player 2. Keyboard Up/Down are unbound for player 1 to prevent overlap. The override does not change joypad assignments or other gamepad bindings; those remain subject to your RetroArch configuration. It also disables rewind, automatic state saving/loading, and saving frontend settings on exit for the launched session, so changes made in RetroArch during that session will not be saved to its main configuration. When loading the core manually, the frontend retains its own settings, but the core reports that serialization is unsupported. The launchers do not modify global configuration. Manually loading the core and content without the launcher does not apply these settings.
+
+## Separate selector archive
+
+Version 0.1.4 provides a separate, platform-independent archive of 16 generated `.ctg` selectors for IDs 0–15. These five-byte files select built-in games; they are not ROMs and require a compatible core. Extract them and use the frontend's **Load Content** after loading the core. ID 15 selects the Racing prototype and requires a core with Racing support (0.1.3 or newer); older cores reject it. The core archives and CI artifacts do not include these files. From the repository root, a release maintainer can create the separate archive with:
+
+```sh
+cmake -S . -B build
+cmake --build build --config Release --target package_selectors
+```
+
+This requires Python 3 and produces `build/colortvgame-selectors.zip` with named selectors and usage instructions. Check the archive contains exactly IDs 00–15 before publishing; this command does not create or publish a release. Alternatively, generate descriptively named selectors in the frontend as described below.
 
 ## Generate individual game files
 
@@ -110,6 +121,7 @@ If loading fails, check that the frontend accepts XRGB8888 and that the core and
 
 - [Roadmap](docs/ROADMAP.md) — implementation status, frontend validation, and milestones.
 - [Racing design](docs/RACING_DESIGN.md) — first-playable scope, compatibility and future plans.
+- [0.1.4 release notes](docs/RELEASE_NOTES_0.1.4.md) — generator fix, release targets and selector archive.
 - [0.1.3 release notes](docs/RELEASE_NOTES_0.1.3.md) — changes and validation limits.
 - [Content format](docs/CONTENT_FORMAT.md) — five-byte format and provisional slots.
 - [Core information](docs/CORE_INFO.md) — optional frontend metadata, installation, and validation limits.

@@ -19,7 +19,7 @@ bool support = false, accept_format = true;
 bool system_available = true;
 std::string system_directory, last_message;
 unsigned system_queries = 0, set_variable_calls = 0;
-bool set_variable_supported = true, variable_updated = false;
+bool set_variable_supported = true, variable_updated = false, variable_update_supported = true;
 std::string generate_value = "Ready", last_set_key, last_set_value, generate_definition;
 std::string demo_sounds_value, demo_sounds_definition;
 std::string rebound_value, rebound_definition;
@@ -114,6 +114,7 @@ bool env(unsigned cmd, void* data) {
         return true;
     }
     if (cmd == RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE) {
+        if (!variable_update_supported) return false;
         *static_cast<bool*>(data) = variable_updated; variable_updated = false; return true;
     }
     if (cmd == RETRO_ENVIRONMENT_GET_VARIABLE) {
@@ -236,6 +237,21 @@ int main() {
     CHECK(system_queries == 5 && set_variable_calls == 5 && last_set_key == "colortvgame_generate_files" && last_set_value == "Ready");
     CHECK(last_message.find("0 created, 16 existing, 0 failed") != std::string::npos);
     set_variable_supported = true; set_generate_value("Ready");
+    retro_run();
+    // Frontends without update notifications must still detect option changes.
+    variable_update_supported = false;
+    set_generate_value("Generate"); retro_run();
+    CHECK(system_queries == 6 && last_message.find("0 created, 16 existing, 0 failed") != std::string::npos);
+    for (int i = 0; i < 30; ++i) retro_run();
+    CHECK(system_queries == 6);
+    variable_update_supported = true;
+    retro_run();
+    // Some frontends return a changed value without setting the update flag.
+    generate_value = "Generate"; variable_updated = false;
+    retro_run();
+    CHECK(system_queries == 7 && last_message.find("0 created, 16 existing, 0 failed") != std::string::npos);
+    for (int i = 0; i < 30; ++i) retro_run();
+    CHECK(system_queries == 7);
     retro_unload_game(); retro_deinit(); fs::remove_all(temp);
     frames = polls = audio_frames = messages = 0;
     std::array<unsigned char, 6> bytes{{'C','T','G','1',0,0}};
@@ -262,7 +278,7 @@ int main() {
     CHECK(support && retro_api_version() == RETRO_API_VERSION);
     retro_system_info info{}; retro_get_system_info(&info);
     CHECK(info.library_name && std::strcmp(info.library_name, "Color TV-Game Simulator") == 0);
-    CHECK(info.library_version && std::strcmp(info.library_version, "0.1.3") == 0);
+    CHECK(info.library_version && std::strcmp(info.library_version, "0.1.4") == 0);
     CHECK(std::strlen(info.library_name) == 23);
     CHECK(!info.need_fullpath && std::strcmp(info.valid_extensions, "ctg") == 0);
     retro_system_av_info av{}; retro_get_system_av_info(&av);

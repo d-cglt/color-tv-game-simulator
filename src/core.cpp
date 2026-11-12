@@ -873,12 +873,8 @@ void generate_game_files() {
     message(text);
 }
 void update_generate_option() {
+
     if (!environment) { option_known = false; return; }
-    if (option_known) {
-        bool updated = false;
-        if (!environment(RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE, &updated)) { option_known = false; return; }
-        if (!updated) return;
-    }
     retro_variable variable{"colortvgame_generate_files", nullptr};
     if (!environment(RETRO_ENVIRONMENT_GET_VARIABLE, &variable) || !variable.value ||
         (std::strcmp(variable.value, "Ready") != 0 && std::strcmp(variable.value, "Generate") != 0)) {

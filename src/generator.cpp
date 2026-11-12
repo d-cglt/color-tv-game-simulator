@@ -12,7 +12,7 @@
 #endif
 
 namespace ctg {
-const char* const generated_filenames[15] = {
+const char* const generated_filenames[slot_count] = {
     "Tennis Variant - Singles (Color TV Game 15).ctg", "Tennis Variant - Doubles (Color TV Game 15).ctg",
     "Tennis Original - Singles (Color TV Game 6 + 15).ctg", "Tennis Original - Doubles (Color TV Game 6 + 15).ctg",
     "Hockey Variant - Singles (Color TV Game 15).ctg", "Hockey Variant - Doubles (Color TV Game 15).ctg",
@@ -20,9 +20,10 @@ const char* const generated_filenames[15] = {
     "Volleyball Variant - Singles (Color TV Game 15).ctg", "Volleyball Variant - Doubles (Color TV Game 15).ctg",
     "Volleyball Original - Singles (Color TV Game 6 + 15).ctg", "Volleyball Original - Doubles (Color TV Game 6 + 15).ctg",
     "Ping-Pong - Singles (Color TV Game 15).ctg", "Ping-Pong - Doubles (Color TV Game 15).ctg",
-    "Shooting Game (Color TV Game 15).ctg"
+    "Shooting Game (Color TV Game 15).ctg",
+    "Racing 112 (Color TV Game Racing 112).ctg"
 };
-static_assert(slot_count == 15, "Update generated filenames for new slots");
+static_assert(slot_count == 16, "Update generated filenames for new slots");
 
 GenerationResult generate_game_files(const char* system_directory) noexcept {
     GenerationResult result;

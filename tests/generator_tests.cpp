@@ -38,6 +38,13 @@ int main() {
         "Volleyball A - Singles (Color TV Game 15).ctg", "Volleyball A - Doubles (Color TV Game 15).ctg",
         "Volleyball B - Singles (Color TV Game 6 + 15).ctg", "Volleyball B - Doubles (Color TV Game 6 + 15).ctg"
     };
+    unsigned char descriptor[] = {'C', 'T', 'G', '1', 0};
+    for (unsigned id = 0; id < 256; ++id) {
+        descriptor[4] = static_cast<unsigned char>(id);
+        const auto parsed = ctg::parse_content(descriptor, sizeof(descriptor));
+        CHECK(bool(parsed) == (id < 16));
+        if (parsed) CHECK(*parsed == id);
+    }
     const char* const expected_names[] = {
         "Tennis Variant - Singles (Color TV Game 15).ctg", "Tennis Variant - Doubles (Color TV Game 15).ctg",
         "Tennis Original - Singles (Color TV Game 6 + 15).ctg", "Tennis Original - Doubles (Color TV Game 6 + 15).ctg",
@@ -46,7 +53,8 @@ int main() {
         "Volleyball Variant - Singles (Color TV Game 15).ctg", "Volleyball Variant - Doubles (Color TV Game 15).ctg",
         "Volleyball Original - Singles (Color TV Game 6 + 15).ctg", "Volleyball Original - Doubles (Color TV Game 6 + 15).ctg",
         "Ping-Pong - Singles (Color TV Game 15).ctg", "Ping-Pong - Doubles (Color TV Game 15).ctg",
-        "Shooting Game (Color TV Game 15).ctg"
+        "Shooting Game (Color TV Game 15).ctg",
+        "Racing 112 (Color TV Game Racing 112).ctg"
     };
     static_assert(sizeof(expected_names) / sizeof(expected_names[0]) == ctg::slot_count);
     const auto former_dir = base / "old-save" / "color-tv-game" / "content";
@@ -125,7 +133,7 @@ int main() {
         existing.write(bytes, sizeof(bytes));
     }
     const auto collisions = ctg::generate_game_files(collision_system.u8string().c_str());
-    CHECK(collisions.created == 3 && collisions.existing == 12 && collisions.failed == 0);
+    CHECK(collisions.created == 4 && collisions.existing == 12 && collisions.failed == 0);
     for (unsigned id = 0; id < 12; ++id) {
         std::ifstream existing(collision_dir / expected_names[id], std::ios::binary);
         const std::string bytes((std::istreambuf_iterator<char>(existing)), {});

@@ -5,6 +5,7 @@
 #include "tennis_b.h"
 #include "opponent.h"
 #include "shooting.h"
+#include "racing.h"
 #include "tennis_a_blocks.h"
 #include <algorithm>
 #include <cstdio>
@@ -95,7 +96,7 @@ void apply_rf_filter(unsigned quality) {
     }
 }
 constexpr std::array<unsigned, ctg::slot_count> selector_order{{
-    2, 3, 6, 7, 10, 11, 0, 1, 4, 5, 8, 9, 12, 13, 14
+    2, 3, 6, 7, 10, 11, 0, 1, 4, 5, 8, 9, 12, 13, 14, 15
 }};
 unsigned selector_position(unsigned id) {
     return static_cast<unsigned>(std::find(selector_order.begin(), selector_order.end(), id) - selector_order.begin());
@@ -109,7 +110,7 @@ constexpr std::array<Title, ctg::slot_count> titles{{
     {"VOLLEYBALL VARIANT", "SINGLES"}, {"VOLLEYBALL VARIANT", "DOUBLES"},
     {"VOLLEYBALL ORIGINAL", "SINGLES"}, {"VOLLEYBALL ORIGINAL", "DOUBLES"},
     {"PING PONG", "SINGLES"}, {"PING PONG", "DOUBLES"},
-    {"SHOOTING GAME", ""}
+    {"SHOOTING GAME", ""}, {"RACING 112 (PROTO)", ""}
 }};
 constexpr unsigned title_length(const char* s) {
     unsigned length = 0;
@@ -164,6 +165,8 @@ ctg::Opponent opponent;
 ctg::RallyDifficulty rally_difficulty;
 std::array<unsigned, 14> opponent_modes{};
 ctg::Shooting shooting;
+ctg::Racing racing, demo_racing;
+bool racing_analog_active = false;
 ctg::TennisB demo_tennis;
 bool paddle_movement_rebound = false;
 bool anti_stalemate = true;
@@ -174,6 +177,7 @@ bool menu_hidden = false, suppress_wake_input = false;
 bool demo_sounds = true;
 struct DemoTone { unsigned remaining = 0, phase = 0, period = 0; } demo_tone;
 void reset_demo() {
+    racing_analog_active = false;
     demo_tone = {};
     demo_id = ctg::slot_count;
     inactivity_frames = demo_frame = rotation_frames = 0;
@@ -190,12 +194,15 @@ void step_demo(unsigned id) {
                                    id == 8 || id == 9, id == 12 || id == 13);
         demo_tennis.set_rebound_mode(paddle_movement_rebound);
         demo_tennis.set_anti_stalemate(anti_stalemate);
+        demo_racing.reset_preview();
         demo_shooting = ctg::Shooting{};
         demo_shooting.set_target_behavior(11, 1, true);
         for (auto& ai : demo_opponents) ai.reset();
     }
     unsigned events = 0;
-    if (id == 14) {
+    if (id == 15) {
+        demo_racing.step_preview();
+    } else if (id == 14) {
         const auto& state = demo_shooting.state();
         if (state.finished) demo_shooting.reset();
         const int delta = demo_shooting.state().target_y + 16 - demo_shooting.state().shooter_y;
@@ -233,7 +240,7 @@ void apply_options() { tennis.set_anti_stalemate(anti_stalemate); tennis.set_reb
 enum ShootingRow : unsigned { shooting_return, shooting_start, shooting_target_row, shooting_direction_row,
                               shooting_blinking_row, shooting_speed_row, shooting_p1_size_row,
                               shooting_p2_size_row, shooting_shots_row, shooting_row_count };
-unsigned option_count() { return content_id == 14 ? shooting_row_count : 7; }
+unsigned option_count() { return content_id == 15 ? 2 : content_id == 14 ? shooting_row_count : 7; }
 void resolve_shooting_settings() {
     const unsigned target = shooting_target == 4 ? std::uniform_int_distribution<unsigned>(1, 3)(shooting_random) : shooting_target;
     const unsigned direction = shooting_target != 0 && shooting_direction == 2 ? std::uniform_int_distribution<unsigned>(0, 1)(shooting_random) : shooting_direction;
@@ -258,8 +265,28 @@ static_assert(launch_layout(7, 6).first == 0 && launch_layout(7, 6).rows == 7 &&
               launch_layout(7, 6).y + 6 * launch_layout(7, 6).spacing + 14 <= 204);
 static_assert(launch_layout(8, 7).scroll && launch_layout(8, 7).first == 3 &&
               launch_layout(8, 7).first + launch_layout(8, 7).rows == 8);
-bool result() { return detail && (content_id == 14 ? shooting.state().finished : playable() && tennis.state().winner != -1); }
+bool result() { return detail && (content_id == 15 ? racing.state().finished : content_id == 14 ? shooting.state().finished : content_id < opponent_modes.size() && tennis.state().winner != -1); }
 unsigned tone_remaining = 0, tone_phase = 0, tone_period = 0;
+unsigned racing_crash_sample = 0, racing_crash_phase = 0;
+constexpr unsigned racing_crash_segment_samples = 12960;
+constexpr unsigned racing_crash_total_samples = 6 * racing_crash_segment_samples;
+constexpr unsigned racing_bonus_tone_samples = 6336;
+constexpr unsigned racing_bonus_total_samples = 8 * racing_bonus_tone_samples + 12288;
+unsigned racing_bonus_sample = racing_bonus_total_samples, racing_bonus_phase = 0;
+constexpr unsigned racing_start_interval = 51200;
+constexpr unsigned racing_start_pulse = 25440;
+constexpr unsigned racing_start_total = 3 * racing_start_interval + 38640;
+unsigned racing_start_sample = racing_start_total, racing_start_phase = 0;
+unsigned racing_engine_phase = 0;
+
+void start_racing_match(bool from_preview = true) {
+    racing.reset_from_layout(from_preview ? demo_racing.state() : racing.state());
+    racing_start_sample = racing_start_phase = 0;
+    racing_engine_phase = 0;
+    racing_crash_sample = racing_crash_total_samples;
+    racing_bonus_sample = racing_bonus_total_samples;
+    racing_bonus_phase = 0;
+}
 
 // Five-bit rows for the small uppercase status font.
 const char* glyph(char c) {
@@ -302,6 +329,8 @@ const char* glyph(char c) {
     case '<': return "00001000100010001000001000001000001";
     case '>': return "10000010000001000001000100100010000";
     case '-': return "00000000000000011111000000000000000";
+    case '(': return "00010001000100001000010000010000010";
+    case ')': return "01000001000001000010000100010001000";
     default: return "00000000000000000000000000000000000";
     }
 }
@@ -475,6 +504,42 @@ void render_shooting(const ctg::Shooting& shooting, bool show_score = true) {
     if (s.flying) rect(s.shot_x, s.shot_y - 2, 7, 5, s.hit ? 0xffd5ff : 0x8ddade);
 
 }
+void render_racing_score(const ctg::RacingState& s) {
+    score_digit(s.road.x + 12, 6, (s.score / 10) % 10, 0xffffff);
+    score_digit(s.road.x + 34, 6, s.score % 10, 0xffffff);
+}
+void render_racing(const ctg::Racing& game, bool show_score = true) {
+    const auto& s = game.state();
+    pixels.fill(0x66594a);
+    rect(s.road.x, s.road.y, s.road.width, s.road.height, 0x39b800);
+    constexpr int road_period = ctg::racing_road_dash_length + ctg::racing_road_gap_length;
+    for (int y = -road_period + static_cast<int>(s.road_scroll); y < static_cast<int>(height); y += road_period) {
+        rect(s.road.x, y, 4, ctg::racing_road_dash_length, 0xc3f5df);
+        rect(s.road.x + s.road.width - 4, y, 4, ctg::racing_road_dash_length, 0xc3f5df);
+    }
+    const auto car_shape = [](const ctg::RacingRect& car, std::uint32_t color, bool opponent) {
+        const auto piece = [color, opponent](int x, int y, int w, int h) {
+            const int top = opponent ? std::max(y, 9) : y;
+            const int bottom = opponent ? std::min(y + h, 224) : y + h;
+            if (bottom > top) rect(x, top, w, bottom - top, color);
+        };
+        piece(car.x + 4, car.y - 2, 8, 28);
+        piece(car.x - ctg::racing_car_overhang, car.y + 2, 4, 10);
+        piece(car.x + car.width + ctg::racing_car_overhang - 4, car.y + 2, 4, 10);
+        piece(car.x - ctg::racing_car_overhang, car.y + 16, 4, 10);
+        piece(car.x + car.width + ctg::racing_car_overhang - 4, car.y + 16, 4, 10);
+        piece(car.x + 1, car.y + 6, 3, 2);
+        piece(car.x + 12, car.y + 6, 3, 2);
+        piece(car.x + 1, car.y + 20, 3, 2);
+        piece(car.x + 12, car.y + 20, 3, 2);
+    };
+    for (const auto& car : s.traffic)
+        car_shape(car.rect, car.collided ? 0xffc782 : 0xf5ed48, true);
+    if (!show_score || racing_crash_sample >= racing_crash_total_samples ||
+        (racing_crash_sample / racing_crash_segment_samples) % 2 == 0)
+        car_shape(s.player, 0xeb65e7, false);
+    if (show_score) render_racing_score(s);
+}
 void centered_text(unsigned y, const char* value, std::uint32_t color) {
     text((width - static_cast<unsigned>(std::strlen(value)) * 6) / 2, y, value, color);
 }
@@ -502,7 +567,12 @@ void monochrome_selection_outline() {
 }
 void render() {
     const bool preview = selector || !detail;
-    if (content_id == 14) render_shooting(preview ? demo_shooting : shooting, !preview);
+    if (content_id == 15) {
+        const bool background = preview || result();
+        render_racing(background ? demo_racing : racing, !background);
+        if (result()) render_racing_score(racing.state());
+    }
+    else if (content_id == 14) render_shooting(preview ? demo_shooting : shooting, !preview);
     else render_tennis(preview ? demo_tennis : tennis, !preview);
     if (preview && menu_hidden) {
         centered_text(4, "DEMO MODE - PRESS ANY BUTTON TO SHOW MENU", 0xffffff);
@@ -528,7 +598,7 @@ void render() {
         if (first + selector_rows < ctg::slot_count) arrow(187, false);
     } else if (paused || result()) {
         const bool finished = result();
-        centered_text(70, finished ? (content_id == 14 ? "GAME OVER" : tennis.state().winner == 0 ? "PLAYER 1 WINS" : "PLAYER 2 WINS") : "PAUSED", 0xffffff);
+        centered_text(70, finished ? (content_id >= 14 ? "GAME OVER" : tennis.state().winner == 0 ? "PLAYER 1 WINS" : "PLAYER 2 WINS") : "PAUSED", 0xffffff);
         if (finished && content_id == 14) {
             centered_text(83, "SHOTS                HITS", 0xffffff);
         }
@@ -543,6 +613,10 @@ void render() {
     } else {
         centered_text(58, titles[content_id].name, 0xffffff);
         centered_text(70, titles[content_id].variant, 0xffffff);
+        if (content_id == 15) {
+            centered_text(145, "PLAYABLE PROTOTYPE", 0xffffff);
+            centered_text(157, "IN DEVELOPMENT", 0xffffff);
+        }
         const unsigned count = option_count();
         const auto layout = launch_layout(count, menu_choice);
         const unsigned first = layout.first;
@@ -574,6 +648,7 @@ void render() {
                     horizontal_arrow(218, y + 6, false, row_color);
                     continue;
                 }
+                if (content_id >= opponent_modes.size()) continue;
                 const unsigned setting = i - 2;
                 const bool mode = setting == 0;
                 const unsigned option = setting - 1;
@@ -606,6 +681,8 @@ void select_game(unsigned id) {
                           id == 4 || id == 5 || id == 6 || id == 7, id == 8 || id == 9 || id == 10 || id == 11, id == 0 || id == 1, id == 4 || id == 5, id == 8 || id == 9, id == 12 || id == 13);
     apply_options();
     shooting.reset();
+    racing.reset();
+    racing_analog_active = false;
     tone_remaining = 0;
     static const retro_input_descriptor descriptors[] = {
         {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_A, "Confirm"},
@@ -632,7 +709,18 @@ void select_game(unsigned id) {
         {1, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_Y, "Manual target"},
         {0, 0, 0, 0, nullptr}
     };
-    if (environment) environment(RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS, const_cast<retro_input_descriptor*>(content_id == 14 ? shooting_descriptors : descriptors));
+    static const retro_input_descriptor racing_descriptors[] = {
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_A, "Confirm"},
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_B, "Menu back"},
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_START, "Pause / resume"},
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_LEFT, "Steer left"},
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_RIGHT, "Steer right"},
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L2, "Select speed 1"},
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R2, "Select speed 2"},
+        {0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_X, "Steering"},
+        {0, 0, 0, 0, nullptr}
+    };
+    if (environment) environment(RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS, const_cast<retro_input_descriptor*>(content_id == 15 ? racing_descriptors : content_id == 14 ? shooting_descriptors : descriptors));
 }
 void message(const char* s) {
     if (environment) { retro_message msg{s, 180}; environment(RETRO_ENVIRONMENT_SET_MESSAGE, &msg); }
@@ -841,7 +929,7 @@ void retro_set_environment(retro_environment_t cb) {
                 {"colortvgame_rf_filter", "RF filter", nullptr, "Approximate composite signal color and bandwidth artifacts.", nullptr, nullptr,
                  {{"Off", nullptr}, {"On", nullptr}, {nullptr, nullptr}}, "Off"},
                 {"colortvgame_rf_quality", "RF signal quality", nullptr, "Lower quality adds color bleed and noise. No effect when the RF filter is off.", nullptr, nullptr,
-                 {{"100%", nullptr}, {"90%", nullptr}, {"80%", nullptr}, {"70%", nullptr}, {"60%", nullptr}, {"50%", nullptr}, {"40%", nullptr}, {"30%", nullptr}, {"20%", nullptr}, {"10%", nullptr}, {"0%", nullptr}, {nullptr, nullptr}}, "100%"}, {}
+                 {{"0%", nullptr}, {"10%", nullptr}, {"20%", nullptr}, {"30%", nullptr}, {"40%", nullptr}, {"50%", nullptr}, {"60%", nullptr}, {"70%", nullptr}, {"80%", nullptr}, {"90%", nullptr}, {"100%", nullptr}, {nullptr, nullptr}}, "100%"}, {}
             };
             static retro_core_options_v2 options{nullptr, definitions};
             environment(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_V2, &options);
@@ -866,7 +954,7 @@ void retro_set_environment(retro_environment_t cb) {
                 {"colortvgame_rf_filter", "RF filter", "Approximate composite signal color and bandwidth artifacts.",
                  {{"Off", nullptr}, {"On", nullptr}, {nullptr, nullptr}}, "Off"},
                 {"colortvgame_rf_quality", "RF signal quality", "Lower quality adds color bleed and noise. No effect when the RF filter is off.",
-                 {{"100%", nullptr}, {"90%", nullptr}, {"80%", nullptr}, {"70%", nullptr}, {"60%", nullptr}, {"50%", nullptr}, {"40%", nullptr}, {"30%", nullptr}, {"20%", nullptr}, {"10%", nullptr}, {"0%", nullptr}, {nullptr, nullptr}}, "100%"}, {}
+                 {{"0%", nullptr}, {"10%", nullptr}, {"20%", nullptr}, {"30%", nullptr}, {"40%", nullptr}, {"50%", nullptr}, {"60%", nullptr}, {"70%", nullptr}, {"80%", nullptr}, {"90%", nullptr}, {"100%", nullptr}, {nullptr, nullptr}}, "100%"}, {}
             };
             environment(RETRO_ENVIRONMENT_SET_CORE_OPTIONS, definitions);
         } else {
@@ -880,7 +968,7 @@ void retro_set_environment(retro_environment_t cb) {
                 {"colortvgame_anti_stalemate", "Anti-stalemate; On|Off"},
                 {"colortvgame_color", "Color; On|Off"},
                 {"colortvgame_rf_filter", "RF filter; Off|On"},
-                {"colortvgame_rf_quality", "RF signal quality (no effect when RF filter is off); 100%|90%|80%|70%|60%|50%|40%|30%|20%|10%|0%"}, {nullptr, nullptr}
+                {"colortvgame_rf_quality", "RF signal quality (no effect when RF filter is off); 100%|0%|10%|20%|30%|40%|50%|60%|70%|80%|90%"}, {nullptr, nullptr}
             };
             environment(RETRO_ENVIRONMENT_SET_VARIABLES, variables);
         }
@@ -897,7 +985,7 @@ unsigned retro_api_version() { return RETRO_API_VERSION; }
 void retro_get_system_info(retro_system_info* info) { *info = {"Color TV-Game Simulator", CORE_VERSION, "ctg", false, false}; }
 void retro_get_system_av_info(retro_system_av_info* info) { *info = {{width, height, width, height, 4.0f / 3.0f}, {60.0, 48000.0}}; }
 void retro_set_controller_port_device(unsigned port, unsigned device) { if (port < joypad.size()) { stop_rumble(port); joypad[port] = (device == RETRO_DEVICE_JOYPAD || device == RETRO_DEVICE_ANALOG); } }
-void retro_reset() { stop_rumble(); reset_demo(); opponent.reset(); rally_difficulty.reset(); repeat_menu = -1; repeat_direction = 0; repeat_frames = 0; detail = false; selector = paused = false; menu_choice = 1; tennis.reset(); shooting.reset(); tone_remaining = 0; }
+void retro_reset() { stop_rumble(); reset_demo(); opponent.reset(); rally_difficulty.reset(); repeat_menu = -1; repeat_direction = 0; repeat_frames = 0; detail = false; selector = paused = false; menu_choice = 1; tennis.reset(); shooting.reset(); racing.reset(); tone_remaining = 0; }
 void retro_run() {
     retro_variable vibration_option{"colortvgame_vibration", nullptr};
     rumble_enabled = environment && environment(RETRO_ENVIRONMENT_GET_VARIABLE, &vibration_option) &&
@@ -970,7 +1058,7 @@ void retro_run() {
     const bool was_hidden = menu_hidden;
     if (!preview_menu) {
         inactivity_frames = 0;
-        demo_id = ctg::slot_count;
+        if (content_id != 15 || !result()) demo_id = ctg::slot_count;
         menu_hidden = suppress_wake_input = false;
     } else if (any_input) {
         inactivity_frames = 0;
@@ -1022,6 +1110,7 @@ void retro_run() {
                 if (result_choice == 1) { detail = false; menu_choice = 1; }
                 rally_difficulty.reset(); tennis.reset(); opponent.reset();
                 if (content_id == 14 && result_choice == 0) start_shooting_match(); else shooting.reset();
+                if (content_id == 15 && result_choice == 0) start_racing_match(); else racing.reset();
                 tone_remaining = 0; result_choice = 0;
             }
         } else if (paused) {
@@ -1034,12 +1123,46 @@ void retro_run() {
                     if (pause_choice == 2) { detail = false; menu_choice = 1; }
                     rally_difficulty.reset(); tennis.reset(); opponent.reset();
                     if (content_id == 14 && pause_choice == 1) start_shooting_match(); else shooting.reset();
+                    if (content_id == 15 && pause_choice == 1) start_racing_match(false); else racing.reset();
                     tone_remaining = 0;
                 }
             }
         } else if (detail) {
             if (pressed & ((1u << RETRO_DEVICE_ID_JOYPAD_START) | (1u << 31))) { paused = true; pause_choice = 0; }
-            else if (content_id == 14) {
+            else if (content_id == 15) {
+                ctg::RacingInput steering{};
+                if (input && joypad[0]) {
+                    const int axis = input(0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_X);
+                    if (axis < -8192 || axis > 8192) racing_analog_active = true;
+                    steering.analog = racing_analog_active;
+                    steering.steering = axis;
+                    steering.left = input(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_LEFT) != 0;
+                    steering.right = input(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_RIGHT) != 0;
+                    steering.select_high_speed = input(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R2) != 0;
+                    steering.select_low_speed = input(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L2) != 0;
+                }
+                if (input) {
+                    steering.left |= input(0, RETRO_DEVICE_KEYBOARD, 0, RETROK_LEFT) || input(0, RETRO_DEVICE_KEYBOARD, 0, RETROK_a);
+                    steering.right |= input(0, RETRO_DEVICE_KEYBOARD, 0, RETROK_RIGHT) || input(0, RETRO_DEVICE_KEYBOARD, 0, RETROK_d);
+                }
+                if ((steering.left || steering.right) && steering.steering >= -8192 && steering.steering <= 8192)
+                    racing_analog_active = steering.analog = false;
+                steering.recovering = racing_crash_sample < racing_crash_total_samples;
+                const unsigned previous_score = racing.state().score;
+                unsigned events = ctg::racing_none;
+                if (racing_start_sample < racing_start_total) racing.step_preview();
+                else events = racing.step(steering);
+                if (previous_score < 50 && racing.state().score >= 50) {
+                    racing_bonus_sample = 0;
+                    racing_bonus_phase = 0;
+                }
+                if (events & ctg::racing_collision) {
+                    pulse_rumble(0);
+                    racing_crash_sample = 0;
+                    racing_crash_phase = 0;
+                }
+                if (events & ctg::racing_finished) result_choice = 0;
+            } else if (content_id == 14) {
                 {
                     int direction = 0;
                     if (input && joypad[0]) {
@@ -1070,7 +1193,7 @@ void retro_run() {
                         tone_phase = 0;
                     }
                 }
-            } else if (playable()) {
+            } else if (content_id < opponent_modes.size()) {
                 {
                     int directions[2]{};
                     for (unsigned port = 0; port < 2; ++port) {
@@ -1105,7 +1228,7 @@ void retro_run() {
             if (pressed & back) { selector = true; selector_choice = selector_position(content_id); select_game(content_id); }
             else if (navigation & up) menu_choice = (menu_choice + count - 1) % count;
             else if (navigation & down) menu_choice = (menu_choice + 1) % count;
-            else if (menu_choice >= 2 && (pressed & ((1u << RETRO_DEVICE_ID_JOYPAD_LEFT) | (1u << RETRO_DEVICE_ID_JOYPAD_RIGHT)))) {
+            else if (content_id < 15 && menu_choice >= 2 && (pressed & ((1u << RETRO_DEVICE_ID_JOYPAD_LEFT) | (1u << RETRO_DEVICE_ID_JOYPAD_RIGHT)))) {
                 const auto before = preference_data();
                 if (content_id == 14) {
                     const int delta = (pressed & (1u << RETRO_DEVICE_ID_JOYPAD_RIGHT)) ? 1 : -1;
@@ -1136,14 +1259,14 @@ void retro_run() {
             }
             else if (pressed & confirm) {
                 if (menu_choice == 0) { selector = true; selector_choice = selector_position(content_id); select_game(content_id); }
-                else if (menu_choice == 1) { detail = true; opponent.reset(); rally_difficulty.reset(); if (content_id == 14) start_shooting_match(); else tennis.reset(); }
+                else if (menu_choice == 1) { detail = true; opponent.reset(); rally_difficulty.reset(); if (content_id == 14) start_shooting_match(); else if (content_id == 15) start_racing_match(); else tennis.reset(); }
             }
         }
         const bool preview = selector || !detail;
         if (preview || paused || result()) stop_rumble();
-        if (preview) step_demo(content_id);
+        if (preview || (content_id == 15 && result())) step_demo(content_id);
         else demo_tone = {};
-        if (detail && !paused && !result() && content_id == 14) render_shooting(shooting); else if (detail && !paused && !result() && playable()) render_tennis(tennis); else render();
+        if (detail && !paused && !result() && content_id == 15) render_racing(racing); else if (detail && !paused && !result() && content_id == 14) render_shooting(shooting); else if (detail && !paused && !result() && playable()) render_tennis(tennis); else render();
         retro_variable color_option{"colortvgame_color", nullptr};
         const bool monochrome = environment && environment(RETRO_ENVIRONMENT_GET_VARIABLE, &color_option) &&
                                 color_option.value && std::strcmp(color_option.value, "Off") == 0;
@@ -1172,12 +1295,50 @@ void retro_run() {
         }
         if (video) video(pixels.data(), width, height, width * sizeof(pixels[0]));
         std::array<std::int16_t, 1600> samples{};
+        if (preview || result()) {
+            racing_crash_sample = racing_crash_total_samples;
+            racing_bonus_sample = racing_bonus_total_samples;
+            racing_start_sample = racing_start_total;
+        }
         unsigned& remaining = preview ? demo_tone.remaining : tone_remaining;
         unsigned& phase = preview ? demo_tone.phase : tone_phase;
         const unsigned period = preview ? demo_tone.period : tone_period;
         for (unsigned i = 0; i < 800 && remaining && !paused; ++i, --remaining) {
             samples[2 * i] = samples[2 * i + 1] = phase < period / 2 ? 6000 : -6000;
             phase = (phase + 1) % period;
+        }
+        if (content_id == 15 && !preview && !result() && !paused) {
+            for (unsigned i = 0; i < 800; ++i) {
+                if (racing_start_sample < racing_start_total) {
+                    const bool final_tone = racing_start_sample >= 3 * racing_start_interval;
+                    if (final_tone || racing_start_sample % racing_start_interval < racing_start_pulse) {
+                        samples[2 * i] = samples[2 * i + 1] = racing_start_phase < 4800 ? 6000 : -667;
+                        racing_start_phase = (racing_start_phase + (final_tone ? 484 : 164)) % 48000;
+                    }
+                    ++racing_start_sample;
+                } else {
+                    const unsigned speed = racing.state().speed;
+                    const unsigned frequency = speed <= ctg::Racing::low_speed
+                        ? 128 + 65 * (speed - ctg::Racing::start_speed) / (ctg::Racing::low_speed - ctg::Racing::start_speed)
+                        : 193 + 200 * (speed - ctg::Racing::low_speed) / (ctg::Racing::max_speed - ctg::Racing::low_speed);
+                    samples[2 * i] = samples[2 * i + 1] = racing_engine_phase < 4800 ? 6000 : -667;
+                    racing_engine_phase = (racing_engine_phase + frequency) % 48000;
+
+                }
+                if (racing_crash_sample >= racing_crash_total_samples && racing_bonus_sample < racing_bonus_total_samples) {
+                    const unsigned tone = racing_bonus_sample / racing_bonus_tone_samples;
+                    const unsigned frequency = tone >= 8 ? 874 : tone % 3 == 0 ? 475 : tone % 3 == 1 ? 627 : 874;
+                    samples[2 * i] = samples[2 * i + 1] = racing_bonus_phase < 4800 ? 6000 : -667;
+                    racing_bonus_phase = (racing_bonus_phase + frequency) % 48000;
+                    ++racing_bonus_sample;
+                }
+                if (racing_crash_sample < racing_crash_total_samples) {
+                    const unsigned frequency = (racing_crash_sample / racing_crash_segment_samples) % 2 == 0 ? 320 : 627;
+                    samples[2 * i] = samples[2 * i + 1] = racing_crash_phase < 4800 ? 6000 : -667;
+                    racing_crash_phase = (racing_crash_phase + frequency) % 48000;
+                    ++racing_crash_sample;
+                }
+            }
         }
         if (audio_batch) audio_batch(samples.data(), 800);
         else if (audio) for (unsigned i = 0; i < 800; ++i) audio(samples[2 * i], samples[2 * i + 1]);
@@ -1193,9 +1354,9 @@ bool retro_load_game(const retro_game_info* game) {
     reset_demo();
     opponent.reset(); rally_difficulty.reset();
     repeat_menu = -1; repeat_direction = 0; repeat_frames = 0;
-    loaded = detail = selector = paused = false; menu_choice = 1; pause_choice = 0; content_id = previous = 0; tone_remaining = 0; tennis.reset(); shooting.reset();
+    loaded = detail = selector = paused = false; menu_choice = 1; pause_choice = 0; content_id = previous = 0; tone_remaining = 0; tennis.reset(); shooting.reset(); racing.reset();
     auto id = game ? ctg::parse_content(game->data, game->size) : std::optional<std::uint8_t>{0};
-    if (!id) { message("Invalid CTG1 content: expected five bytes and ID 0-14"); return false; }
+    if (!id) { message("Invalid CTG1 content: expected five bytes and ID 0-15"); return false; }
     retro_pixel_format format = RETRO_PIXEL_FORMAT_XRGB8888;
     if (!environment || !environment(RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, &format)) { message("XRGB8888 video is required"); return false; }
     if (preferences_dirty) retry_preferences();
@@ -1206,7 +1367,7 @@ bool retro_load_game(const retro_game_info* game) {
     loaded = true; return true;
 }
 bool retro_load_game_special(unsigned, const retro_game_info*, size_t) { return false; }
-void retro_unload_game() { retry_preferences(); stop_rumble(); reset_demo(); loaded = detail = false; content_id = previous = 0; tone_remaining = 0; tennis.reset(); }
+void retro_unload_game() { retry_preferences(); stop_rumble(); reset_demo(); loaded = detail = false; content_id = previous = 0; tone_remaining = 0; tennis.reset(); racing.reset(); }
 unsigned retro_get_region() { return RETRO_REGION_NTSC; }
 void* retro_get_memory_data(unsigned) { return nullptr; }
 size_t retro_get_memory_size(unsigned) { return 0; }

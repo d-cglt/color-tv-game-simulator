@@ -1,6 +1,7 @@
 #include "content.h"
 #include "hockey_ball.h"
 #include "libretro.h"
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <filesystem>
@@ -24,7 +25,7 @@ std::string demo_sounds_value, demo_sounds_definition;
 std::string rebound_value, rebound_definition;
 std::string anti_stalemate_value, anti_stalemate_definition;
 unsigned core_options_version = 0;
-bool anti_stalemate_modern_definition = false, vibration_modern_definition = false;
+bool anti_stalemate_modern_definition = false, vibration_modern_definition = false, rf_quality_modern_definition = false;
 std::string vibration_value, vibration_definition;
 void set_vibration(const char* value) { vibration_value = value; variable_updated = true; }
 struct RumbleCall { unsigned port; retro_rumble_effect effect; uint16_t strength; };
@@ -74,6 +75,20 @@ bool env(unsigned cmd, void* data) {
             }
             return false;
         };
+        auto check_quality = [](const auto* definitions) {
+            const char* values[] = {"0%", "10%", "20%", "30%", "40%", "50%", "60%", "70%", "80%", "90%", "100%"};
+            for (auto* d = definitions; d->key; ++d) {
+                if (std::strcmp(d->key, "colortvgame_rf_quality") != 0) continue;
+                if (std::strcmp(d->default_value, "100%") != 0) return false;
+                for (unsigned i = 0; i < 11; ++i)
+                    if (!d->values[i].value || std::strcmp(d->values[i].value, values[i]) != 0) return false;
+                return !d->values[11].value;
+            }
+            return false;
+        };
+        rf_quality_modern_definition = cmd == RETRO_ENVIRONMENT_SET_CORE_OPTIONS
+            ? check_quality(static_cast<retro_core_option_definition*>(data))
+            : check_quality(static_cast<retro_core_options_v2*>(data)->definitions);
         vibration_modern_definition = cmd == RETRO_ENVIRONMENT_SET_CORE_OPTIONS
             ? check_vibration(static_cast<retro_core_option_definition*>(data))
             : check_vibration(static_cast<retro_core_options_v2*>(data)->definitions);
@@ -182,9 +197,9 @@ int main() {
     CHECK(anti_stalemate_definition == "Anti-stalemate; On|Off");
     CHECK(vibration_definition.find("; Off|On") != std::string::npos);
     for (unsigned version : {1u, 2u}) {
-        core_options_version = version; anti_stalemate_modern_definition = false; vibration_modern_definition = false;
+        core_options_version = version; anti_stalemate_modern_definition = false; vibration_modern_definition = false; rf_quality_modern_definition = false;
         retro_set_environment(env);
-        CHECK(anti_stalemate_modern_definition && vibration_modern_definition);
+        CHECK(anti_stalemate_modern_definition && vibration_modern_definition && rf_quality_modern_definition);
     }
     core_options_version = 0; retro_set_environment(env);
     CHECK(retro_load_game(nullptr)); retro_run();
@@ -193,18 +208,19 @@ int main() {
     CHECK(system_queries == 0);
     set_generate_value("Ready"); retro_run();
     set_generate_value("Generate"); retro_run();
-    CHECK(system_queries == 1 && last_message.find("15 created, 0 existing, 0 failed") != std::string::npos);
+    CHECK(system_queries == 1 && last_message.find("16 created, 0 existing, 0 failed") != std::string::npos);
     CHECK(fs::exists(temp / "Nintendo Color TV-Game" / "Tennis Variant - Singles (Color TV Game 15).ctg"));
+        CHECK(fs::exists(temp / "Nintendo Color TV-Game" / "Racing 112 (Color TV Game Racing 112).ctg"));
     CHECK(set_variable_calls == 1 && last_set_key == "colortvgame_generate_files" && last_set_value == "Ready" && generate_value == "Ready");
     for (int i = 0; i < 30; ++i) retro_run();
     CHECK(system_queries == 1 && set_variable_calls == 1);
     set_generate_value("Generate"); retro_run();
-    CHECK(system_queries == 2 && last_message.find("0 created, 15 existing, 0 failed") != std::string::npos);
+    CHECK(system_queries == 2 && last_message.find("0 created, 16 existing, 0 failed") != std::string::npos);
     CHECK(set_variable_calls == 2 && generate_value == "Ready");
     retro_run();
     system_available = false;
     set_generate_value("Generate"); retro_run();
-    CHECK(system_queries == 3 && last_message.find("15 failed") != std::string::npos && last_message.find("system directory unavailable") != std::string::npos);
+    CHECK(system_queries == 3 && last_message.find("16 failed") != std::string::npos && last_message.find("system directory unavailable") != std::string::npos);
     CHECK(set_variable_calls == 3 && last_set_value == "Ready" && generate_value == "Ready");
     system_available = true;
 
@@ -218,7 +234,7 @@ int main() {
     set_generate_value("Ready"); retro_run();
     set_generate_value("Generate"); retro_run();
     CHECK(system_queries == 5 && set_variable_calls == 5 && last_set_key == "colortvgame_generate_files" && last_set_value == "Ready");
-    CHECK(last_message.find("0 created, 15 existing, 0 failed") != std::string::npos);
+    CHECK(last_message.find("0 created, 16 existing, 0 failed") != std::string::npos);
     set_variable_supported = true; set_generate_value("Ready");
     retro_unload_game(); retro_deinit(); fs::remove_all(temp);
     frames = polls = audio_frames = messages = 0;
@@ -228,12 +244,12 @@ int main() {
     for (unsigned id = 0; id < 256; ++id) {
         bytes[4] = static_cast<unsigned char>(id);
         auto parsed = ctg::parse_content(bytes.data(), 5);
-        CHECK(bool(parsed) == (id < 15));
+        CHECK(bool(parsed) == (id < 16));
         if (parsed) CHECK(*parsed == id);
     }
     bytes[4] = 0;
     for (unsigned i = 0; i < 4; ++i) { bytes[i] ^= 1; CHECK(!ctg::parse_content(bytes.data(), 5)); bytes[i] ^= 1; }
-    for (unsigned id = 0; id < 15; ++id) {
+    for (unsigned id = 0; id < 16; ++id) {
         char path[512]; std::snprintf(path, sizeof path, "%s/slot-%02u.ctg", CONTENT_DIR, id);
         std::ifstream file(path, std::ios::binary);
         CHECK(file.good());
@@ -246,7 +262,7 @@ int main() {
     CHECK(support && retro_api_version() == RETRO_API_VERSION);
     retro_system_info info{}; retro_get_system_info(&info);
     CHECK(info.library_name && std::strcmp(info.library_name, "Color TV-Game Simulator") == 0);
-    CHECK(info.library_version && std::strcmp(info.library_version, "0.1.2") == 0);
+    CHECK(info.library_version && std::strcmp(info.library_version, "0.1.3") == 0);
     CHECK(std::strlen(info.library_name) == 23);
     CHECK(!info.need_fullpath && std::strcmp(info.valid_extensions, "ctg") == 0);
     retro_system_av_info av{}; retro_get_system_av_info(&av);
@@ -990,7 +1006,7 @@ int main() {
     retro_unload_game();
 
     // Display positions map to stable content IDs, independently of their numeric order.
-    const std::array<unsigned, 15> display_ids{{2, 3, 6, 7, 10, 11, 0, 1, 4, 5, 8, 9, 12, 13, 14}};
+    const std::array<unsigned, 16> display_ids{{2, 3, 6, 7, 10, 11, 0, 1, 4, 5, 8, 9, 12, 13, 14, 15}};
     // Every selector entry opens the same game as its direct-content launch.
     buttons = buttons2 = 0; axes = {{0, 0}}; keys.fill(false);
     CHECK(retro_load_game(nullptr)); retro_run();
@@ -1003,12 +1019,12 @@ int main() {
     // Escape at the selector is a no-op; no frontend shutdown is requested.
     keys[RETROK_ESCAPE] = true; retro_run(); keys[RETROK_ESCAPE] = false; retro_run();
     CHECK(same_menu(frame, first_selector) && shutdowns == 0);
-    for (unsigned id = 0; id < 15; ++id) {
+    for (unsigned id = 0; id < display_ids.size(); ++id) {
         auto selected = frame;
-        const unsigned first = id > 2 ? (id - 2 < 9 ? id - 2 : 9) : 0;
+        const unsigned first = id > 2 ? std::min(id - 2, static_cast<unsigned>(display_ids.size() - 6)) : 0;
         CHECK(at(selected, 55, 88 + (id - first) * 16) == 0x295166);
         CHECK((at(selected, 160, 77) == 0xffffff) == (first != 0));
-        CHECK((at(selected, 160, 191) == 0xffffff) == (first + 6 < 15));
+        CHECK((at(selected, 160, 191) == 0xffffff) == (first + 6 < display_ids.size()));
         for (unsigned row = 0; row < 6; ++row) {
             bool ink = false;
             for (unsigned y = 91 + row * 16; y < 98 + row * 16; ++y)
@@ -1029,7 +1045,10 @@ int main() {
         buttons = 0; retro_run();
         retro_unload_game(); bytes[4] = static_cast<unsigned char>(display_ids[id]);
         CHECK(retro_load_game(&game)); retro_run();
-        buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run(); CHECK(frame == started);
+        buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
+        if (display_ids[id] == 15) {
+            CHECK(at(frame, 160, 210) == 0xeb65e7 && at(started, 160, 210) == 0xeb65e7);
+        } else CHECK(frame == started);
         retro_unload_game(); buttons = 0;
         CHECK(retro_load_game(nullptr)); retro_run();
         for (unsigned n = 0; n <= id; ++n) {
@@ -1542,7 +1561,7 @@ int main() {
     }
     // Selector launches and direct launches share the same persisted settings.
     CHECK(retro_load_game(nullptr)); buttons = 0; retro_run();
-    for (unsigned position = 0; position < display_ids.size(); ++position) {
+    for (unsigned position = 0; position < 15; ++position) {
         const unsigned id = display_ids[position];
         press(RETRO_DEVICE_ID_JOYPAD_A); CHECK(check_rows(id, saved_rows[id]));
         press(RETRO_DEVICE_ID_JOYPAD_B); press(RETRO_DEVICE_ID_JOYPAD_DOWN);
@@ -1580,7 +1599,7 @@ int main() {
     // Capture each selector and direct-content menu as independent UI oracles.
     std::vector<std::vector<unsigned char>> selectors, direct_menus;
     CHECK(retro_load_game(nullptr)); retro_run();
-    for (unsigned id = 0; id < 15; ++id) {
+    for (unsigned id = 0; id < display_ids.size(); ++id) {
         selectors.push_back(frame);
         buttons = 1u << RETRO_DEVICE_ID_JOYPAD_DOWN; retro_run();
         buttons = 0; retro_run();
@@ -1589,7 +1608,7 @@ int main() {
           CHECK(in.get() == std::char_traits<char>::eof()); }
     }
     retro_unload_game();
-    for (unsigned id = 0; id < 15; ++id) {
+    for (unsigned id = 0; id < display_ids.size(); ++id) {
         bytes[4] = static_cast<unsigned char>(id);
         CHECK(retro_load_game(&game)); retro_run(); direct_menus.push_back(frame);
         retro_unload_game();
@@ -1613,7 +1632,7 @@ int main() {
     // First overrides saved state; direct content overrides every startup mode.
     for (const char* mode : {"Last used", "First", "Random"}) {
         start_game_value = mode;
-        for (unsigned id : {0u, 7u, 14u}) {
+        for (unsigned id : {0u, 7u, 14u, 15u}) {
             bytes[4] = static_cast<unsigned char>(id);
             CHECK(retro_load_game(&game)); retro_run();
             CHECK(same_menu(frame, direct_menus[id])); retro_unload_game();
@@ -1626,7 +1645,7 @@ int main() {
     // Last used reads the persisted binary ID on startup; absent, out-of-range,
     // empty and oversized records all fall back safely to the first entry.
     start_game_value = "Last used";
-    for (const std::vector<unsigned char>& record : std::vector<std::vector<unsigned char>>{{7}, {}, {15}, {255}, {7, 0}}) {
+    for (const std::vector<unsigned char>& record : std::vector<std::vector<unsigned char>>{{7}, {}, {16}, {255}, {7, 0}}) {
         { std::ofstream out(last_game, std::ios::binary | std::ios::trunc);
           CHECK(out.good());
           if (!record.empty()) out.write(reinterpret_cast<const char*>(record.data()), record.size());
@@ -1651,7 +1670,7 @@ int main() {
     // Random must choose valid entries and vary across launches. The probability
     // of a uniform random implementation choosing one ID 128 times is negligible.
     start_game_value = "Random";
-    std::array<bool, 15> seen{};
+    std::array<bool, 16> seen{};
     for (unsigned attempt = 0; attempt < 128; ++attempt) {
         CHECK(retro_load_game(nullptr)); retro_run();
         unsigned id = 0;
@@ -1725,7 +1744,7 @@ int main() {
         CHECK(same_menu(frame, selectors[0]));
         buttons = 0; retro_unload_game();
 
-        std::array<bool, 15> rotated_seen{};
+        std::array<bool, 16> rotated_seen{};
         for (unsigned attempt = 0; attempt < 16; ++attempt) {
             CHECK(retro_load_game(nullptr));
             for (int i = 0; i < 1500; ++i) retro_run();
@@ -1912,10 +1931,10 @@ int main() {
     // Monochrome menus outline the selected row without changing color-mode rendering.
     set_color("Off"); buttons = 0; retro_init(); CHECK(retro_load_game(nullptr)); retro_run();
     CHECK(demo_pixel(frame, 55, 88) == 0xffffff && demo_pixel(frame, 264, 100) == 0xffffff);
-    for (unsigned id = 1; id < 15; ++id) {
+    for (unsigned id = 1; id < display_ids.size(); ++id) {
         buttons = 1u << RETRO_DEVICE_ID_JOYPAD_DOWN; retro_run();
         buttons = 0; retro_run();
-        const unsigned first = id > 2 ? (id - 2 < 9 ? id - 2 : 9) : 0;
+        const unsigned first = id > 2 ? std::min(id - 2, static_cast<unsigned>(display_ids.size() - 6)) : 0;
         const unsigned y = 88 + (id - first) * 16;
         CHECK(demo_pixel(frame, 55, y) == 0xffffff && demo_pixel(frame, 264, y + 12) == 0xffffff);
     }
@@ -2047,7 +2066,7 @@ int main() {
     for (auto input_buttons : sequence) { buttons = input_buttons; retro_run(); CHECK(grayscale(frame)); }
     retro_unload_game(); retro_deinit();
 
-    CHECK(rf_quality_definition.find("; 100%|90%|80%|70%|60%|50%|40%|30%|20%|10%|0%") != std::string::npos);
+    CHECK(rf_quality_definition.find("; 100%|0%|10%|20%|30%|40%|50%|60%|70%|80%|90%") != std::string::npos);
 
     // Exercise rumble through the frontend interface rather than engine event bits.
     set_color("On"); set_rf_filter("Off");

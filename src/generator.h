@@ -1,8 +1,9 @@
 #pragma once
+#include "content.h"
 
 namespace ctg {
 // Names are fixed basenames in slot-ID order; never supplied by the frontend.
-extern const char* const generated_filenames[15];
+extern const char* const generated_filenames[slot_count];
 
 struct GenerationResult {
     unsigned created = 0;

@@ -12,6 +12,12 @@ The core implementation and headless tests build and pass on Linux. A bounded Re
 
 The project is licensed under the [MIT License](LICENSE). The vendored Libretro API header has its own copyright and MIT license notice in `third_party/libretro/libretro.h`; retain that notice when distributing it or applicable portions of the software.
 
+## Relationship to the reference simulator
+
+This project was originally conceived as a port of [Thomas Visvader's Python simulator](https://github.com/ThomasVisvader/Pong/tree/e654c5ff909851dac9360000c2c269562cf0c735/Nintendo%20Color%20TV-Game%2015). Because no applicable license was identified for that repository, and to support planned improvements and additional features, it evolved into an independently developed implementation written from scratch. Thomas's simulator, including its Python source code, was examined as a behavioral reference, not used as a source-code dependency: none of its Python source code has been copied, translated, ported, or incorporated into this core.
+
+The unresolved reuse permissions concern the external Python repository, not this core's MIT license. See [Research](docs/RESEARCH.md#reference-repository-and-licensing) for the sources and licensing findings.
+
 ## Game selection at startup
 
 The **Selected game at start** core option controls the initial highlight when starting without content: **Last used** (default), **First**, or **Random**. Last used remembers the last game highlighted while navigating the selector, without requiring confirmation; games opened directly as `.ctg` files do not change it. The core stores that selection in `colortvgame-last-game` under the frontend's save directory, so it can survive a full restart if the directory is available and writable. If it cannot be read, the selector starts on the first game; if saving fails, the core reports a message. Direct `.ctg` launches always open their specified game.

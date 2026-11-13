@@ -27,13 +27,29 @@ class CoreInfoTests(unittest.TestCase):
             "supports_no_game": "true",
             "needs_fullpath": "false",
             "savestate": "false",
+            "cheats": "false",
+            "input_descriptors": "true",
+            "memory_descriptors": "false",
+            "libretro_saves": "false",
             "core_options": "true",
+            "load_subsystem": "false",
+            "hw_render": "false",
+            "disk_control": "false",
         }
         for key, value in expected.items():
             with self.subTest(field=key):
                 self.assertEqual(fields.get(key), value)
-        self.assertTrue(fields.get("description"))
-        self.assertTrue(fields.get("notes"))
+        description = fields.get("description", "")
+        for phrase in ("15 playable Color TV-Game 6/15 variants", "Racing 112 prototype",
+                       "not all 112 combinations", "not verified original hardware"):
+            with self.subTest(description=phrase):
+                self.assertIn(phrase, description)
+        notes = fields.get("notes", "")
+        for phrase in ("No content is required", "game selectors, not ROMs", "XRGB8888",
+                       "libretro memory saves are not supported", "frontend save directory",
+                       "when writable", "remain in memory for the current session"):
+            with self.subTest(notes=phrase):
+                self.assertIn(phrase, notes)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,17 @@
+# Draft for Libretro infrastructure, not GitLab.com; runner compatibility is unverified.
+include:
+  - project: 'libretro-infrastructure/ci-templates'
+    file: '/linux-cmake.yml'
+
+stages:
+  - build-shared
+
+.core-defs:
+  variables:
+    CORENAME: colortvgame
+    CORE_ARGS: '-DBUILD_TESTING=OFF'
+
+libretro-build-linux-x64:
+  extends:
+    - .libretro-linux-cmake-x86_64
+    - .core-defs

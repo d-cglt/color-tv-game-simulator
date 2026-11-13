@@ -16,5 +16,5 @@ hw_render = "false"
 needs_fullpath = "false"
 disk_control = "false"
 
-description = "An independent Color TV-Game simulator with 15 playable variants. Gameplay and presentation are approximations, not verified original hardware behavior."
-notes = "No content is required; CTG files are game selectors, not ROMs.|Requires XRGB8888 video support.|Save states and rewind are not supported."
+description = "An independent Color TV-Game simulator with 15 playable Color TV-Game 6/15 variants and a separate Racing 112 prototype. Racing is a single-player approximation, not all 112 combinations; gameplay and presentation are not verified original hardware behavior."
+notes = "No content is required; CTG files are game selectors, not ROMs.|Requires XRGB8888 video support.|Save states, rewind and libretro memory saves are not supported.|Preferences and the last selected game are saved separately in the frontend save directory when writable.|If saving fails, preferences remain in memory for the current session."

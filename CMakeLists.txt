@@ -31,6 +31,8 @@ endif()
 include(CTest)
 if(BUILD_TESTING)
   if(Python3_Interpreter_FOUND)
+    add_test(NAME core_info_tests COMMAND "${Python3_EXECUTABLE}"
+      "${CMAKE_CURRENT_SOURCE_DIR}/tests/core_info_tests.py")
     add_test(NAME package_selectors_tests COMMAND "${Python3_EXECUTABLE}"
       "${CMAKE_CURRENT_SOURCE_DIR}/tests/package_selectors_tests.py"
       "$<TARGET_FILE:generate_selectors>" "${CMAKE_CURRENT_SOURCE_DIR}"

@@ -27,9 +27,9 @@ int main() {
     }
 
     // Paddles may cover the border but never draw outside the field or disappear.
-    for (bool small : {false, true}) for (bool automatic : {false, true}) for (int direction : {-1, 1}) {
+    for (bool small_paddle : {false, true}) for (bool automatic : {false, true}) for (int direction : {-1, 1}) {
         ctg::Shooting field;
-        field.set_options(false, {small, small});
+        field.set_options(false, {small_paddle, small_paddle});
         field.set_target_behavior(11, direction, false);
         for (int i = 0; i < 300; ++i) {
             field.step(direction, false, direction, automatic);

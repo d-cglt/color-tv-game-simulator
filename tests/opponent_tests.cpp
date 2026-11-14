@@ -98,6 +98,18 @@ int main() {
     s.ball_x = 130; s.ball_vx = -4; ai.reset();
     CHECK(ai.step(s, 3) == 1);
 
+    // Hard's first deterministic error is +5: these targets distinguish the
+    // center-based faces from the former rendered-edge faces.
+    for (int scenario : {0, 1, 2}) {
+        ctg::TennisState state;
+        state.hockey = true; state.doubles = scenario != 0;
+        state.paddle_y = {120, 112}; state.ball_y = 100; state.ball_vy = 4;
+        state.ball_x = scenario == 0 ? 290 : scenario == 1 ? 100 : 126;
+        state.ball_vx = scenario == 2 ? -4 : 4;
+        ai.reset();
+        CHECK(ai.step(state, 3) == 1);
+    }
+
     // Replay identical sequences, including resets, difficulty changes and clamping.
     for (unsigned level = 0; level <= 5; ++level) {
         ctg::Opponent a, b;

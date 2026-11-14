@@ -278,7 +278,7 @@ int main() {
     CHECK(support && retro_api_version() == RETRO_API_VERSION);
     retro_system_info info{}; retro_get_system_info(&info);
     CHECK(info.library_name && std::strcmp(info.library_name, "Color TV-Game Simulator") == 0);
-    CHECK(info.library_version && std::strcmp(info.library_version, "0.1.4") == 0);
+    CHECK(info.library_version && std::strcmp(info.library_version, "0.1.5") == 0);
     CHECK(std::strlen(info.library_name) == 23);
     CHECK(!info.need_fullpath && std::strcmp(info.valid_extensions, "ctg") == 0);
     retro_system_av_info av{}; retro_get_system_av_info(&av);
@@ -502,7 +502,17 @@ int main() {
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
     CHECK(!same_menu(frame, menu));
     auto tennis_pixel = [](int x, int y) { std::uint32_t p; std::memcpy(&p, frame.data() + (y * 320 + x) * 4, sizeof p); return p; };
-    CHECK(tennis_pixel(74, 42) == 0xcdf0ff);
+    CHECK(tennis_pixel(0, 0) == 0x0e7aab && tennis_pixel(100, 100) == 0xc07645);
+    CHECK(tennis_pixel(100, 20) == 0xdad2b0 && tennis_pixel(100, 216) == 0xdad2b0);
+    CHECK(tennis_pixel(67, 44) == 0xcdf0ff);
+    for (int row = 1; row < 49; ++row)
+        for (int dy = 0; dy < 4; ++dy) {
+            const int y = 20 + row * 4 + dy;
+            const bool dash = row >= 2 && row <= 45 && (row - 2) % 8 < 4;
+            for (int x = 157; x < 163; ++x)
+                CHECK(tennis_pixel(x, y) == (dash ? 0xfae7b4u : 0xc07645u));
+            CHECK(tennis_pixel(156, y) == 0xc07645 && tennis_pixel(163, y) == 0xc07645);
+        }
     auto tennis_start = frame;
     press(RETRO_DEVICE_ID_JOYPAD_UP); CHECK(frame != tennis_start);
     press(RETRO_DEVICE_ID_JOYPAD_START);
@@ -510,23 +520,23 @@ int main() {
     press(RETRO_DEVICE_ID_JOYPAD_A); CHECK(frame == tennis_start);
     buttons = 0;
     for (int i = 0; i < 130; ++i) retro_run();
-    CHECK(tennis_pixel(74, 42) == 0xc07645);
+    CHECK(tennis_pixel(67, 44) == 0xc07645);
     retro_reset(); retro_run();
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
     auto paddle = [](int x, int y) { std::uint32_t pixel; std::memcpy(&pixel, frame.data() + (y * 320 + x) * 4, sizeof pixel); return pixel == 0xd0ecb2; };
-    CHECK(paddle(48, 101) && paddle(266, 101));
+    CHECK(paddle(49, 101) && paddle(265, 101));
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_UP;
     buttons2 = 1u << RETRO_DEVICE_ID_JOYPAD_DOWN; retro_run();
-    CHECK(paddle(48, 97) && !paddle(48, 133));
-    CHECK(!paddle(266, 101) && paddle(266, 136));
+    CHECK(paddle(49, 97) && !paddle(49, 133));
+    CHECK(!paddle(265, 101) && paddle(265, 133));
     buttons = buttons2 = 0; axes = {{-20000, 20000}}; retro_run();
-    CHECK(paddle(48, 94) && paddle(266, 139));
+    CHECK(paddle(49, 94) && paddle(265, 136));
     axes = {{0, 0}}; keys[RETROK_s] = true; keys[RETROK_UP] = true; retro_run();
-    CHECK(paddle(48, 94) && paddle(266, 139));
+    CHECK(paddle(49, 94) && paddle(265, 136));
     // Simulate the frontend mapping W/S to P1 and arrows to P2 RetroPad input.
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_DOWN;
     buttons2 = 1u << RETRO_DEVICE_ID_JOYPAD_UP; retro_run();
-    CHECK(!paddle(48, 94) && !paddle(266, 139));
+    CHECK(!paddle(49, 94) && !paddle(265, 136));
     buttons = buttons2 = 0;
     keys.fill(false); exit_pause(); CHECK(same_menu(frame, menu));
     keys[RETROK_ESCAPE] = false; buttons = 0; retro_run(); buttons = 1u << RETRO_DEVICE_ID_JOYPAD_A; retro_run();
@@ -548,40 +558,51 @@ int main() {
     auto doubles_menu = frame;
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
     CHECK(!same_menu(frame, doubles_menu));
-    CHECK(tennis_pixel(74, 42) == 0xcdf0ff);
+    CHECK(tennis_pixel(67, 44) == 0xcdf0ff);
     buttons = 0;
     for (int i = 0; i < 130; ++i) retro_run();
-    CHECK(tennis_pixel(74, 42) == 0xc07645);
+    CHECK(tennis_pixel(67, 44) == 0xc07645);
     retro_reset(); retro_run();
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
-    CHECK(paddle(48, 101) && paddle(108, 101) && paddle(205, 101) && paddle(266, 101));
+    CHECK(paddle(49, 101) && paddle(109, 101) && paddle(205, 101) && paddle(265, 101));
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_UP;
     buttons2 = 1u << RETRO_DEVICE_ID_JOYPAD_DOWN; retro_run();
-    CHECK(paddle(48, 97) && paddle(108, 97));
-    CHECK(paddle(205, 136) && paddle(266, 136));
+    CHECK(paddle(49, 97) && paddle(109, 97));
+    CHECK(paddle(205, 133) && paddle(265, 133));
     buttons = 0; buttons2 = 0; retro_reset(); retro_run(); CHECK(same_menu(frame, doubles_menu));
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_A; retro_run();
-    CHECK(paddle(108, 101) && paddle(205, 101));
+    CHECK(paddle(109, 101) && paddle(205, 101));
     retro_unload_game();
     buttons = 0; bytes[4] = 2; CHECK(retro_load_game(&game)); retro_run();
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
-    CHECK(!paddle(108, 101) && !paddle(205, 101));
+    CHECK(!paddle(109, 101) && !paddle(205, 101));
     retro_unload_game();
     buttons = 0; bytes[4] = 4; CHECK(retro_load_game(&game)); retro_run();
     auto hockey_a_menu = frame;
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
     CHECK(!same_menu(frame, hockey_a_menu));
     auto a_pixel = [](int x, int y) { std::uint32_t p; std::memcpy(&p, frame.data() + (y * 320 + x) * 4, sizeof p); return p; };
+    auto check_grid_separator = [&a_pixel](std::uint32_t color, std::uint32_t background, bool middle_open) {
+        for (int y = 24; y < 208; ++y) for (int x = 156; x < 164; ++x) {
+            const int dy = y - 28;
+            const int segment = dy >= 0 ? dy / 32 : -1;
+            const bool stroke = x >= 157 && x < 163 && dy >= 0 && segment < 6 &&
+                                dy % 32 < 16 && !(middle_open && (segment == 2 || segment == 3));
+            if (a_pixel(x, y) != (stroke ? color : background)) return false;
+        }
+        return true;
+    };
+    CHECK(check_grid_separator(0x98ff8d, 0x2cc94c, true));
     CHECK(a_pixel(160, 30) == 0x98ff8d && a_pixel(160, 62) == 0x98ff8d);
     CHECK(a_pixel(160, 94) == 0x2cc94c && a_pixel(160, 126) == 0x2cc94c);
     CHECK(a_pixel(160, 158) == 0x98ff8d && a_pixel(160, 190) == 0x98ff8d);
-    CHECK(a_pixel(48, 105) == 0xff9fff && a_pixel(266, 105) == 0xd5e87c);
+    CHECK(a_pixel(49, 105) == 0xff9fff && a_pixel(265, 105) == 0xd5e87c);
     buttons = 0;
     bool closed_seen = false, reopened_seen = false;
     for (int i = 0; i < 10000 && !reopened_seen; ++i) {
         retro_run();
-        if (a_pixel(160, 94) == 0x98ff8d) closed_seen = true;
-        else if (closed_seen && a_pixel(160, 94) == 0x2cc94c) reopened_seen = true;
+        if (check_grid_separator(0x98ff8d, 0x2cc94c, false)) closed_seen = true;
+        else if (closed_seen && check_grid_separator(0x98ff8d, 0x2cc94c, true)) reopened_seen = true;
     }
     CHECK(closed_seen && reopened_seen);
     retro_reset(); buttons = 0; retro_run(); CHECK(same_menu(frame, hockey_a_menu));
@@ -590,32 +611,41 @@ int main() {
     auto hockey_a_doubles_menu = frame;
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
     CHECK(!same_menu(frame, hockey_a_doubles_menu));
+    CHECK(check_grid_separator(0x98ff8d, 0x2cc94c, true));
     CHECK(a_pixel(160, 30) == 0x98ff8d && a_pixel(160, 94) == 0x2cc94c);
-    CHECK(a_pixel(48, 105) == 0xff9fff && a_pixel(194, 105) == 0xff9fff);
-    CHECK(a_pixel(119, 105) == 0xd5e87c && a_pixel(266, 105) == 0xd5e87c);
+    auto check_hockey_inner = [&a_pixel](int yellow_y, int pink_y) {
+        for (int x = 120; x <= 127; ++x)
+            if (a_pixel(x, yellow_y) != (x >= 121 && x <= 126 ? 0xd5e87c : 0x2cc94c)) return false;
+        for (int x = 192; x <= 199; ++x)
+            if (a_pixel(x, pink_y) != (x >= 193 && x <= 198 ? 0xff9fff : 0x2cc94c)) return false;
+        return true;
+    };
+    CHECK(a_pixel(49, 105) == 0xff9fff && a_pixel(195, 105) == 0xff9fff);
+    CHECK(a_pixel(123, 105) == 0xd5e87c && a_pixel(265, 105) == 0xd5e87c);
+    CHECK(check_hockey_inner(105, 105));
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_UP; buttons2 = 1u << RETRO_DEVICE_ID_JOYPAD_DOWN;
     for (int i = 0; i < 40; ++i) retro_run();
-    CHECK(a_pixel(48, 21) == 0xff9fff && a_pixel(194, 21) == 0xff9fff);
-    CHECK(a_pixel(119, 193) == 0xd5e87c && a_pixel(266, 193) == 0xd5e87c);
+    CHECK(a_pixel(49, 20) == 0xff9fff && a_pixel(195, 20) == 0xff9fff);
+    CHECK(a_pixel(123, 219) == 0xd5e87c && a_pixel(265, 219) == 0xd5e87c);
     buttons = buttons2 = 0; axes = {{20000, -20000}};
     for (int i = 0; i < 10; ++i) retro_run();
-    CHECK(a_pixel(48, 36) == 0xff9fff && a_pixel(194, 36) == 0xff9fff);
-    CHECK(a_pixel(119, 161) == 0xd5e87c && a_pixel(266, 161) == 0xd5e87c);
+    CHECK(a_pixel(49, 30) == 0xff9fff && a_pixel(195, 30) == 0xff9fff);
+    CHECK(a_pixel(123, 200) == 0xd5e87c && a_pixel(265, 200) == 0xd5e87c);
     axes = {{0, 0}}; retro_reset(); retro_run(); CHECK(same_menu(frame, hockey_a_doubles_menu));
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
-    CHECK(a_pixel(160, 94) == 0x2cc94c && a_pixel(119, 105) == 0xd5e87c);
+    CHECK(a_pixel(160, 94) == 0x2cc94c && a_pixel(123, 105) == 0xd5e87c);
     buttons = 0; closed_seen = reopened_seen = false;
     for (int i = 0; i < 20000 && !reopened_seen; ++i) {
         retro_run();
-        if (a_pixel(160, 94) == 0x98ff8d) closed_seen = true;
-        else if (closed_seen && a_pixel(160, 94) == 0x2cc94c) reopened_seen = true;
+        if (check_grid_separator(0x98ff8d, 0x2cc94c, false)) closed_seen = true;
+        else if (closed_seen && check_grid_separator(0x98ff8d, 0x2cc94c, true)) reopened_seen = true;
     }
     CHECK(closed_seen && reopened_seen);
     retro_unload_game();
     buttons = 0; bytes[4] = 4; CHECK(retro_load_game(&game)); retro_run();
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
     CHECK(a_pixel(160, 30) == 0x98ff8d && a_pixel(160, 94) == 0x2cc94c);
-    CHECK(a_pixel(119, 105) == 0x2cc94c && a_pixel(194, 105) == 0x2cc94c);
+    CHECK(a_pixel(123, 105) == 0x2cc94c && a_pixel(195, 105) == 0x2cc94c);
     retro_unload_game();
     buttons = 0; bytes[4] = 6; CHECK(retro_load_game(&game)); retro_run();
     auto hockey_menu = frame;
@@ -623,22 +653,22 @@ int main() {
     CHECK(!same_menu(frame, hockey_menu));
     auto pixel = [](int x, int y) { std::uint32_t p; std::memcpy(&p, frame.data() + (y * 320 + x) * 4, sizeof p); return p; };
     CHECK(pixel(0, 0) == 0x505068 && pixel(100, 100) == 0x2cc94c);
-    CHECK(pixel(36, 40) == 0x99ff8f && pixel(280, 40) == 0xb1ffbf);
-    CHECK(pixel(36, 120) == 0x3a687f && pixel(283, 120) == 0x51bc29);
+    CHECK(pixel(37, 40) == 0x99ff8e && pixel(280, 40) == 0xb1ffbf);
+    CHECK(pixel(37, 120) == 0x2cc94c && pixel(282, 120) == 0x2cc94c);
     CHECK(pixel(44, 40) == 0x2cc94c && pixel(275, 40) == 0x2cc94c);
     CHECK(pixel(160, 30) == 0x2cc94c);
-    CHECK(pixel(48, 105) == 0xff9fff && pixel(266, 105) == 0xd5e87c);
+    CHECK(pixel(49, 105) == 0xff9fff && pixel(265, 105) == 0xd5e87c);
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_UP;
     buttons2 = 1u << RETRO_DEVICE_ID_JOYPAD_DOWN;
     for (int i = 0; i < 40; ++i) retro_run();
-    CHECK(pixel(48, 20) != 0xff9fff && pixel(48, 21) == 0xff9fff);
-    CHECK(pixel(48, 37) == 0xff9fff && pixel(48, 38) != 0xff9fff);
-    CHECK(pixel(266, 192) != 0xd5e87c && pixel(266, 193) == 0xd5e87c);
-    CHECK(pixel(266, 213) == 0xd5e87c && pixel(266, 214) != 0xd5e87c);
+    CHECK(pixel(49, 19) != 0xff9fff && pixel(49, 20) == 0xff9fff);
+    CHECK(pixel(49, 23) == 0xff9fff && pixel(49, 24) != 0xff9fff);
+    CHECK(pixel(265, 215) != 0xd5e87c && pixel(265, 216) == 0xd5e87c);
+    CHECK(pixel(265, 219) == 0xd5e87c && pixel(265, 220) != 0xd5e87c);
     buttons = buttons2 = 0; axes = {{20000, -20000}};
     for (int i = 0; i < 10; ++i) retro_run();
-    CHECK(pixel(48, 35) != 0xff9fff && pixel(48, 36) == 0xff9fff && pixel(48, 67) == 0xff9fff);
-    CHECK(pixel(266, 161) == 0xd5e87c && pixel(266, 213) != 0xd5e87c);
+    CHECK(pixel(49, 30) == 0xff9fff && pixel(49, 55) != 0xff9fff);
+    CHECK(pixel(265, 200) == 0xd5e87c && pixel(265, 180) != 0xd5e87c);
     axes = {{0, 0}}; retro_reset(); retro_run();
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
     auto count_color = [](std::uint32_t color) {
@@ -650,6 +680,13 @@ int main() {
         return count;
     };
     CHECK(count_color(0xaefbff) > 0 && count_color(0x98ff8d) == 0);
+    // Rally zero is a connected rectangular outline, including its corners.
+    for (int left : {67, 241}) {
+        for (int y = 0; y < 32; ++y) for (int x = 0; x < 24; ++x) {
+            const bool stroke = x < 6 || x >= 18 || y < 4 || y >= 28;
+            CHECK((pixel(left + x, 44 + y) == 0xaefbff) == stroke);
+        }
+    }
     buttons = 0;
     for (int i = 0; i < 129; ++i) {
         retro_run();
@@ -672,6 +709,15 @@ int main() {
         saw_point = count_color(0xaefbff) > 0;
     }
     CHECK(saw_point && count_color(0x98ff8d) == 0);
+    // The scorer's single-digit one is a narrow, uninterrupted vertical stroke.
+    const auto is_one = [&](int left) {
+        for (int y = 0; y < 32; ++y) for (int x = 0; x < 24; ++x) {
+            const bool stroke = x >= 18;
+            if ((pixel(left + x, 44 + y) == 0xaefbff) != stroke) return false;
+        }
+        return true;
+    };
+    CHECK(is_one(67) != is_one(247));
     for (int i = 0; i < 129; ++i) {
         retro_run();
         CHECK(count_color(0xaefbff) > 0 && count_color(0x98ff8d) == 0);
@@ -702,8 +748,10 @@ int main() {
         if (ball_y >= 0) {
             buttons = buttons2 = 1u << (ball_y < 115 ? RETRO_DEVICE_ID_JOYPAD_DOWN : RETRO_DEVICE_ID_JOYPAD_UP);
         }
+        if ((i / 180) % 2) buttons = buttons2 = 1u << RETRO_DEVICE_ID_JOYPAD_DOWN;
         retro_run();
     }
+
     CHECK(pixel(75, 99) == 0x295166 && count_color(0xaefbff) > 0);
     auto hockey_won = frame;
     for (int i = 0; i < 10; ++i) retro_run();
@@ -715,48 +763,76 @@ int main() {
     bytes[4] = 7; CHECK(retro_load_game(&game)); retro_run();
     auto hockey_doubles_menu = frame;
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
-    CHECK(pixel(48, 105) == 0xff9fff && pixel(119, 105) == 0xd5e87c);
-    CHECK(pixel(194, 105) == 0xff9fff && pixel(266, 105) == 0xd5e87c);
+    CHECK(pixel(49, 105) == 0xff9fff && pixel(123, 105) == 0xd5e87c);
+    CHECK(pixel(195, 105) == 0xff9fff && pixel(265, 105) == 0xd5e87c);
+    CHECK(check_hockey_inner(105, 105));
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_UP;
     buttons2 = 1u << RETRO_DEVICE_ID_JOYPAD_DOWN;
     for (int i = 0; i < 40; ++i) retro_run();
-    for (int x : {48, 194}) {
-        CHECK(pixel(x, 21) == 0xff9fff && pixel(x, 38) != 0xff9fff);
-        CHECK(pixel(x, 20) != 0xff9fff);
+    for (int x : {49, 195}) {
+        CHECK(pixel(x, 20) == 0xff9fff && pixel(x, 23) == 0xff9fff && pixel(x, 24) != 0xff9fff);
+        CHECK(pixel(x, 19) != 0xff9fff);
     }
-    for (int x : {119, 266}) {
-        CHECK(pixel(x, 193) == 0xd5e87c && pixel(x, 213) == 0xd5e87c);
-        CHECK(pixel(x, 214) != 0xd5e87c);
+    for (int x : {123, 265}) {
+        CHECK(pixel(x, 216) == 0xd5e87c && pixel(x, 219) == 0xd5e87c);
+        CHECK(pixel(x, 220) != 0xd5e87c);
     }
     buttons = buttons2 = 0; axes = {{20000, -20000}};
     for (int i = 0; i < 10; ++i) retro_run();
-    CHECK(pixel(48, 36) == 0xff9fff && pixel(194, 36) == 0xff9fff);
-    CHECK(pixel(119, 161) == 0xd5e87c && pixel(266, 161) == 0xd5e87c);
+    CHECK(pixel(49, 30) == 0xff9fff && pixel(195, 30) == 0xff9fff);
+    CHECK(pixel(123, 200) == 0xd5e87c && pixel(265, 200) == 0xd5e87c);
     axes = {{0, 0}}; retro_reset(); retro_run(); CHECK(same_menu(frame, hockey_doubles_menu));
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
-    CHECK(pixel(119, 105) == 0xd5e87c && pixel(194, 105) == 0xff9fff);
+    CHECK(pixel(123, 105) == 0xd5e87c && pixel(195, 105) == 0xff9fff);
     retro_unload_game();
     buttons = 0; bytes[4] = 6; CHECK(retro_load_game(&game)); retro_run();
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
-    CHECK(pixel(119, 105) == 0x2cc94c && pixel(194, 105) == 0x2cc94c);
+    CHECK(pixel(123, 105) == 0x2cc94c && pixel(195, 105) == 0x2cc94c);
     retro_unload_game();
     buttons = 0; bytes[4] = 3; CHECK(retro_load_game(&game)); retro_run();
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
-    CHECK(paddle(108, 101) && paddle(205, 101));
+    CHECK(paddle(109, 101) && paddle(205, 101));
     retro_unload_game();
     buttons = buttons2 = 0; bytes[4] = 8; CHECK(retro_load_game(&game)); retro_run();
+    auto check_separator = [&pixel]() {
+        for (int y = 28; y < 208; ++y) for (int x = 138; x < 181; ++x) {
+            const int dx = x - 139;
+            const bool red_column = dx >= 0 && dx < 30 && dx % 24 < 6;
+            const bool green_column = dx >= 12 && dx < 42 && (dx - 12) % 24 < 6;
+            const int dy = y - 28;
+            const bool green = green_column && dy < 164 && dy % 32 < 4;
+            const bool red = red_column && dy >= 16 && dy < 180 && (dy - 16) % 32 < 4;
+            if ((pixel(x, y) == 0x53c178) != green || (pixel(x, y) == 0xc84458) != red) return false;
+        }
+        return true;
+    };
+    retro_unload_game();
+    for (int id : {0, 1}) {
+        buttons = 0; bytes[4] = id; CHECK(retro_load_game(&game)); retro_run();
+        buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
+        CHECK(check_separator());
+        retro_unload_game();
+    }
+    auto volleyball_score_area = [&pixel](bool visible = true) {
+        for (int y = 44; y < 76; ++y) for (int x : {68, 74, 80, 86, 242, 248, 254, 260}) {
+            const bool stroke = y < 48 || y >= 72 || x == 68 || x == 86 || x == 242 || x == 260;
+            if (pixel(x, y) != (visible && stroke ? 0xedfd84u : 0x6d70f9u)) return false;
+        }
+        return true;
+    };
+    buttons = 0; bytes[4] = 8; CHECK(retro_load_game(&game)); retro_run();
     auto volleyball_a_menu = frame;
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
     CHECK(!same_menu(frame, volleyball_a_menu));
+    CHECK(pixel(100, 20) == 0xcddcfb && pixel(100, 216) == 0xcddcfb);
     CHECK(pixel(0, 0) == 0x19b537 && pixel(100, 100) == 0x6d70f9);
-    CHECK(pixel(139, 40) == 0xc84458 && pixel(163, 40) == 0xc84458);
-    CHECK(pixel(150, 24) == 0x53c178 && pixel(174, 24) == 0x53c178);
-    CHECK(pixel(160, 30) == 0x6d70f9 && pixel(48, 105) == 0xa6e6ff && pixel(266, 105) == 0xa6e6ff);
-    CHECK(pixel(108, 105) == 0x6d70f9 && count_color(0xedfd84) > 0);
+    CHECK(check_separator());
+    CHECK(pixel(160, 36) == 0x6d70f9 && pixel(49, 105) == 0xa6e6ff && pixel(265, 105) == 0xa6e6ff);
+    CHECK(pixel(108, 105) == 0x6d70f9 && volleyball_score_area());
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_UP; buttons2 = 1u << RETRO_DEVICE_ID_JOYPAD_DOWN; retro_run();
-    CHECK(pixel(48, 97) == 0xa6e6ff && pixel(266, 136) == 0xa6e6ff);
+    CHECK(pixel(49, 97) == 0xa6e6ff && pixel(265, 133) == 0xa6e6ff);
     buttons = buttons2 = 0; for (int i = 0; i < 129; ++i) retro_run();
-    CHECK(count_color(0xedfd84) == 0);
+    CHECK(volleyball_score_area(false));
     exit_pause(); CHECK(same_menu(frame, volleyball_a_menu));
     retro_reset(); retro_run(); CHECK(same_menu(frame, volleyball_a_menu));
     retro_unload_game();
@@ -765,74 +841,78 @@ int main() {
     CHECK(!same_menu(volleyball_a_doubles_menu, volleyball_a_menu));
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
     CHECK(!same_menu(frame, volleyball_a_doubles_menu));
+    CHECK(pixel(100, 20) == 0xcddcfb && pixel(100, 216) == 0xcddcfb);
     CHECK(pixel(0, 0) == 0x19b537 && pixel(100, 100) == 0x6d70f9);
-    CHECK(pixel(139, 40) == 0xc84458 && pixel(163, 40) == 0xc84458);
-    CHECK(pixel(150, 24) == 0x53c178 && pixel(174, 24) == 0x53c178);
-    CHECK(pixel(160, 30) == 0x6d70f9 && count_color(0xedfd84) > 0);
-    for (int x : {48, 108, 205, 266}) CHECK(pixel(x, 105) == 0xa6e6ff);
+    CHECK(check_separator());
+    CHECK(pixel(160, 36) == 0x6d70f9 && volleyball_score_area());
+    for (int x : {49, 109, 205, 265}) CHECK(pixel(x, 105) == 0xa6e6ff);
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_UP; buttons2 = 1u << RETRO_DEVICE_ID_JOYPAD_DOWN; retro_run();
-    for (int x : {48, 108}) CHECK(pixel(x, 97) == 0xa6e6ff && pixel(x, 133) != 0xa6e6ff);
-    for (int x : {205, 266}) CHECK(pixel(x, 136) == 0xa6e6ff && pixel(x, 101) != 0xa6e6ff);
+    for (int x : {49, 109}) CHECK(pixel(x, 97) == 0xa6e6ff && pixel(x, 133) != 0xa6e6ff);
+    for (int x : {205, 265}) CHECK(pixel(x, 133) == 0xa6e6ff && pixel(x, 101) != 0xa6e6ff);
     buttons = buttons2 = 0; axes = {{-20000, 20000}}; retro_run();
-    for (int x : {48, 108}) CHECK(pixel(x, 94) == 0xa6e6ff);
-    for (int x : {205, 266}) CHECK(pixel(x, 139) == 0xa6e6ff);
+    for (int x : {49, 109}) CHECK(pixel(x, 94) == 0xa6e6ff);
+    for (int x : {205, 265}) CHECK(pixel(x, 136) == 0xa6e6ff);
     axes = {{0, 0}}; for (int i = 0; i < 128; ++i) retro_run();
-    CHECK(count_color(0xedfd84) == 0);
+    CHECK(volleyball_score_area(false));
     exit_pause(); CHECK(same_menu(frame, volleyball_a_doubles_menu));
     buttons = 0; retro_run(); buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
-    CHECK(count_color(0xedfd84) > 0);
-    for (int x : {48, 108, 205, 266}) CHECK(pixel(x, 105) == 0xa6e6ff);
+    CHECK(volleyball_score_area());
+    for (int x : {49, 109, 205, 265}) CHECK(pixel(x, 105) == 0xa6e6ff);
     retro_reset(); retro_run(); CHECK(same_menu(frame, volleyball_a_doubles_menu));
     retro_unload_game();
     buttons = buttons2 = 0; bytes[4] = 10; CHECK(retro_load_game(&game)); retro_run();
     auto volleyball_menu = frame;
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
     CHECK(!same_menu(frame, volleyball_menu));
+    CHECK(pixel(100, 20) == 0xcddcfb && pixel(100, 216) == 0xcddcfb);
+    CHECK(check_grid_separator(0xc7dbfd, 0x6d70f9, false));
     CHECK(pixel(0, 0) == 0x19b537 && pixel(100, 100) == 0x6d70f9);
     CHECK(pixel(160, 30) == 0xc7dbfd && pixel(160, 45) == 0x6d70f9);
-    CHECK(pixel(48, 105) == 0xa6e6ff && pixel(266, 105) == 0xa6e6ff);
-    CHECK(count_color(0xedfd84) > 0);
+    CHECK(pixel(49, 105) == 0xa6e6ff && pixel(265, 105) == 0xa6e6ff);
+    CHECK(volleyball_score_area());
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_UP; buttons2 = 1u << RETRO_DEVICE_ID_JOYPAD_DOWN;
     retro_run();
-    CHECK(pixel(48, 97) == 0xa6e6ff && pixel(266, 136) == 0xa6e6ff);
+    CHECK(pixel(49, 97) == 0xa6e6ff && pixel(265, 133) == 0xa6e6ff);
     buttons = buttons2 = 0;
+    const auto volleyball_lines = count_color(0xc7dbfd);
     for (int i = 0; i < 129; ++i) retro_run();
-    CHECK(count_color(0xedfd84) == 0);
+    CHECK(volleyball_score_area(false) && count_color(0xc7dbfd) == volleyball_lines + 35);
     exit_pause(); CHECK(same_menu(frame, volleyball_menu));
     buttons = 0; retro_run(); buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
-    CHECK(count_color(0xedfd84) > 0);
+    CHECK(volleyball_score_area());
     retro_reset(); retro_run(); CHECK(same_menu(frame, volleyball_menu));
     retro_unload_game();
     buttons = buttons2 = 0; bytes[4] = 11; CHECK(retro_load_game(&game)); retro_run();
     auto volleyball_doubles_menu = frame;
     CHECK(!same_menu(volleyball_doubles_menu, volleyball_menu));
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
+    CHECK(pixel(100, 20) == 0xcddcfb && pixel(100, 216) == 0xcddcfb);
+    CHECK(check_grid_separator(0xc7dbfd, 0x6d70f9, false));
     CHECK(pixel(0, 0) == 0x19b537 && pixel(100, 100) == 0x6d70f9);
-    CHECK(pixel(160, 30) == 0xc7dbfd && count_color(0xedfd84) > 0);
-    for (int x : {48, 108, 205, 266}) CHECK(pixel(x, 105) == 0xa6e6ff);
+    CHECK(pixel(160, 30) == 0xc7dbfd && volleyball_score_area());
+    for (int x : {49, 109, 205, 265}) CHECK(pixel(x, 105) == 0xa6e6ff);
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_UP; buttons2 = 1u << RETRO_DEVICE_ID_JOYPAD_DOWN;
     retro_run();
-    for (int x : {48, 108}) CHECK(pixel(x, 97) == 0xa6e6ff && pixel(x, 133) != 0xa6e6ff);
-    for (int x : {205, 266}) CHECK(pixel(x, 136) == 0xa6e6ff && pixel(x, 101) != 0xa6e6ff);
+    for (int x : {49, 109}) CHECK(pixel(x, 97) == 0xa6e6ff && pixel(x, 133) != 0xa6e6ff);
+    for (int x : {205, 265}) CHECK(pixel(x, 133) == 0xa6e6ff && pixel(x, 101) != 0xa6e6ff);
     buttons = buttons2 = 0; axes = {{-20000, 20000}}; retro_run();
-    for (int x : {48, 108}) CHECK(pixel(x, 94) == 0xa6e6ff);
-    for (int x : {205, 266}) CHECK(pixel(x, 139) == 0xa6e6ff);
+    for (int x : {49, 109}) CHECK(pixel(x, 94) == 0xa6e6ff);
+    for (int x : {205, 265}) CHECK(pixel(x, 136) == 0xa6e6ff);
     axes = {{0, 0}};
     for (int i = 0; i < 128; ++i) retro_run();
-    CHECK(count_color(0xedfd84) == 0);
+    CHECK(volleyball_score_area(false));
     exit_pause(); CHECK(same_menu(frame, volleyball_doubles_menu));
     buttons = 0; retro_run(); buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
-    CHECK(count_color(0xedfd84) > 0 && pixel(108, 105) == 0xa6e6ff);
+    CHECK(volleyball_score_area() && pixel(109, 105) == 0xa6e6ff);
     retro_reset(); retro_run(); CHECK(same_menu(frame, volleyball_doubles_menu));
     retro_unload_game();
     buttons = buttons2 = 0; bytes[4] = 0; CHECK(retro_load_game(&game)); retro_run();
     auto tennis_a_menu = frame;
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
     CHECK(!same_menu(frame, tennis_a_menu));
-    CHECK(pixel(139, 40) == 0xc84458 && pixel(163, 40) == 0xc84458);
-    CHECK(pixel(150, 24) == 0x53c178 && pixel(174, 24) == 0x53c178);
-    CHECK(pixel(160, 30) == 0xc07645 && pixel(100, 100) == 0xc07645);
-    CHECK(pixel(48, 105) == 0xd0ecb2 && pixel(266, 105) == 0xd0ecb2);
+    CHECK(check_separator());
+    CHECK(pixel(160, 36) == 0xc07645 && pixel(100, 100) == 0xc07645);
+    CHECK(pixel(49, 105) == 0xd0ecb2 && pixel(265, 105) == 0xd0ecb2);
     exit_pause(); CHECK(same_menu(frame, tennis_a_menu));
     buttons = 0; retro_run(); buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
     retro_reset(); retro_run(); CHECK(same_menu(frame, tennis_a_menu));
@@ -842,29 +922,29 @@ int main() {
     CHECK(!same_menu(tennis_a_doubles_menu, tennis_a_menu));
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
     CHECK(!same_menu(frame, tennis_a_doubles_menu));
-    CHECK(pixel(139, 40) == 0xc84458 && pixel(150, 24) == 0x53c178);
-    CHECK(pixel(160, 30) == 0xc07645);
-    for (int x : {48, 108, 205, 266}) CHECK(paddle(x, 101));
+    CHECK(check_separator());
+    CHECK(pixel(160, 36) == 0xc07645);
+    for (int x : {49, 109, 205, 265}) CHECK(paddle(x, 101));
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_UP; buttons2 = 1u << RETRO_DEVICE_ID_JOYPAD_DOWN; retro_run();
-    for (int x : {48, 108}) CHECK(paddle(x, 97) && !paddle(x, 133));
-    for (int x : {205, 266}) CHECK(paddle(x, 136) && !paddle(x, 101));
+    for (int x : {49, 109}) CHECK(paddle(x, 97) && !paddle(x, 133));
+    for (int x : {205, 265}) CHECK(paddle(x, 133) && !paddle(x, 101));
     buttons = buttons2 = 0; axes = {{-20000, 20000}}; retro_run();
-    for (int x : {48, 108}) CHECK(paddle(x, 94));
-    for (int x : {205, 266}) CHECK(paddle(x, 139));
+    for (int x : {49, 109}) CHECK(paddle(x, 94));
+    for (int x : {205, 265}) CHECK(paddle(x, 136));
     axes = {{0, 0}}; exit_pause(); CHECK(same_menu(frame, tennis_a_doubles_menu));
     buttons = 0; retro_run(); buttons = 1u << RETRO_DEVICE_ID_JOYPAD_A; retro_run();
-    for (int x : {48, 108, 205, 266}) CHECK(paddle(x, 101));
+    for (int x : {49, 109, 205, 265}) CHECK(paddle(x, 101));
     retro_reset(); retro_run(); CHECK(same_menu(frame, tennis_a_doubles_menu));
     retro_unload_game();
     buttons = buttons2 = 0; bytes[4] = 12; CHECK(retro_load_game(&game)); retro_run();
     auto ping_menu = frame;
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
     CHECK(!same_menu(frame, ping_menu));
-    CHECK(pixel(100, 60) == 0 && pixel(160, 155) == 0xffffff);
-    CHECK(pixel(160, 177) == 0 && pixel(160, 187) == 0xffffff);
-    CHECK(pixel(100, 215) == 0xffffff && pixel(48, 105) == 0x9b8cff);
+    CHECK(pixel(100, 60) == 0 && pixel(160, 156) == 0xffffff);
+    CHECK(pixel(160, 177) == 0 && pixel(160, 188) == 0xffffff);
+    CHECK(pixel(100, 216) == 0xffffff && pixel(49, 105) == 0x9b8cff);
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_UP; buttons2 = 1u << RETRO_DEVICE_ID_JOYPAD_DOWN; retro_run();
-    CHECK(pixel(48, 98) == 0x9b8cff && pixel(266, 135) == 0x9b8cff);
+    CHECK(pixel(49, 98) == 0x9b8cff && pixel(265, 133) == 0x9b8cff);
     exit_pause(); CHECK(same_menu(frame, ping_menu));
     buttons = 0; retro_run(); buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
     retro_reset(); retro_run(); CHECK(same_menu(frame, ping_menu));
@@ -874,23 +954,23 @@ int main() {
     CHECK(!same_menu(ping_doubles_menu, ping_menu));
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
     CHECK(!same_menu(frame, ping_doubles_menu));
-    CHECK(pixel(100, 60) == 0 && pixel(160, 155) == 0xffffff);
-    CHECK(pixel(160, 177) == 0 && pixel(160, 187) == 0xffffff && pixel(100, 215) == 0xffffff);
+    CHECK(pixel(100, 60) == 0 && pixel(160, 156) == 0xffffff);
+    CHECK(pixel(160, 177) == 0 && pixel(160, 188) == 0xffffff && pixel(100, 216) == 0xffffff);
     CHECK(count_color(0x8affa1) > 0);
-    for (int x : {48, 108, 205, 266}) CHECK(pixel(x, 105) == 0x9b8cff);
+    for (int x : {49, 109, 205, 265}) CHECK(pixel(x, 105) == 0x9b8cff);
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_UP; buttons2 = 1u << RETRO_DEVICE_ID_JOYPAD_DOWN; retro_run();
-    for (int x : {48, 108}) CHECK(pixel(x, 97) == 0x9b8cff && pixel(x, 133) != 0x9b8cff);
-    for (int x : {205, 266}) CHECK(pixel(x, 136) == 0x9b8cff && pixel(x, 101) != 0x9b8cff);
+    for (int x : {49, 109}) CHECK(pixel(x, 97) == 0x9b8cff && pixel(x, 133) != 0x9b8cff);
+    for (int x : {205, 265}) CHECK(pixel(x, 133) == 0x9b8cff && pixel(x, 101) != 0x9b8cff);
     buttons = buttons2 = 0; axes = {{-20000, 20000}}; retro_run();
-    for (int x : {48, 108}) CHECK(pixel(x, 94) == 0x9b8cff);
-    for (int x : {205, 266}) CHECK(pixel(x, 139) == 0x9b8cff);
+    for (int x : {49, 109}) CHECK(pixel(x, 94) == 0x9b8cff);
+    for (int x : {205, 265}) CHECK(pixel(x, 136) == 0x9b8cff);
     axes = {{0, 0}};
     for (int i = 0; i < 128; ++i) retro_run();
     CHECK(count_color(0x8affa1) == 0);
     exit_pause(); CHECK(same_menu(frame, ping_doubles_menu));
     buttons = 0; retro_run(); buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
     CHECK(count_color(0x8affa1) > 0);
-    for (int x : {48, 108, 205, 266}) CHECK(pixel(x, 105) == 0x9b8cff);
+    for (int x : {49, 109, 205, 265}) CHECK(pixel(x, 105) == 0x9b8cff);
     retro_reset(); retro_run(); CHECK(same_menu(frame, ping_doubles_menu));
     retro_unload_game();
     buttons = buttons2 = 0; keys.fill(false); bytes[4] = 14; CHECK(retro_load_game(&game)); retro_run();
@@ -906,23 +986,29 @@ int main() {
     buttons2 = 1u << RETRO_DEVICE_ID_JOYPAD_Y; retro_run(); CHECK(same_menu(frame, shooting_menu));
     buttons2 = 0;
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
+    for (int left : {67, 241}) {
+        for (int y = 0; y < 32; ++y) for (int x = 0; x < 24; ++x) {
+            const bool stroke = x < 6 || x >= 18 || y < 4 || y >= 28;
+            CHECK((pixel(left + x, 44 + y) == 0xffc9fa) == stroke);
+        }
+    }
     CHECK(pixel(265, 101) == 0xf3d66b);
-    buttons = 0; retro_run(); CHECK(pixel(265, 101) == 0xf3d66b && pixel(265, 133) == 0xf3d66b);
+    buttons = 0; retro_run(); CHECK(pixel(265, 101) == 0xf3d66b && pixel(265, 132) == 0xf3d66b);
     keys[RETROK_DOWN] = true; buttons2 = 1u << RETRO_DEVICE_ID_JOYPAD_DOWN; retro_run();
-    CHECK(pixel(265, 101) == 0x46a79a && pixel(265, 136) == 0xf3d66b && pixel(48, 101) == 0xf3d66b && pixel(48, 133) == 0xf3d66b);
+    CHECK(pixel(265, 101) == 0x46a79a && pixel(265, 135) == 0xf3d66b && pixel(49, 101) == 0xf3d66b && pixel(49, 132) == 0xf3d66b);
     keys[RETROK_DOWN] = false; keys[RETROK_UP] = true; buttons2 = 1u << RETRO_DEVICE_ID_JOYPAD_UP; retro_run();
-    CHECK(pixel(265, 101) == 0xf3d66b && pixel(265, 136) == 0x46a79a && pixel(48, 101) == 0xf3d66b && pixel(48, 133) == 0xf3d66b);
+    CHECK(pixel(265, 101) == 0xf3d66b && pixel(265, 135) == 0x46a79a && pixel(49, 101) == 0xf3d66b && pixel(49, 132) == 0xf3d66b);
     keys[RETROK_UP] = false; buttons2 = 0; axes[1] = -20000; retro_run(); axes[1] = 0;
-    CHECK(pixel(265, 98) == 0xf3d66b && pixel(265, 130) == 0xf3d66b);
+    CHECK(pixel(265, 98) == 0xf3d66b && pixel(265, 129) == 0xf3d66b);
     retro_set_controller_port_device(1, RETRO_DEVICE_NONE);
     buttons2 = 1u << RETRO_DEVICE_ID_JOYPAD_DOWN; retro_run();
-    CHECK(pixel(265, 98) == 0xf3d66b && pixel(265, 130) == 0xf3d66b);
+    CHECK(pixel(265, 98) == 0xf3d66b && pixel(265, 129) == 0xf3d66b);
     retro_set_controller_port_device(1, RETRO_DEVICE_JOYPAD); buttons2 = 0;
-    CHECK(pixel(100, 100) == 0x46a79a && pixel(48, 110) == 0xf3d66b);
+    CHECK(pixel(100, 100) == 0x46a79a && pixel(49, 110) == 0xf3d66b);
     buttons = 0; keys[RETROK_w] = true; retro_run();
-    CHECK(pixel(48, 99) == 0xf3d66b && pixel(48, 132) == 0x46a79a);
+    CHECK(pixel(49, 99) == 0xf3d66b && pixel(49, 132) == 0x46a79a);
     keys[RETROK_w] = false; keys[RETROK_s] = true; retro_run();
-    CHECK(pixel(48, 101) == 0xf3d66b && pixel(48, 133) == 0xf3d66b);
+    CHECK(pixel(49, 101) == 0xf3d66b && pixel(49, 132) == 0xf3d66b);
     keys[RETROK_s] = false;
     unsigned before_sound = nonzero_audio;
     keys[RETROK_x] = true; retro_run();
@@ -1013,7 +1099,7 @@ int main() {
         if (round == 0) {
             press(RETRO_DEVICE_ID_JOYPAD_UP); CHECK(frame == tennis_result);
             press(RETRO_DEVICE_ID_JOYPAD_A); CHECK(pixel(75, 99) != 0x295166);
-            CHECK(paddle(108, 101) && paddle(205, 101));
+            CHECK(paddle(109, 101) && paddle(205, 101));
         } else {
             keys[RETROK_RETURN] = true; buttons = 0; retro_run(); keys[RETROK_RETURN] = false;
             CHECK(same_menu(frame, result_tennis_menu));
@@ -1206,18 +1292,17 @@ int main() {
             buttons2 = manual && tick >= 5 && tick < 10 ? 1u << RETRO_DEVICE_ID_JOYPAD_DOWN : 0;
             retro_run();
             for (auto& c : candidates) {
-                if (manual) c.position += buttons2 ? 12 : 0;
-                else if (c.speed == 11 && c.direction == 1) {
-                    c.position += 11;
-                    if (c.position >= 875) c.position = -65;
-                } else c.position = (c.position + 65 + c.speed * c.direction + 940) % 940 - 65;
+                c.position += manual ? (buttons2 ? 12 : 0) : c.speed * c.direction;
+                // The 32-pixel target wraps after its top travels from -8 to 216.
+                if (c.position < -8 * 4) c.position += 225 * 4;
+                if (c.position >= 217 * 4) c.position -= 225 * 4;
                 // The shot may cross the target column or flash the screen here.
                 if (tick > 25 && tick < 130) continue;
                 const bool visible = !c.blinking || tick % 32 < 26;
                 const int top = c.position / 4;
                 for (int y = 0; y < 240; ++y) {
-                    const bool target_ink = pixel(272, y) == 0xf3d66b;
-                    if (target_ink != (visible && y >= top && y < top + 33)) { c.valid = false; break; }
+                    const bool target_ink = pixel(265, y) == 0xf3d66b;
+                    if (target_ink != (visible && y >= 20 && y < 220 && y >= top && y < top + 32)) { c.valid = false; break; }
                 }
             }
         }
@@ -1291,16 +1376,68 @@ int main() {
         } else CHECK(!same_menu(frame, defaults)); // Switches survive reset.
         press(RETRO_DEVICE_ID_JOYPAD_START);
         const auto paddle_color = id == 14 ? 0xf3d66b : id >= 12 ? 0x9b8cff : id >= 8 ? 0xa6e6ff : id >= 4 ? 0xff9fff : 0xd0ecb2;
-        CHECK(at(frame, 48, 117) == paddle_color);
-        CHECK(at(frame, 48, 103) != paddle_color);
+        CHECK(at(frame, 49, 117) == paddle_color);
+        CHECK(at(frame, 49, 109) == paddle_color);
+        CHECK(at(frame, 49, 103) != paddle_color);
         press(RETRO_DEVICE_ID_JOYPAD_START); // Pause, then restart.
         press(RETRO_DEVICE_ID_JOYPAD_DOWN); press(RETRO_DEVICE_ID_JOYPAD_A);
-        CHECK(at(frame, 48, 103) != paddle_color);
+        CHECK(at(frame, 49, 109) == paddle_color);
+        CHECK(at(frame, 49, 103) != paddle_color);
         retro_unload_game(); buttons = 0;
         CHECK(retro_load_game(&game)); retro_run();
         for (int i = 0; i < (id == 14 ? 4 : 2); ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
         CHECK(!same_menu(frame, low));
         retro_unload_game();
+    }
+    // Both size switches independently control the complete paddle rectangles.
+    for (unsigned id = 0; id < 15; ++id) {
+        for (unsigned sizes = 0; sizes < 4; ++sizes) {
+            retro_deinit(); retro_init();
+            buttons = buttons2 = 0; keys.fill(false); axes = {{0, 0}};
+            bytes[4] = static_cast<unsigned char>(id);
+            CHECK(retro_load_game(&game)); retro_run();
+            for (int i = 0; i < (id == 14 ? 5 : 3); ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+            if (sizes & 1) press(RETRO_DEVICE_ID_JOYPAD_RIGHT);
+            press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+            if (sizes & 2) press(RETRO_DEVICE_ID_JOYPAD_RIGHT);
+            for (int i = 0; i < (id == 14 ? 6 : 4); ++i) press(RETRO_DEVICE_ID_JOYPAD_UP);
+            press(RETRO_DEVICE_ID_JOYPAD_START);
+            for (int side = 0; side < 2; ++side) {
+                const int x = side ? 265 : 49;
+                const auto color = id == 14 ? 0xf3d66b : id >= 12 ? 0x9b8cff :
+                    id >= 8 ? 0xa6e6ff : id >= 4 ? (side ? 0xd5e87c : 0xff9fff) : 0xd0ecb2;
+                const int height = sizes & (1u << side) ? 16 : 32;
+                int top = 0;
+                while (top < 240 && at(frame, x, top) != color) ++top;
+                if (!(top > 0 && top + height < 240))
+                    std::fprintf(stderr, "paddle missing: id=%u sizes=%u side=%d top=%d\n", id, sizes, side, top);
+                CHECK(top > 0 && top + height < 240);
+                for (int y = top - 1; y <= top + height; ++y)
+                    for (int dx = -1; dx <= 6; ++dx) {
+                        const bool expected = y >= top && y < top + height && dx >= 0 && dx < 6;
+                        if ((at(frame, x + dx, y) == color) != expected)
+                            std::fprintf(stderr, "paddle mismatch: id=%u sizes=%u side=%d top=%d y=%d dx=%d\n", id, sizes, side, top, y, dx);
+                        CHECK((at(frame, x + dx, y) == color) == expected);
+                    }
+            }
+            if (id == 1 || id == 3 || id == 9 || id == 11 || id == 13) {
+                const std::uint32_t color = id == 13 ? 0x9b8cff : id >= 8 ? 0xa6e6ff : 0xd0ecb2;
+                const std::uint32_t background = id == 13 ? 0 : id >= 8 ? 0x6d70f9 : 0xc07645;
+                for (int side = 0; side < 2; ++side) {
+                    const int x = side ? 205 : 109;
+                    const int height = sizes & (1u << side) ? 16 : 32;
+                    int top = 0;
+                    while (top < 240 && at(frame, x, top) != color) ++top;
+                    CHECK(top > 0 && top + height < 240);
+                    for (int y = top - 1; y <= top + height; ++y)
+                        for (int dx = -1; dx <= 6; ++dx) {
+                            const bool inside = y >= top && y < top + height && dx >= 0 && dx < 6;
+                            CHECK(at(frame, x + dx, y) == (inside ? color : background));
+                        }
+                }
+            }
+            retro_unload_game();
+        }
     }
     // Competitive score cycles through all targets and survives reset, restart and game switching.
     retro_deinit(); retro_init();
@@ -1345,8 +1482,8 @@ int main() {
         do { retro_run(); } while (pixel(75, 99) != 0x295166 && --remaining);
         CHECK(remaining > 0);
         // The winner's two digits are 30, not the former fixed 15.
-        CHECK((pixel(63, 42) == 0xcdf0ff && pixel(85, 42) == 0xcdf0ff) ||
-              (pixel(223, 42) == 0xcdf0ff && pixel(245, 42) == 0xcdf0ff));
+        CHECK((pixel(55, 44) == 0xcdf0ff && pixel(85, 44) == 0xcdf0ff) ||
+              (pixel(217, 44) == 0xcdf0ff && pixel(247, 44) == 0xcdf0ff));
         buttons = buttons2 = 0; retro_run();
         press(RETRO_DEVICE_ID_JOYPAD_A); // Result restart retains 30.
     }
@@ -1400,7 +1537,7 @@ int main() {
         buttons = 0; for (int i = 0; i < 100; ++i) retro_run();
         CHECK((pixel(75, 99) == 0x295166) == (shot == 29));
     }
-    CHECK(pixel(63, 42) == 0xffc9fa && pixel(85, 42) == 0xffc9fa);
+    CHECK(pixel(55, 44) == 0xffc9fa && pixel(85, 44) == 0xffc9fa);
     press(RETRO_DEVICE_ID_JOYPAD_DOWN); press(RETRO_DEVICE_ID_JOYPAD_A);
     press(RETRO_DEVICE_ID_JOYPAD_B); press(RETRO_DEVICE_ID_JOYPAD_UP); press(RETRO_DEVICE_ID_JOYPAD_A);
     for (int i = 0; i < 5; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
@@ -1857,18 +1994,16 @@ int main() {
             }
             buttons = 1u << RETRO_DEVICE_ID_JOYPAD_A; retro_run(); buttons = 0; retro_run();
         }
-        if (id != 14) {
-            buttons = 1u << RETRO_DEVICE_ID_JOYPAD_DOWN; retro_run();
-            buttons = 1u << RETRO_DEVICE_ID_JOYPAD_RIGHT; retro_run();
-            buttons = 1u << RETRO_DEVICE_ID_JOYPAD_UP; retro_run();
-        }
         buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
         buttons = 0;
         std::vector<std::uint64_t> result;
         for (int i = 0; i < 700; ++i) {
             if (switch_live && i == 10) set_rebound("Paddle movement");
             buttons = 1u << ((i % 2) ? RETRO_DEVICE_ID_JOYPAD_UP : RETRO_DEVICE_ID_JOYPAD_DOWN);
-            buttons2 = 1u << ((i % 2) ? RETRO_DEVICE_ID_JOYPAD_DOWN : RETRO_DEVICE_ID_JOYPAD_UP);
+            // The first serve reaches the right paddle near y=210 after a wall
+            // bounce. Position P2 there during the serve delay, then keep it
+            // moving so the two rebound modes produce different trajectories.
+            buttons2 = 1u << (i < 20 || i % 2 == 0 ? RETRO_DEVICE_ID_JOYPAD_DOWN : RETRO_DEVICE_ID_JOYPAD_UP);
             retro_run();
             std::uint64_t hash = 14695981039346656037ull;
             for (auto byte : frame) { hash ^= byte; hash *= 1099511628211ull; }
@@ -1958,7 +2093,7 @@ int main() {
     buttons = 0; retro_run();
     CHECK(demo_pixel(frame, 55, 88) == 0xffffff && demo_pixel(frame, 264, 100) == 0xffffff);
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_A; retro_run();
-    CHECK(demo_pixel(frame, 53, 103) == 0xffffff && demo_pixel(frame, 266, 116) == 0xffffff);
+    CHECK(demo_pixel(frame, 53, 103) == 0xffffff && demo_pixel(frame, 265, 116) == 0xffffff);
     buttons = 0; retro_run(); buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
     buttons = 0; retro_run(); buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
     CHECK(demo_pixel(frame, 75, 99) == 0xffffff && demo_pixel(frame, 244, 112) == 0xffffff);

@@ -10,6 +10,42 @@ int main() {
     shooting.set_options(false, {});
     shooting.set_shot_limit(15);
 
+    // Check both complete borders and the immediately adjacent background.
+    for (bool small_shooter : {false, true}) {
+        for (bool small_target : {false, true}) {
+            ctg::Shooting field;
+            field.set_options(false, {small_shooter, small_target});
+            render_shooting(field, false);
+            for (int y : {19, 20, 21, 22, 23, 24, 215, 216, 217, 218, 219, 220}) {
+                for (int x = 36; x <= 283; ++x) {
+                    const bool border = x >= 37 && x <= 282 &&
+                        ((y >= 20 && y <= 23) || (y >= 216 && y <= 219));
+                    CHECK(pixels[y * 320 + x] == (border ? 0x86ffffu : 0x46a79au));
+                }
+            }
+        }
+    }
+
+    // Paddles may cover the border but never draw outside the field or disappear.
+    for (bool small : {false, true}) for (bool automatic : {false, true}) for (int direction : {-1, 1}) {
+        ctg::Shooting field;
+        field.set_options(false, {small, small});
+        field.set_target_behavior(11, direction, false);
+        for (int i = 0; i < 300; ++i) {
+            field.step(direction, false, direction, automatic);
+            render_shooting(field, false);
+            for (int x : {rally_x(2), rally_x(38)}) {
+                int visible = 0;
+                for (int y = 0; y < 240; ++y) {
+                    const bool object = pixels[y * 320 + x] == 0xf3d66bu;
+                    if (y < 20 || y >= 220) CHECK(!object);
+                    else visible += object;
+                }
+                CHECK(visible >= 4);
+            }
+        }
+    }
+
     // Exercise every mix of random and fixed settings, including manual direction.
     for (unsigned target : {0u, 1u, 2u, 3u, 4u}) {
         for (unsigned direction : {0u, 1u, 2u}) {

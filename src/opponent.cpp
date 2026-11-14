@@ -6,15 +6,6 @@
 
 namespace ctg {
 namespace {
-int hockey_inner_face(bool moving_right) {
-    int x = moving_right ? 0 : TennisB::width;
-    if (moving_right) {
-        while (hockey_x(x) + 3 < hockey_inner_left) ++x;
-    } else {
-        while (hockey_x(x) - 3 >= hockey_inner_left + 8) --x;
-    }
-    return x;
-}
 
 int predict_y(const TennisState& state, int frames) {
     // Fold the unbounded path into the interval between ball-center walls.
@@ -29,9 +20,9 @@ int predict_y(const TennisState& state, int frames) {
 int intercept(const TennisState& state) {
     if (state.ball_vx == 0) return TennisB::height / 2;
     const bool right = state.ball_vx > 0;
-    int face = right ? (state.hockey ? 293 : TennisB::paddle_right - TennisB::ball_radius) : -1;
+    int face = right ? (state.hockey ? hockey_paddle_face(hockey_outer_right, true) : TennisB::paddle_right - TennisB::ball_radius) : -1;
     if (state.doubles) {
-        const int inner = state.hockey ? hockey_inner_face(right)
+        const int inner = state.hockey ? hockey_paddle_face(hockey_inner_left, right)
                                        : TennisB::inner_right - TennisB::ball_radius;
         if ((state.hockey || right) && (right ? state.ball_x <= inner : state.ball_x >= inner))
             face = inner;
@@ -72,9 +63,8 @@ int Opponent::step(const TennisState& state, unsigned difficulty, bool explicitl
             const int error = hockey_easy ? 70 : errors[difficulty - 1];
             target_ += static_cast<int>((random_ >> 8) % (2 * error + 1)) - error;
         }
-        const int half = state.small_paddle[1] ? 10 : TennisB::paddle_half_height;
-        target_ = std::clamp(target_, state.hockey ? TennisB::hockey_paddle_min : half,
-                             state.hockey ? TennisB::hockey_paddle_max : TennisB::height - half);
+        target_ = std::clamp(target_, TennisB::paddle_min_for_size(state.small_paddle[1]),
+                             TennisB::paddle_max_for_size(state.small_paddle[1]));
     }
     --countdown_;
     const int delta = target_ - state.paddle_y[1];

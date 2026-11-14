@@ -68,16 +68,19 @@ public:
 
     Racing() { reset(); }
     void reset();
+    // Configuration persists across reset; enabling does not reopen a finished game.
+    void set_endless(bool enabled) { endless_ = enabled; }
     void reset_preview();
     void reset_from_layout(const RacingState& layout);
     void step_preview();
     // Advances exactly one frame; returns a bitmask of RacingEvent values.
-    // After the timer expires, steps do nothing until reset().
+    // After the timer expires, steps do nothing until reset(), unless endless is enabled.
     unsigned step(RacingInput input = {});
     const RacingState& state() const { return state_; }
 
 private:
     RacingState state_{};
+    bool endless_ = false;
     unsigned next_lane_ = 0;
     int steering_remainder_ = 0;
 };

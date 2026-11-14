@@ -27,6 +27,9 @@ Latest development check: a clean Linux Debug build with `-Wall -Wextra -Wpedant
 - [ ] Audit implemented Tennis B Singles/Doubles and Hockey B Singles against the reference, including score visibility, serves, collision geometry, rendering and sound; replace arbitrary deviations with reference-consistent behavior where feasible.
 - [x] Inspect the CTG-15S manual's rebound passage and diagrams: they show four outgoing directions including horizontal for each paddle movement direction, with prior movement affecting stopped paddles.
 - [ ] Determine how the hardware chooses the particular rebound direction, movement-history lifetime and exact slopes before replacing the hit-position-only approximation. Investigate long stationary-paddle rallies and possible anti-stalemate behavior on hardware; the optional intervention is a modern approximation, not proven original behavior.
+- [ ] Compare paddle-game sounds with original-console footage and independently recreate the observed sounds and timing; the current sounds differ.
+- [ ] Verify serve behavior against footage: the player who won the last point serves, with the left player serving by default at the start. Confirm the rule and its applicability across variants before changing gameplay.
+- [ ] Check score blinking at the start and after a win against the footage, including timing and variant differences; implement and test the verified behavior.
 - For every variant, document measurable Visvader reference behavior and check applicable original-manual descriptions before implementing; independently implement and compare, add visual and behavioral regression tests, request an interactive RetroArch playthrough, and record results and remaining discrepancies here before proceeding.
 
 ## Milestone 0: Research and verification — in progress

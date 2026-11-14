@@ -98,7 +98,37 @@ bool test_variant(unsigned id) {
     press(RETRO_DEVICE_ID_JOYPAD_A);
     CHECK(frame != configured_menu);
     const auto initial_game = frame;
+    const auto pixel = [&](int x, int y) {
+        std::uint32_t value;
+        std::memcpy(&value, frame.data() + (y * 320 + x) * 4, sizeof value);
+        return value;
+    };
+    const std::uint32_t left_color = id == 14 ? 0xf3d66b : id >= 12 ? 0x9b8cff :
+        id >= 8 ? 0xa6e6ff : id >= 4 ? 0xff9fff : 0xd0ecb2;
+    const std::uint32_t right_color = id >= 4 && id < 8 ? 0xd5e87c : left_color;
+    for (int side = 0; side < 2; ++side) {
+        const int x = side ? 265 : 49;
+        const auto color = side ? right_color : left_color;
+        const int height = id == 14 ? (side == 0 ? 16 : 32) : (id % 2 == 1 ? 32 : 16);
+        int top = 0;
+        while (top < 240 && pixel(x, top) != color) ++top;
+        CHECK(top > 0 && top + height < 240);
+        for (int y = top - 1; y <= top + height; ++y)
+            for (int dx = -1; dx <= 6; ++dx)
+                CHECK((pixel(x + dx, y) == color) == (y >= top && y < top + height && dx >= 0 && dx < 6));
+    }
 
+    if (id < 14) {
+        for (int direction : {-1, 1}) {
+            buttons[0] = 1u << (direction < 0 ? RETRO_DEVICE_ID_JOYPAD_UP : RETRO_DEVICE_ID_JOYPAD_DOWN);
+            for (unsigned n = 0; n < 100; ++n) retro_run();
+            const int inner_x = id >= 4 && id < 8 ? 195 : 109;
+            for (int x : {49, (id % 2 == 1 ? inner_x : 49)}) {
+                for (int y = 0; y < 240; ++y)
+                    CHECK((pixel(x, y) == left_color) == (direction < 0 ? y >= 20 && y < 24 : y >= 216 && y < 220));
+            }
+        }
+    }
     buttons[0] = 1u << RETRO_DEVICE_ID_JOYPAD_DOWN;
     buttons[1] = 1u << RETRO_DEVICE_ID_JOYPAD_UP;
     for (unsigned n = 0; n < 20; ++n) retro_run();
@@ -146,6 +176,13 @@ bool test_racing() {
         std::memcpy(&value, frame.data() + (y * 320 + x) * 4, sizeof(value));
         return value;
     };
+    // Racing uses the shared zero glyph at a narrower horizontal scale.
+    for (unsigned origin : {52u, 74u})
+        for (unsigned y = 0; y < 33; ++y)
+            for (unsigned x = 0; x < 16; ++x) {
+                const bool stroke = x < 4 || x >= 12 || y < 4 || y >= 28;
+                CHECK((pixel(origin + x, 6 + y) == 0xffffff) == stroke);
+            }
     CHECK(pixel(0, 100) == 0x66594a && pixel(319, 100) == 0x66594a);
     CHECK(pixel(40, 100) == 0xc3f5df && pixel(43, 100) == 0xc3f5df);
     CHECK(pixel(276, 100) == 0xc3f5df && pixel(279, 100) == 0xc3f5df);

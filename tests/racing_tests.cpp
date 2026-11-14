@@ -32,6 +32,30 @@ static void avoid_traffic(ctg::Racing& game, ctg::RacingInput input = {}) {
 }
 
 int main() {
+    {
+        ctg::Racing game;
+        game.set_endless(true);
+        game.reset();
+        for (unsigned i = 0; i < ctg::Racing::duration_frames + 100; ++i)
+            CHECK(!(game.step() & ctg::racing_finished));
+        CHECK(!game.state().finished && game.state().frames_remaining == 0);
+        auto& s = const_cast<ctg::RacingState&>(game.state());
+        s.frame = s.score = s.collisions = std::numeric_limits<unsigned>::max();
+        s.road_scroll = 239; s.speed = ctg::Racing::low_speed;
+        s.movement_remainder = 0; s.section_collided = false;
+        s.traffic[0].rect = s.player; s.traffic[0].collided = false;
+        CHECK(game.step() & ctg::racing_collision);
+        CHECK(s.collisions == std::numeric_limits<unsigned>::max());
+        s.road_scroll = 239; s.speed = ctg::Racing::low_speed;
+        s.movement_remainder = 0; s.section_collided = false;
+        s.traffic[0].rect.y = 0;
+        CHECK(game.step() & ctg::racing_pass);
+        CHECK(s.score == std::numeric_limits<unsigned>::max());
+        CHECK(s.frame == std::numeric_limits<unsigned>::max());
+        game.set_endless(false);
+        CHECK(game.step() & ctg::racing_finished);
+        CHECK(s.finished && s.frames_remaining == 0);
+    }
     const ctg::RacingRect road{40, 0, 240, 240};
     bool seen[211]{};
     for (unsigned i = 0; i < 211; ++i) {

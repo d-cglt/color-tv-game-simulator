@@ -18,7 +18,7 @@ The repository's CI is configured to build and run tests for Linux x86-64, Windo
 
 A `.ctg` file is a project-defined selector, **not a ROM**: exactly five bytes, ASCII `CTG1` followed by a single ID from 0 to 15. Other lengths, magic values and IDs are rejected. IDs 0–14 select the 15 existing variants; ID 15 selects Racing 112 as one console entry, not 112 separate games. Racing needs a core with Racing integration, such as 0.1.3 or newer. See the [content format](https://github.com/d-cglt/color-tv-game-simulator/blob/main/docs/CONTENT_FORMAT.md) for the complete ID table and historical naming caveats.
 
-Bundled `content/slot-XX.ctg` files and the separate 16-selector archive can be loaded directly. To generate named selectors, open **Quick Menu → Core Options**, change **Generate game files** from **Ready** to **Generate**, then resume the core. The core writes to `Nintendo Color TV-Game` under the frontend's system directory and reports created, existing and failed counts. The directory must be available and writable; there is no fallback. Existing paths are skipped, not overwritten; a failed write may leave a partial file that must be removed before retrying. The core asks the frontend to reset the option to Ready; if it cannot, reset it manually. A saved Generate value does not trigger generation at startup: change it to Ready and then Generate again. Older A/B filenames can be ambiguous across versions; inspect the encoded ID rather than relying on the name. Existing files are not renamed or migrated.
+Download and extract the [16-selector archive](https://github.com/d-cglt/color-tv-game-simulator/releases/download/v0.1.4/colortvgame-0.1.4-selectors.zip), then load a `.ctg` file as content. Alternatively, to generate named selectors, open **Quick Menu → Core Options**, change **Generate game files** from **Ready** to **Generate**, then resume the core. The core writes to `Nintendo Color TV-Game` under the frontend's system directory and reports created, existing and failed counts. The directory must be available and writable; there is no fallback. Existing paths are skipped, not overwritten; a failed write may leave a partial file that must be removed before retrying. The core asks the frontend to reset the option to Ready; if it cannot, reset it manually. A saved Generate value does not trigger generation at startup: change it to Ready and then Generate again. Older A/B filenames can be ambiguous across versions; inspect the encoded ID rather than relying on the name. Existing files are not renamed or migrated.
 
 ## Controls
 
@@ -67,11 +67,11 @@ The frontend must provide an available, writable save directory. Save failures a
 
 Racing is one selectable entry with a one-player wide road, traffic, steering, collisions, scoring and a fixed timer. It automatically accelerates after startup and impacts. Steering, gear mapping, speeds, scoring, timing and presentation are provisional approximations. The user confirmed Racing play and steering in a frontend, not all frontend paths or packaged binaries. The proposed configuration menu, two-player mode and the 112 historical combinations are **not implemented**. See the [Racing design](https://github.com/d-cglt/color-tv-game-simulator/blob/main/docs/RACING_DESIGN.md).
 
-## Limitations
+## Frontend features and scope
 
-- The frontend must support XRGB8888 video. Save states and rewind are unsupported; cheats and Libretro memory saves are also unsupported.
-- This is a simulator, not verified original hardware behavior. AI, modern rumble, anti-stalemate and RF effects should not be taken as historical claims.
-- Availability and interactive testing vary by platform; the project does not claim upstream Libretro distribution or acceptance.
+The frontend must support XRGB8888 video. Save states, rewind, cheats and Libretro memory saves are not implemented; the games are designed for short sessions. Menu preferences are persisted separately as described above.
+
+This is a simulator, not verified original hardware behavior. AI, modern rumble, anti-stalemate and RF effects should not be taken as historical claims. Availability and interactive testing vary by platform; the project does not claim upstream Libretro distribution or acceptance.
 
 ## Playlists
 

@@ -1,5 +1,6 @@
 #include "racing.h"
 #include <algorithm>
+#include <limits>
 
 namespace ctg {
 namespace {
@@ -55,7 +56,7 @@ void Racing::step_preview() {
         car.rect.y -= distance;
         if (car.rect.y + car.rect.height <= 0) car.rect.y = state_.road.height;
     }
-    ++state_.frame;
+    if (state_.frame < std::numeric_limits<unsigned>::max()) ++state_.frame;
 }
 
 unsigned Racing::step(RacingInput input) {
@@ -103,7 +104,7 @@ unsigned Racing::step(RacingInput input) {
         if (!car.collided && overlaps(player, car.rect)) {
             car.collided = true;
             state_.section_collided = true;
-            ++state_.collisions;
+            if (state_.collisions < std::numeric_limits<unsigned>::max()) ++state_.collisions;
             state_.speed = start_speed;
             state_.movement_remainder = 0;
             events |= racing_collision;
@@ -112,19 +113,22 @@ unsigned Racing::step(RacingInput input) {
             car.rect = {racing_opponent_x(state_.road, next_lane_),
                         car.rect.y - static_cast<int>(racing_road_dash_length + racing_road_gap_length),
                         traffic_width, traffic_height};
-            ++next_lane_;
+            // Keep the placement sequence periodic without overflowing the lane counter.
+            const unsigned positions = static_cast<unsigned>(state_.road.width - 8 - 2 * racing_car_overhang - traffic_width + 1);
+            next_lane_ = (next_lane_ + 1) % positions;
             car.collided = false;
         }
     }
     if (section_complete) {
         if (!state_.section_collided) {
-            ++state_.score;
+            if (state_.score < std::numeric_limits<unsigned>::max()) ++state_.score;
             events |= racing_pass;
         }
         state_.section_collided = false;
     }
-    ++state_.frame;
-    if (--state_.frames_remaining == 0) {
+    if (state_.frame < std::numeric_limits<unsigned>::max()) ++state_.frame;
+    if (state_.frames_remaining > 0) --state_.frames_remaining;
+    if (!endless_ && state_.frames_remaining == 0) {
         state_.finished = true;
         events |= racing_finished;
     }

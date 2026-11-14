@@ -33,18 +33,36 @@ if [ "$mode" = retrodeck ]; then
     [ "$5" = net.retrodeck.retrodeck ]
     shift 5
 fi
-[ "$#" -eq 4 ] && [ "$1" = --appendconfig ] && [ "$3" = -L ]
+[ "$1" = --appendconfig ] && [ "$3" = -L ]
+if [ -n "${CTG_TEST_CONTENT:-}" ]; then
+    [ "$#" -eq 5 ] && [ "$5" = "$CTG_TEST_CONTENT" ]
+else
+    [ "$#" -eq 4 ]
+fi
 config=$2
 dir=${config%/retroarch.cfg}
-[ "$4" = "$dir/cores/colortvgame_libretro.so" ]
-cmp "$CTG_TEST_PROJECT/build/colortvgame_libretro.so" "$4"
+if [ "${CTG_TEST_LEGACY_INFO:-}" = 1 ]; then
+    [ "$4" = "$dir/cores/colortvgame_libretro.so" ]
+    cmp "$CTG_TEST_PROJECT/build/colortvgame_libretro.so" "$4"
+    cores=$dir/cores
+else
+    [ "$4" = "$CTG_TEST_PROJECT/build/colortvgame_libretro.so" ]
+    [ ! -e "$dir/cores" ]
+    cores=$CTG_TEST_PROJECT/build
+fi
 [ "$mode" != retrodeck ] || [ "$access" = "--filesystem=$dir:ro" ]
 cmp "$CTG_TEST_PROJECT/colortvgame_libretro.info" "$dir/info/colortvgame_libretro.info"
-grep -Fx "libretro_info_path = \"$dir/info\"" "$config" >/dev/null
-grep -Fx "libretro_directory = \"$dir/cores\"" "$config" >/dev/null
+escaped_info=$(printf '%s' "$dir/info" | sed 's/\\/\\\\/g; s/"/\\"/g')
+escaped_cores=$(printf '%s' "$cores" | sed 's/\\/\\\\/g; s/"/\\"/g')
+grep -Fx "libretro_info_path = \"$escaped_info\"" "$config" >/dev/null
+grep -Fx "libretro_directory = \"$escaped_cores\"" "$config" >/dev/null
 while IFS= read -r line; do grep -Fx "$line" "$config" >/dev/null; done < "$CTG_TEST_PROJECT/scripts/launcher-input.cfg"
 grep -Fx 'config_save_on_exit = "false"' "$config" >/dev/null
 printf '%s\n' "$dir" > "$CTG_TEST_LOG"
+if [ "${CTG_TEST_WAIT:-}" = 1 ]; then
+    trap 'exit 0' TERM HUP INT
+    while :; do sleep 1; done
+fi
 exit "${CTG_TEST_EXIT:-0}"
 EOF
 chmod +x "$tmp/bin/retroarch" "$tmp/bin/flatpak" "$tmp/bin/check-info"
@@ -64,49 +82,88 @@ input_player2_down = "down"
 EOF
 cmp "$tmp/expected-config" "$project/scripts/launcher-input.cfg"
 
+CTG_TEST_HELPER=$tmp/bin/check-info
+CTG_TEST_PROJECT=$project
+CTG_TEST_INFO=1
+export CTG_TEST_HELPER CTG_TEST_PROJECT CTG_TEST_INFO
+mkdir "$tmp/temp with spaces and \"quotes\""
+TMPDIR=$tmp/temp\ with\ spaces\ and\ \"quotes\"
+export TMPDIR
+check_cleanup() {
+    info_dir=$(cat "$CTG_TEST_LOG")
+    [ ! -e "$info_dir" ] || { echo 'Temporary metadata not cleaned up' >&2; exit 1; }
+}
 slot=0
 for name in tennis-a-singles tennis-a-doubles tennis-b-singles tennis-b-doubles \
     hockey-a-singles hockey-a-doubles hockey-b-singles hockey-b-doubles \
     volleyball-a-singles volleyball-a-doubles volleyball-b-singles volleyball-b-doubles \
     ping-pong-singles ping-pong-doubles shooting-game-original; do
     id=$(printf '%02d' "$slot")
+    CTG_TEST_CONTENT=$project/content/slot-$id.ctg
+    export CTG_TEST_CONTENT
     CTG_FRONTEND=native sh "$project/scripts/launch.sh" "$name"
-    printf '%s\n' --appendconfig "$project/scripts/launcher-input.cfg" -L "$project/build/colortvgame_libretro.so" "$project/content/slot-$id.ctg" > "$tmp/expected"
-    cmp "$tmp/expected" "$CTG_TEST_LOG"
+    check_cleanup
     CTG_FRONTEND=native "$project/scripts/$name.sh"
-    cmp "$tmp/expected" "$CTG_TEST_LOG"
+    check_cleanup
     case $name in
         *-a-*) public_name=$(printf '%s' "$name" | sed 's/-a-/-variant-/') ;;
         *-b-*) public_name=$(printf '%s' "$name" | sed 's/-b-/-original-/') ;;
         *) public_name=$name ;;
     esac
     CTG_FRONTEND=native sh "$project/scripts/launch.sh" "$public_name"
-    cmp "$tmp/expected" "$CTG_TEST_LOG"
+    check_cleanup
     # Verify the selector itself contains the matching ID, not just the filename.
     actual=$(od -An -tu1 "$project/content/slot-$id.ctg")
     set -- $actual
     [ "$#" -eq 5 ] && [ "$1" -eq 67 ] && [ "$2" -eq 84 ] && [ "$3" -eq 71 ] && [ "$4" -eq 49 ] && [ "$5" -eq "$slot" ]
     slot=$((slot + 1))
 done
-CTG_FRONTEND=native "$project/scripts/no-content.sh"
-printf '%s\n' --appendconfig "$project/scripts/launcher-input.cfg" -L "$project/build/colortvgame_libretro.so" > "$tmp/expected"
-cmp "$tmp/expected" "$CTG_TEST_LOG"
-CTG_FRONTEND=retrodeck "$project/scripts/no-content.sh"
-printf '%s\n' run "--filesystem=$project:ro" --command=/app/retrodeck/components/retroarch/bin/retroarch net.retrodeck.retrodeck --appendconfig "$project/scripts/launcher-input.cfg" -L "$project/build/colortvgame_libretro.so" > "$tmp/expected"
-cmp "$tmp/expected" "$CTG_TEST_LOG"
-CTG_FRONTEND=retrodeck sh "$project/scripts/launch.sh" tennis-b-singles
-printf '%s\n' run "--filesystem=$project:ro" --command=/app/retrodeck/components/retroarch/bin/retroarch net.retrodeck.retrodeck --appendconfig "$project/scripts/launcher-input.cfg" -L "$project/build/colortvgame_libretro.so" "$project/content/slot-02.ctg" > "$tmp/expected"
-cmp "$tmp/expected" "$CTG_TEST_LOG"
-CTG_TEST_HELPER=$tmp/bin/check-info
-CTG_TEST_PROJECT=$project
-export CTG_TEST_HELPER CTG_TEST_PROJECT
-mkdir "$tmp/temp with spaces"
+unset CTG_TEST_CONTENT
+# Exercise a noexec temporary filesystem when the host provides one.
+if [ -w /dev/shm ] && command -v findmnt >/dev/null 2>&1 &&
+    findmnt -n -o OPTIONS -T /dev/shm | grep -Eq '(^|,)noexec(,|$)'; then
+    TMPDIR=/dev/shm CTG_FRONTEND=native "$project/scripts/no-content.sh"
+    check_cleanup
+fi
 for frontend in native retrodeck auto; do
-    CTG_TEST_INFO=1 CTG_FRONTEND=$frontend TMPDIR="$tmp/temp with spaces" "$project/scripts/core-info-test.sh"
+    CTG_FRONTEND=$frontend "$project/scripts/no-content.sh"
+    check_cleanup
+done
+CTG_TEST_CONTENT=$project/content/slot-02.ctg
+export CTG_TEST_CONTENT
+CTG_FRONTEND=retrodeck sh "$project/scripts/launch.sh" tennis-b-singles
+check_cleanup
+unset CTG_TEST_CONTENT
+for frontend in native retrodeck; do
+    if CTG_TEST_EXIT=42 CTG_FRONTEND=$frontend "$project/scripts/no-content.sh"; then
+        echo 'Frontend failure not propagated' >&2; exit 1
+    else
+        [ "$?" -eq 42 ]
+    fi
+    check_cleanup
+done
+for frontend in native retrodeck; do
+    rm -f "$CTG_TEST_LOG"
+    CTG_TEST_WAIT=1 CTG_FRONTEND=$frontend "$project/scripts/no-content.sh" &
+    launcher=$!
+    count=0
+    while [ ! -s "$CTG_TEST_LOG" ] && [ "$count" -lt 100 ]; do
+        sleep 0.1
+        count=$((count + 1))
+    done
+    [ -s "$CTG_TEST_LOG" ] || { kill "$launcher"; echo 'Frontend did not start' >&2; exit 1; }
+    kill -TERM "$launcher"
+    if wait "$launcher"; then echo 'Interrupted launcher succeeded' >&2; exit 1; fi
+    check_cleanup
+done
+CTG_TEST_LEGACY_INFO=1
+export CTG_TEST_LEGACY_INFO
+for frontend in native retrodeck auto; do
+    CTG_TEST_INFO=1 CTG_FRONTEND=$frontend "$project/scripts/core-info-test.sh"
     info_dir=$(cat "$CTG_TEST_LOG")
     [ ! -e "$info_dir" ] || { echo 'Temporary metadata not cleaned up' >&2; exit 1; }
 done
-if CTG_TEST_INFO=1 CTG_TEST_EXIT=42 CTG_FRONTEND=native TMPDIR="$tmp/temp with spaces" "$project/scripts/core-info-test.sh"; then
+if CTG_TEST_INFO=1 CTG_TEST_EXIT=42 CTG_FRONTEND=native "$project/scripts/core-info-test.sh"; then
     echo 'Frontend failure not propagated' >&2; exit 1
 else
     [ "$?" -eq 42 ]

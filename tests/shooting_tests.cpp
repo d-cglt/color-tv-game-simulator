@@ -7,6 +7,31 @@
 
 int main() {
     {
+        ctg::Shooting game;
+        game.set_shot_limit(1);
+        game.set_target_behavior(11, 1, false);
+        game.set_endless(true);
+        game.reset();
+        for (int shot = 0; shot < 2; ++shot) {
+            unsigned events = game.step(0, true);
+            while (game.state().flying) events |= game.step(0, false);
+            CHECK(!(events & ctg::sound_win));
+            CHECK(!game.state().finished && game.state().shots == static_cast<unsigned>(shot + 1));
+        }
+        auto& s = const_cast<ctg::ShootingState&>(game.state());
+        s.shots = s.hits = s.frame = std::numeric_limits<unsigned>::max();
+        unsigned events = game.step(0, true);
+        CHECK(s.frame == 0);
+        while (s.flying) events |= game.step(0, false);
+        CHECK((events & ctg::sound_point) && !(events & ctg::sound_win));
+        CHECK(s.shots == std::numeric_limits<unsigned>::max());
+        CHECK(s.hits == std::numeric_limits<unsigned>::max());
+        game.set_endless(false);
+        events = game.step(0, true);
+        while (s.flying) events |= game.step(0, false);
+        CHECK((events & ctg::sound_win) && s.finished);
+    }
+    {
         for (unsigned speed : {6u, 11u, 16u}) {
             for (int direction : {-1, 1}) {
                 ctg::Shooting target;
@@ -32,17 +57,27 @@ int main() {
             target.set_target_behavior(speed, direction, false);
             int position = 405;
             for (int i = 0; i < 100; ++i) {
-                position = (position + 65 + static_cast<int>(speed % 940) * direction + 940) % 940 - 65;
+                constexpr int min_position = -8 * 4, range = (216 + 8 + 1) * 4;
+                position = (position - min_position + static_cast<int>(speed % range) * direction + range) % range + min_position;
                 target.step(0, false, 0, true);
                 CHECK(target.state().target_y == position / 4);
                 CHECK(target.target_visible());
             }
         }
-        ctg::Shooting legacy;
-        for (int i = 0; i < 42; ++i) legacy.step(0, false, 0, true);
-        CHECK(legacy.state().target_y == 867 / 4);
-        legacy.step(0, false, 0, true);
-        CHECK(legacy.state().target_y == -65 / 4);
+        for (bool small : {false, true}) for (bool automatic : {false, true}) for (int direction : {-1, 1}) {
+            ctg::Shooting target;
+            target.set_options(false, {false, small});
+            target.set_target_behavior(11, direction, false);
+            bool wrapped = false;
+            for (int i = 0; i < 300; ++i) {
+                const int before = target.target_top();
+                target.step(0, false, direction, automatic);
+                const int top = target.target_top();
+                CHECK(top <= 216 && top + (small ? 16 : 32) >= 24);
+                wrapped |= direction > 0 ? top < before : top > before;
+            }
+            CHECK(wrapped);
+        }
     }
     {
         for (bool blinking : {false, true}) {
@@ -62,6 +97,33 @@ int main() {
         CHECK(fast.paddle_height(0) == 16 && fast.paddle_height(1) == 33);
         fast.reset(); CHECK(fast.paddle_height(0) == 16);
         fast.step(0, true); CHECK(fast.state().shot_x > slow.state().shot_x);
+    }
+    for (bool small : {false, true}) {
+        ctg::Shooting shooter;
+        shooter.set_options(false, {small, false});
+        const int height = small ? 16 : 32;
+        CHECK(shooter.paddle_height(0) == height);
+        for (int i = 0; i < 100; ++i) shooter.step(-1, false);
+        CHECK(shooter.shooter_top() == 24 - height);
+        CHECK(shooter.state().shooter_y == 24 - height / 2);
+        shooter.step(-1, true);
+        CHECK(shooter.state().shot_y == shooter.state().shooter_y);
+        while (shooter.state().flying) shooter.step(0, false);
+        for (int i = 0; i < 100; ++i) shooter.step(1, false);
+        CHECK(shooter.shooter_top() == 216);
+        CHECK(shooter.state().shooter_y == 216 + height / 2);
+        shooter.step(1, true);
+        CHECK(shooter.state().shot_y == shooter.state().shooter_y);
+        shooter.set_options(false, {false, false});
+        CHECK(shooter.shooter_top() <= 216);
+    }
+    {
+        ctg::Shooting shooter;
+        shooter.set_options(false, {true, false});
+        for (int i = 0; i < 100; ++i) shooter.step(-1, false);
+        shooter.set_options(false, {false, false});
+        CHECK(shooter.state().shooter_y == 16);
+        CHECK(shooter.shooter_top() + shooter.paddle_height(0) >= 24);
     }
     for (bool small : {false, true}) {
         ctg::Shooting target;

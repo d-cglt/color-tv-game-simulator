@@ -2,6 +2,7 @@
 #include "hockey_ball.h"
 #include "tennis_a_blocks.h"
 #include <algorithm>
+#include <limits>
 #include <cstdlib>
 #include <cmath>
 
@@ -52,6 +53,7 @@ void TennisB::reset() {
     const auto small_paddle = state_.small_paddle;
     state_ = {};
     paddle_displacement_ = {};
+    paddle_missed_ = {};
     horizontal_rebounds_ = 0;
     state_.high_speed = high_speed;
     state_.small_paddle = small_paddle;
@@ -74,6 +76,32 @@ void TennisB::reset() {
     state_.serve_wait = hockey_serve_delay;
 }
 
+int TennisB::paddle_min_for_size(bool small) {
+    const int min_center = field_top + paddle_visible_min - (small ? 8 : 16);
+    int y = -height;
+    while (hockey_y(y) < min_center) ++y;
+    return y;
+}
+
+int TennisB::paddle_max_for_size(bool small) {
+    const int max_center = field_bottom - paddle_visible_min + (small ? 8 : 16);
+    int y = 2 * height;
+    while (hockey_y(y) > max_center) --y;
+    return y;
+}
+
+int TennisB::paddle_top(int owner) const {
+    return hockey_y(state_.paddle_y[owner]) - paddle_pixels(owner) / 2;
+}
+
+int TennisB::paddle_visible_top(int owner) const {
+    return std::max(field_top, paddle_top(owner));
+}
+
+int TennisB::paddle_visible_bottom(int owner) const {
+    return std::min(field_bottom, paddle_top(owner) + paddle_pixels(owner));
+}
+
 unsigned TennisB::step(TennisInput input) {
     if (state_.winner != -1) return sound_none;
     const int controls[] = {input.left, input.right};
@@ -81,8 +109,7 @@ unsigned TennisB::step(TennisInput input) {
         const int direction = (controls[i] > 0) - (controls[i] < 0);
         const int previous_y = state_.paddle_y[i];
         state_.paddle_y[i] = std::clamp(state_.paddle_y[i] + direction * paddle_speed,
-                                        state_.hockey ? hockey_paddle_min : paddle_half(i),
-                                        state_.hockey ? hockey_paddle_max : height - paddle_half(i));
+                                        paddle_min(i), paddle_max(i));
         const int displacement = state_.paddle_y[i] - previous_y;
         if (displacement != 0) paddle_displacement_[i] = displacement;
     }
@@ -104,11 +131,12 @@ unsigned TennisB::step(TennisInput input) {
     };
     const auto score = [this, &sounds](int scorer) {
         horizontal_rebounds_ = 0;
-        ++state_.score[scorer];
+        paddle_missed_ = {};
+        if (state_.score[scorer] < std::numeric_limits<unsigned>::max()) ++state_.score[scorer];
         volleyball_block_bounces_ = 0;
         hockey_scoring_side_ = false;
         sounds |= sound_point;
-        if (state_.score[scorer] >= winning_score_) {
+        if (!endless_ && state_.score[scorer] >= winning_score_) {
             state_.winner = scorer;
             state_.ball_vx = state_.ball_vy = 0;
             sounds |= sound_win;
@@ -119,8 +147,9 @@ unsigned TennisB::step(TennisInput input) {
             tennis_spawning_ = false;
         }
     };
-    // The reference checks the ball's rectangle against the full display before movement.
-    if (state_.hockey && (hockey_y(state_.ball_y) - 2 <= 5 || hockey_y(state_.ball_y) + 3 >= 240)) {
+    // Hockey can also escape vertically after entering the scoring side.
+    const std::int64_t display_y = 21 + static_cast<std::int64_t>(state_.ball_y) * 188 / 240;
+    if (state_.hockey && (display_y + 3 <= 0 || display_y - 2 >= height)) {
         score(0);
         return sounds;
     }
@@ -139,12 +168,12 @@ unsigned TennisB::step(TennisInput input) {
     if (state_.tennis_a) {
         for (int color = 0; color < 2; ++color) {
             for (int row = 0; row < 6; ++row) {
-                for (int col = 0; col < 2; ++col) {
+                for (int col = 0; col < tennis_a_block_columns; ++col) {
                     const auto block = tennis_a_block(color, row, col);
                     const int x = hockey_x(state_.ball_x), y = hockey_y(state_.ball_y);
                     if (x + 4 <= block.x || x - 3 >= block.x + block.width ||
                         y + 3 <= block.y || y - 2 >= block.y + block.height) continue;
-                    const int id = color * 12 + row * 2 + col;
+                    const int id = (color * 6 + row) * tennis_a_block_columns + col;
                     if (last_block_ != id || block_collision_speed_ != state_.ball_vy) {
                         sounds |= sound_wall;
                         last_block_ = id;
@@ -171,7 +200,7 @@ unsigned TennisB::step(TennisInput input) {
         TennisABlock hit_block{};
         for (int color = 0; color < 2; ++color)
             for (int row = 0; row < 6; ++row)
-                for (int col = 0; col < 2; ++col) {
+                for (int col = 0; col < tennis_a_block_columns; ++col) {
                     const auto block = tennis_a_block(color, row, col);
                     const int y = hockey_y(state_.ball_y);
                     if (y + 3 <= block.y || y - 2 >= block.y + block.height) continue;
@@ -258,21 +287,23 @@ unsigned TennisB::step(TennisInput input) {
         for (int i = 0; i < 2; ++i) {
             const int paddle_x = i == 0 ? hockey_inner_left : hockey_inner_right;
             const int owner = 1 - i;
-            // Find the first ball-center position touching each drawn face.
-            int left_face = 0, right_face = width;
-            while (hockey_x(left_face) + 3 < paddle_x) ++left_face;
-            while (hockey_x(right_face) - 3 >= paddle_x + 8) --right_face;
-            const int face = state_.ball_vx > 0 ? left_face : right_face;
+            const int face = hockey_paddle_face(paddle_x, state_.ball_vx > 0);
             const bool crosses = state_.ball_vx > 0 ? old_x < face && state_.ball_x >= face
                                                     : state_.ball_vx < 0 && old_x > face && state_.ball_x <= face;
-            const int top = std::max(hockey_court_top, hockey_paddle_top(state_.paddle_y[owner], paddle_pixels(owner)));
-            const int bottom = std::min(hockey_court_bottom, hockey_paddle_top(state_.paddle_y[owner], paddle_pixels(owner)) + paddle_pixels(owner));
+            const int top = paddle_visible_top(owner);
+            const int bottom = paddle_visible_bottom(owner);
             const int ball_y = hockey_y(state_.ball_y);
             if (crosses && ball_y + 3 > top && ball_y - 2 < bottom) {
-                const int offset = state_.ball_y - state_.paddle_y[owner];
-                state_.ball_x = 2 * face - state_.ball_x;
-                state_.ball_vx = -state_.ball_vx;
-                state_.ball_vy = paddle_rebound(owner, offset);
+                // The swapped inner paddles face the opposing goal; their backs face center.
+                const bool back = i == 0 ? state_.ball_vx < 0 : state_.ball_vx > 0;
+                if (back) {
+                    state_.ball_vy = -state_.ball_vy;
+                } else {
+                    const int offset = state_.ball_y - state_.paddle_y[owner];
+                    state_.ball_x = 2 * face - state_.ball_x;
+                    state_.ball_vx = -state_.ball_vx;
+                    state_.ball_vy = paddle_rebound(owner, offset);
+                }
                 sounds |= sound_paddle | (owner == 0 ? event_player1_hit : event_player2_hit);
                 break;
             }
@@ -285,8 +316,7 @@ unsigned TennisB::step(TennisInput input) {
             const bool crosses = i == 0 ? state_.ball_vx < 0 && old_x >= face && state_.ball_x <= face
                                         : state_.ball_vx > 0 && old_x <= face && state_.ball_x >= face;
             const int offset = state_.ball_y - state_.paddle_y[i];
-            const bool overlaps = state_.small_paddle[i] ? hockey_y(state_.ball_y) + 3 > paddle_top(i) && hockey_y(state_.ball_y) - 2 < paddle_top(i) + paddle_pixels(i)
-                                                          : std::abs(offset) <= paddle_half_height + ball_radius;
+            const bool overlaps = hockey_y(state_.ball_y) + 3 > paddle_visible_top(i) && hockey_y(state_.ball_y) - 2 < paddle_visible_bottom(i);
             if (crosses && overlaps) {
                 state_.ball_x = 2 * face - state_.ball_x;
                 state_.ball_vx = -state_.ball_vx;
@@ -299,19 +329,18 @@ unsigned TennisB::step(TennisInput input) {
     }
 
     for (int i = 0; i < 2; ++i) {
-        // Hockey faces correspond to the drawn paddle and seven-pixel ball edges.
-        const int face = state_.hockey ? (i == 0 ? 27 : 293)
+        const int face = state_.hockey ? hockey_paddle_face(i == 0 ? hockey_outer_left : hockey_outer_right, i == 1)
                                        : (i == 0 ? paddle_left + ball_radius : paddle_right - ball_radius);
         const bool crosses = i == 0 ? state_.ball_vx < 0 && old_x >= face && state_.ball_x <= face
                                     : state_.ball_vx > 0 && old_x <= face && state_.ball_x >= face;
         const int offset = state_.ball_y - state_.paddle_y[i];
-        const int top = std::max(hockey_court_top, hockey_paddle_top(state_.paddle_y[i], paddle_pixels(i)));
-        const int bottom = std::min(hockey_court_bottom, hockey_paddle_top(state_.paddle_y[i], paddle_pixels(i)) + paddle_pixels(i));
+        const int top = paddle_visible_top(i);
+        const int bottom = paddle_visible_bottom(i);
         const int ball_y = hockey_y(state_.ball_y);
-        const bool overlaps = state_.hockey ? ball_y + 3 > top && ball_y - 2 < bottom
-                            : state_.small_paddle[i] ? ball_y + 3 > paddle_top(i) && ball_y - 2 < paddle_top(i) + paddle_pixels(i)
-                                                     : std::abs(offset) <= paddle_half_height + ball_radius;
-        if (!tennis_spawning_ && crosses && overlaps) {
+        const bool overlaps = ball_y + 3 > top && ball_y - 2 < bottom;
+        if (i == 0 ? old_x > face : old_x < face) paddle_missed_[i] = false;
+        if (!tennis_spawning_ && crosses && !overlaps) paddle_missed_[i] = true;
+        if (!tennis_spawning_ && crosses && overlaps && !paddle_missed_[i]) {
             state_.ball_x = 2 * face - state_.ball_x;
             state_.ball_vx = -state_.ball_vx;
             state_.ball_vy = paddle_rebound(i, offset);
@@ -336,8 +365,14 @@ unsigned TennisB::step(TennisInput input) {
         }
     }
 
-    if (state_.ball_x < 0 || state_.ball_x > width) {
-        score(state_.ball_x < 0 ? 1 : 0);
+    // The renderer draws seven pixels across, centered at hockey_x(ball_x).
+    // Widen before scaling: the ball can now travel beyond the court bounds.
+    const std::int64_t display_x = 38 + static_cast<std::int64_t>(state_.ball_x) * 244 / 320;
+    const std::int64_t moved_y = 21 + static_cast<std::int64_t>(state_.ball_y) * 188 / 240;
+    if (state_.hockey && (moved_y + 3 <= 0 || moved_y - 2 >= height)) {
+        score(0);
+    } else if (display_x + 4 <= 0 || display_x - 3 >= width) {
+        score(display_x < 0 ? 1 : 0);
     }
     return sounds;
 }

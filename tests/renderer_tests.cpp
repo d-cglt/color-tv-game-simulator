@@ -12,6 +12,11 @@
 #include <array>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <iomanip>
+#include <iostream>
+#include <memory>
 #include <vector>
 
 namespace fixtures {
@@ -417,7 +422,7 @@ constexpr std::uint64_t expected[] = {
 
 };
 
-std::uint64_t draw(const fixtures::Case& c) {
+std::uint64_t draw(const fixtures::Case& c, bool diagnostics = false) {
     fixtures::Fixture f(c);
     const bool detail = c.kind != fixtures::select && c.kind != fixtures::launch && c.kind != fixtures::hidden;
     const ctg::RenderState state{
@@ -429,7 +434,8 @@ std::uint64_t draw(const fixtures::Case& c) {
         f.racing, f.demo_racing, c.kind != fixtures::crash,
         {c.effect == fixtures::fixed, 87, 65}
     };
-    ctg::Renderer renderer;
+    auto renderer_storage = std::make_unique<ctg::Renderer>();
+    auto& renderer = *renderer_storage;
     if (c.kind == fixtures::serve || c.kind == fixtures::inplay || c.kind == fixtures::crash) {
         if (c.id == 15) renderer.render_racing(f.racing, true, state.racing_player_visible, state.scores);
         else if (c.id == 14) renderer.render_shooting(f.shooting, true, state.scores);
@@ -442,7 +448,43 @@ std::uint64_t draw(const fixtures::Case& c) {
         if (c.effect == fixtures::mono) renderer.monochrome_selection_outline(state);
     }
     if (c.effect == fixtures::grid || c.effect == fixtures::combined) renderer.test_grid_overlay();
-    return fixtures::hash(renderer.pixels);
+    const auto frame_hash = fixtures::hash(renderer.pixels);
+    if (diagnostics) {
+        std::cerr << "pause diagnostic id=" << c.id << " kind=" << static_cast<unsigned>(c.kind)
+                  << " choice=" << c.choice << " effect=" << static_cast<unsigned>(c.effect)
+                  << " state={content_id=" << state.content_id << " selector=" << state.selector
+                  << " detail=" << state.detail << " paused=" << state.paused
+                  << " finished=" << state.finished << " menu_hidden=" << state.menu_hidden
+                  << " selector_choice=" << state.selector_choice << " menu_choice=" << state.menu_choice
+                  << " pause_choice=" << state.pause_choice << " result_choice=" << state.result_choice
+                  << "} frame_fnv1a=" << std::hex << std::setfill('0') << std::setw(16) << frame_hash
+                  << std::dec << '\n';
+        const char* labels[] = {"RESUME", "RESTART", "EXIT"};
+        const unsigned label_x[] = {142, 139, 148};
+        for (unsigned row = 0; row < 3; ++row) {
+            const unsigned y = 99 + row * 16;
+            std::uint64_t hash = UINT64_C(14695981039346656037);
+            for (unsigned py = y; py < y + 14; ++py)
+                for (unsigned px = 75; px < 245; ++px) {
+                    const auto pixel = renderer.pixels[py * ctg::Graphics::width + px];
+                    for (unsigned shift = 0; shift < 32; shift += 8) {
+                        hash ^= (pixel >> shift) & 255;
+                        hash *= UINT64_C(1099511628211);
+                    }
+                }
+            const unsigned text_y = y + 3;
+            std::cerr << "  row=" << row << " label=" << labels[row] << " selected="
+                      << (row == state.pause_choice) << " region=[75," << y << ",170,14] fnv1a="
+                      << std::hex << std::setfill('0') << std::setw(16) << hash
+                      << " background(75," << std::dec << y << ")=" << std::hex << std::setw(8)
+                      << renderer.pixels[y * ctg::Graphics::width + 75]
+                      << " label_pixel(" << std::dec << label_x[row] << ',' << text_y << ")="
+                      << std::hex << std::setw(8)
+                      << renderer.pixels[text_y * ctg::Graphics::width + label_x[row]]
+                      << std::dec << '\n';
+        }
+    }
+    return frame_hash;
 }
 }
 
@@ -461,9 +503,20 @@ int main() {
         if (actual != expected[i]) {
             const auto& c = cases[i];
             std::fprintf(stderr, "Frame %zu id=%u kind=%u choice=%u effect=%u: expected %016llx, got %016llx\n",
-                         i, c.id, c.kind, c.choice, c.effect,
+                         i, c.id, static_cast<unsigned>(c.kind), c.choice, static_cast<unsigned>(c.effect),
                          static_cast<unsigned long long>(expected[i]), static_cast<unsigned long long>(actual));
             ++failures;
+        }
+    }
+    const char* diagnostics = std::getenv("CTG_RENDER_DIAGNOSTICS");
+    if (failures || (diagnostics && std::strcmp(diagnostics, "1") == 0)) {
+        for (std::size_t i = 0; i < cases.size(); ++i) {
+            const auto& c = cases[i];
+            if (c.id == 0 && c.kind == fixtures::pause && c.effect == fixtures::plain) {
+                std::cerr << "fixture index=" << i << " expected=" << std::hex << std::setfill('0')
+                          << std::setw(16) << expected[i] << std::dec << '\n';
+                draw(c, true);
+            }
         }
     }
     if (failures) {

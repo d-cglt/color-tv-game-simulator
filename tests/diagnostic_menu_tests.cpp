@@ -4,6 +4,7 @@
 #include <array>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <vector>
 
 namespace {
@@ -58,6 +59,47 @@ std::vector<std::uint32_t> row(unsigned i) {
             result.push_back(pixel);
         }
     return result;
+}
+bool reopened_snapshot(const std::array<std::vector<std::uint32_t>, 4>& expected) {
+    const bool trace = std::getenv("CTG_RENDER_DIAGNOSTICS") != nullptr;
+    const bool valid_frame = frame.size() == 320 * 240;
+    const bool actual_menu = menu();
+    const unsigned actual_selection = valid_frame ? selection() : 99;
+    bool ok = actual_menu && actual_selection == 0;
+    std::array<std::vector<std::uint32_t>, 4> actual;
+    if (valid_frame) {
+        for (unsigned i = 0; i < actual.size(); ++i) {
+            actual[i] = row(i);
+            if (actual[i] != expected[i]) ok = false;
+        }
+    } else {
+        ok = false;
+    }
+    if (trace || !ok) {
+        // One increment followed by 40 more reaches the upper bound (30), then one decrement.
+        const unsigned saved_score = std::min(1u + 40u, 30u) - 1u;
+        std::fprintf(stderr, "reopened menu: frame pixels=%zu (expected 76800), menu=%d (expected 1), selection=%u (expected 0)\n",
+                     frame.size(), actual_menu, actual_selection);
+        std::fprintf(stderr, "expected controls: grid=on fixed=on left=%u right=%u (bounds 0..30)\n", saved_score, saved_score);
+        const char* names[] = {"grid", "fixed", "left", "right"};
+        for (unsigned i = 0; i < actual.size(); ++i) {
+            const auto mismatch = std::mismatch(expected[i].begin(), expected[i].end(), actual[i].begin(), actual[i].end());
+            const size_t pos = static_cast<size_t>(mismatch.first - expected[i].begin());
+            std::fprintf(stderr, "row %u (%s): frame x=60..259 y=%u..%u expected=%zu actual=%zu %s", i, names[i],
+                         85 + i * 18, 97 + i * 18, expected[i].size(), actual[i].size(),
+                         expected[i] == actual[i] ? "match" : "DIFFER");
+            if (mismatch.first != expected[i].end() && mismatch.second != actual[i].end()) {
+                const unsigned x = 60 + static_cast<unsigned>(pos % 200);
+                const unsigned y = 85 + i * 18 + static_cast<unsigned>(pos / 200);
+                std::fprintf(stderr, " first offset=%zu row=(%zu,%zu) frame=(%u,%u) expected=0x%08x actual=0x%08x raw=0x%08x",
+                             pos, pos % 200, pos / 200, x, y,
+                             static_cast<unsigned>(*mismatch.first), static_cast<unsigned>(*mismatch.second),
+                             static_cast<unsigned>(frame[y * 320 + x]));
+            }
+            std::fprintf(stderr, "\n");
+        }
+    }
+    return ok;
 }
 bool load(unsigned id) {
     std::array<unsigned char, 5> bytes{{'C', 'T', 'G', '1', static_cast<unsigned char>(id)}};
@@ -121,7 +163,7 @@ bool controls() {
     press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(row(3) != right_max);
     const auto left_saved = row(2), right_saved = row(3);
     keyboard(RETROK_ESCAPE); CHECK(!menu());
-    open(); CHECK(menu() && selection() == 0 && row(0) == grid_on && row(1) == fixed_on && row(2) == left_saved && row(3) == right_saved);
+    open(); CHECK(reopened_snapshot({{grid_on, fixed_on, left_saved, right_saved}}));
     press(RETRO_DEVICE_ID_JOYPAD_UP); CHECK(selection() == 4);
     press(RETRO_DEVICE_ID_JOYPAD_DOWN); CHECK(selection() == 0);
     press(RETRO_DEVICE_ID_JOYPAD_UP); press(RETRO_DEVICE_ID_JOYPAD_A); CHECK(!menu());

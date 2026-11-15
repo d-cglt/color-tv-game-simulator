@@ -236,6 +236,11 @@ void Renderer::monochrome_selection_outline(const RenderState& state) {
     rect(x, y, 1, h, 0xffffff);
     rect(x + w - 1, y, 1, h, 0xffffff);
 }
+// MSVC optimized builds have dropped menu labels drawn before the selected row.
+// Keep these menu paths unoptimized while retaining the pixel regression tests.
+#if defined(_MSC_VER) && !defined(__clang__)
+#pragma optimize("", off)
+#endif
 void Renderer::render(const RenderState& state) {
     const bool preview = state.selector || !state.detail;
     if (state.content_id == 15) {
@@ -359,4 +364,7 @@ void Renderer::diagnostic_menu(bool grid, ScoreOverride scores, unsigned choice)
         centered_text(85 + i * 18, labels[i], i == choice ? 0x70e0ff : 0xffffff);
     }
 }
+#if defined(_MSC_VER) && !defined(__clang__)
+#pragma optimize("", on)
+#endif
 }

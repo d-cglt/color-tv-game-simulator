@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-add_library(colortvgame_libretro SHARED src/core.cpp src/content.cpp src/generator.cpp)
+add_library(colortvgame_libretro SHARED src/core.cpp src/content.cpp src/generator.cpp src/preferences.cpp)
 target_include_directories(colortvgame_libretro PRIVATE src third_party/libretro)
 target_compile_definitions(colortvgame_libretro PRIVATE CORE_VERSION="${PROJECT_VERSION}")
 
@@ -15,7 +15,11 @@ set_target_properties(colortvgame_libretro PROPERTIES PREFIX "" CXX_VISIBILITY_P
 add_library(tennis_b STATIC src/tennis_b.cpp src/shooting.cpp src/opponent.cpp src/racing.cpp)
 target_include_directories(tennis_b PUBLIC src)
 set_target_properties(tennis_b PROPERTIES POSITION_INDEPENDENT_CODE ON)
-target_link_libraries(colortvgame_libretro PRIVATE tennis_b)
+add_library(core_components STATIC src/audio.cpp src/controls.cpp src/demo.cpp src/graphics.cpp src/renderer.cpp)
+target_include_directories(core_components PUBLIC src third_party/libretro)
+target_link_libraries(core_components PUBLIC tennis_b)
+set_target_properties(core_components PROPERTIES POSITION_INDEPENDENT_CODE ON CXX_VISIBILITY_PRESET hidden VISIBILITY_INLINES_HIDDEN YES)
+target_link_libraries(colortvgame_libretro PRIVATE core_components)
 
 add_executable(generate_selectors scripts/generate-selectors.cpp src/generator.cpp)
 target_include_directories(generate_selectors PRIVATE src)
@@ -42,7 +46,16 @@ if(BUILD_TESTING)
   add_executable(score_digits_tests tests/score_digits_tests.cpp)
   target_include_directories(score_digits_tests PRIVATE src)
   add_test(NAME score_digits_tests COMMAND score_digits_tests)
-  add_executable(tennis_b_tests tests/tennis_b_tests.cpp)
+  add_executable(tennis_b_tests
+    tests/tennis_b_tests.cpp
+    tests/tennis_options_tests.cpp
+    tests/tennis_rebound_tests.cpp
+    tests/tennis_ping_pong_tests.cpp
+    tests/tennis_blocks_tests.cpp
+    tests/tennis_lifecycle_tests.cpp
+    tests/tennis_hockey_tests.cpp
+    tests/tennis_hockey_geometry_tests.cpp
+    tests/tennis_volleyball_tests.cpp)
   target_link_libraries(tennis_b_tests PRIVATE tennis_b)
   add_test(NAME tennis_b_tests COMMAND tennis_b_tests)
   add_executable(opponent_tests tests/opponent_tests.cpp)
@@ -54,26 +67,46 @@ if(BUILD_TESTING)
   add_executable(shooting_tests tests/shooting_tests.cpp)
   target_link_libraries(shooting_tests PRIVATE tennis_b)
   add_test(NAME shooting_tests COMMAND shooting_tests)
-  add_executable(volleyball_render_tests tests/volleyball_render_tests.cpp src/content.cpp src/generator.cpp)
-  target_include_directories(volleyball_render_tests PRIVATE src third_party/libretro)
-  target_compile_definitions(volleyball_render_tests PRIVATE CORE_VERSION="${PROJECT_VERSION}")
-  target_link_libraries(volleyball_render_tests PRIVATE tennis_b)
+  foreach(component IN ITEMS audio controls demo graphics renderer)
+    add_executable(${component}_tests tests/${component}_tests.cpp)
+    target_link_libraries(${component}_tests PRIVATE core_components)
+    add_test(NAME ${component}_tests COMMAND ${component}_tests)
+  endforeach()
+  add_executable(volleyball_render_tests tests/volleyball_render_tests.cpp)
+  target_link_libraries(volleyball_render_tests PRIVATE core_components)
   add_test(NAME volleyball_render_tests COMMAND volleyball_render_tests)
-  add_executable(shooting_random_tests tests/shooting_random_tests.cpp src/content.cpp src/generator.cpp)
+  add_executable(shooting_random_tests tests/shooting_random_tests.cpp src/content.cpp src/generator.cpp src/preferences.cpp)
   target_include_directories(shooting_random_tests PRIVATE src third_party/libretro)
   target_compile_definitions(shooting_random_tests PRIVATE CORE_VERSION="${PROJECT_VERSION}")
-  target_link_libraries(shooting_random_tests PRIVATE tennis_b)
+  target_link_libraries(shooting_random_tests PRIVATE core_components)
   add_test(NAME shooting_random_tests COMMAND shooting_random_tests)
+  add_executable(preferences_tests tests/preferences_tests.cpp src/preferences.cpp)
+  target_include_directories(preferences_tests PRIVATE src)
+  add_test(NAME preferences_tests COMMAND preferences_tests)
   find_package(Threads REQUIRED)
   add_executable(generator_tests tests/generator_tests.cpp src/generator.cpp src/content.cpp)
   target_include_directories(generator_tests PRIVATE src)
   target_link_libraries(generator_tests PRIVATE Threads::Threads)
   add_test(NAME generator_tests COMMAND generator_tests)
-  add_executable(core_tests tests/core_tests.cpp src/content.cpp)
+  add_executable(core_tests
+    tests/core_tests.cpp
+    tests/core_test_harness.cpp
+    tests/core_boot_generator_scenarios.cpp
+    tests/core_demo_preview_scenarios.cpp
+    tests/core_gameplay_rendering_scenarios.cpp
+    tests/core_menus_options_scenarios.cpp
+    tests/core_persistence_selector_demo_scenarios.cpp
+    tests/core_video_rumble_scenarios.cpp
+    src/content.cpp)
   target_include_directories(core_tests PRIVATE src third_party/libretro)
   target_link_libraries(core_tests PRIVATE colortvgame_libretro)
   target_compile_definitions(core_tests PRIVATE CONTENT_DIR="${CMAKE_CURRENT_SOURCE_DIR}/content" RETRO_IMPORT_SYMBOLS)
   add_test(NAME core_tests COMMAND core_tests)
+  add_executable(core_options_tests tests/core_options_tests.cpp)
+  target_include_directories(core_options_tests PRIVATE third_party/libretro)
+  target_compile_definitions(core_options_tests PRIVATE RETRO_IMPORT_SYMBOLS)
+  target_link_libraries(core_options_tests PRIVATE colortvgame_libretro)
+  add_test(NAME core_options_tests COMMAND core_options_tests)
   add_executable(diagnostic_menu_tests tests/diagnostic_menu_tests.cpp)
   target_include_directories(diagnostic_menu_tests PRIVATE third_party/libretro)
   target_compile_definitions(diagnostic_menu_tests PRIVATE RETRO_IMPORT_SYMBOLS)

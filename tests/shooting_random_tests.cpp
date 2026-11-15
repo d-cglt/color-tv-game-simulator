@@ -15,7 +15,7 @@ int main() {
         for (bool small_target : {false, true}) {
             ctg::Shooting field;
             field.set_options(false, {small_shooter, small_target});
-            render_shooting(field, false);
+            renderer.render_shooting(field, false);
             for (int y : {19, 20, 21, 22, 23, 24, 215, 216, 217, 218, 219, 220}) {
                 for (int x = 36; x <= 283; ++x) {
                     const bool border = x >= 37 && x <= 282 &&
@@ -33,8 +33,8 @@ int main() {
         field.set_target_behavior(11, direction, false);
         for (int i = 0; i < 300; ++i) {
             field.step(direction, false, direction, automatic);
-            render_shooting(field, false);
-            for (int x : {rally_x(2), rally_x(38)}) {
+            renderer.render_shooting(field, false);
+            for (int x : {ctg::rally_x(2), ctg::rally_x(38)}) {
                 int visible = 0;
                 for (int y = 0; y < 240; ++y) {
                     const bool object = pixels[y * 320 + x] == 0xf3d66bu;

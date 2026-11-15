@@ -1,10 +1,9 @@
-#!/usr/bin/env python3
 """Build a reproducible selector archive using the core's generator."""
 import argparse
-from pathlib import Path
 import subprocess
 import tempfile
 import zipfile
+from pathlib import Path
 
 
 def build(generator, readme, output):

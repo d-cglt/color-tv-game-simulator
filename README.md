@@ -54,6 +54,18 @@ ctest --test-dir build --output-on-failure
 
 On Linux the shared core is `build/colortvgame_libretro.so`; the extension and output location can differ by platform or build configuration. For multi-configuration generators such as Visual Studio, use `cmake --build build --config Release` and `ctest --test-dir build -C Release --output-on-failure`. Tests use a simulated frontend, not RetroArch.
 
+### Source layout
+
+- `src/core.cpp`: Libretro lifecycle, frontend options and callbacks, session/menu transitions, and frame coordination.
+- `src/graphics.*`: framebuffer drawing, bitmap font, score glyphs, grayscale and RF filtering.
+- `src/renderer.*`: game views, menus and diagnostic overlays, using read-only game/session state.
+- `src/audio.*`: gameplay/demo tones and Racing countdown, engine, collision and bonus effects.
+- `src/controls.*`: controller/keyboard mapping, analog handling, input descriptors and menu-repeat timing.
+- `src/tennis_b.*`, `src/shooting.*`, `src/racing.*`, `src/opponent.*`: game simulation and AI; `src/demo.*` drives the independent previews. `src/game_catalog.h` shares game IDs, titles and rally-variant construction.
+- `src/core_options.h`, `src/preferences.*`: option registration and persistent-file handling.
+
+The `core_tests` integration runner uses `tests/core_test_harness.*` and focused `tests/core_*_scenarios.cpp` files. Its scenarios retain their order because some deliberately exercise state across lifecycle transitions. The `tennis_b_tests` runner groups mechanics and variants in `tests/tennis_*_tests.cpp`, sharing comparison helpers through `tests/tennis_test_harness.h`. CTest still runs each of these runners as one test; splitting the source files does not remove scenarios.
+
 ## GitHub Actions builds
 
 The [build workflow](.github/workflows/build.yml) is configured to build Release and run the applicable CTest suite on GitHub-hosted Linux x86-64, Windows x86-64 and macOS x86-64 runners. The macOS job requests x86-64 and checks the built Mach-O architecture with `lipo`. Successful jobs upload separately named artifacts containing the core, both license notices and [usage instructions](docs/CI_ARTIFACT.md). The Linux-only package test and Unix launcher test run only on their applicable platforms.

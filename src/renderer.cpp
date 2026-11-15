@@ -278,8 +278,20 @@ void Renderer::render(const RenderState& state) {
         const unsigned choice = finished ? state.result_choice : state.pause_choice;
         const unsigned count = finished ? 2 : 3;
         for (unsigned i = 0; i < count; ++i) {
+#ifdef CTG_RENDER_TRACE
+            const bool trace = state.content_id == 0 && state.paused && !finished && choice == 1;
+            if (trace) std::fprintf(stderr, "TRACE row=%u before-rect pixel=%08x\n", i, static_cast<unsigned>(pixels[102 * width + 142]));
+#endif
             if (i == choice) rect(75, 99 + i * 16, 170, 14, 0x295166);
+#ifdef CTG_RENDER_TRACE
+            if (trace) std::fprintf(stderr, "TRACE row=%u after-rect pixel=%08x label=%s color=%06x\n", i,
+                                    static_cast<unsigned>(pixels[102 * width + 142]),
+                                    finished ? result_choices[i] : pause_choices[i], i == choice ? 0x70e0ff : 0xffffff);
+#endif
             centered_text(102 + i * 16, finished ? result_choices[i] : pause_choices[i], i == choice ? 0x70e0ff : 0xffffff);
+#ifdef CTG_RENDER_TRACE
+            if (trace) std::fprintf(stderr, "TRACE row=%u after-text pixel=%08x\n", i, static_cast<unsigned>(pixels[102 * width + 142]));
+#endif
         }
     } else {
         centered_text(58, titles[state.content_id].name, 0xffffff);

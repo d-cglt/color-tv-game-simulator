@@ -20,7 +20,7 @@ jobs:
             core: build/colortvgame_libretro.so
           - runner: windows-2022
             platform: windows-x86_64
-            configure: -A x64
+            configure: -A x64 -DCTG_TRACE_RENDERER=ON
             core: build/Release/colortvgame_libretro.dll
           - runner: macos-15-intel
             platform: macos-x86_64
@@ -33,6 +33,10 @@ jobs:
         run: cmake -S . -B build ${{ matrix.configure }}
       - name: Build Release
         run: cmake --build build --config Release --parallel
+      - name: Trace Windows pause rendering
+        if: runner.os == 'Windows'
+        continue-on-error: true
+        run: ctest --test-dir build -C Release -V -R "^renderer_trace_"
       - name: Run tests
         run: ctest --test-dir build -C Release --output-on-failure
       - name: Verify macOS binary architecture

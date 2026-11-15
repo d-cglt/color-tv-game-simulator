@@ -33,10 +33,10 @@ jobs:
         run: cmake -S . -B build ${{ matrix.configure }}
       - name: Build Release
         run: cmake --build build --config Release --parallel
-      - name: Trace Windows pause rendering
+      - name: Compare Windows renderer optimization modes
         if: runner.os == 'Windows'
         continue-on-error: true
-        run: ctest --test-dir build -C Release -V -R "^renderer_trace_"
+        run: ctest --test-dir build -C Release -V -R "^renderer_matrix_"
       - name: Run tests
         run: ctest --test-dir build -C Release --output-on-failure
       - name: Verify macOS binary architecture

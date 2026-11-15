@@ -1,4 +1,5 @@
 #include "core_test_harness.h"
+#include "bundled_selectors.h"
 #include "content.h"
 
 #include <chrono>
@@ -93,8 +94,8 @@ int boot_generator_scenarios(ContentContext& context) {
     }
     bytes[4] = 0;
     for (unsigned i = 0; i < 4; ++i) { bytes[i] ^= 1; CHECK(!ctg::parse_content(bytes.data(), 5)); bytes[i] ^= 1; }
-    for (unsigned id = 0; id < 16; ++id) {
-        char path[512]; std::snprintf(path, sizeof path, "%s/slot-%02u.ctg", CONTENT_DIR, id);
+    for (unsigned id = 0; id < bundled_selectors.size(); ++id) {
+        const auto path = fs::path(CONTENT_DIR) / bundled_selectors[id];
         std::ifstream file(path, std::ios::binary);
         CHECK(file.good());
         std::vector<unsigned char> content((std::istreambuf_iterator<char>(file)), {});

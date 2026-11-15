@@ -35,7 +35,8 @@ if [ "$mode" = retrodeck ]; then
 fi
 [ "$1" = --appendconfig ] && [ "$3" = -L ]
 if [ -n "${CTG_TEST_CONTENT:-}" ]; then
-    [ "$#" -eq 5 ] && [ "$5" = "$CTG_TEST_CONTENT" ]
+    [ "$#" -eq 5 ] || { echo "Expected content argument, got $# arguments" >&2; exit 1; }
+    [ "$5" = "$CTG_TEST_CONTENT" ] || { printf 'Expected content %s, got %s\n' "$CTG_TEST_CONTENT" "$5" >&2; exit 1; }
 else
     [ "$#" -eq 4 ]
 fi
@@ -94,12 +95,8 @@ check_cleanup() {
     [ ! -e "$info_dir" ] || { echo 'Temporary metadata not cleaned up' >&2; exit 1; }
 }
 slot=0
-for name in tennis-a-singles tennis-a-doubles tennis-b-singles tennis-b-doubles \
-    hockey-a-singles hockey-a-doubles hockey-b-singles hockey-b-doubles \
-    volleyball-a-singles volleyball-a-doubles volleyball-b-singles volleyball-b-doubles \
-    ping-pong-singles ping-pong-doubles shooting-game-original; do
-    id=$(printf '%02d' "$slot")
-    CTG_TEST_CONTENT=$project/content/slot-$id.ctg
+while IFS='|' read -r name filename; do
+    CTG_TEST_CONTENT=$project/content/$filename
     export CTG_TEST_CONTENT
     CTG_FRONTEND=native sh "$project/scripts/launch.sh" "$name"
     check_cleanup
@@ -113,11 +110,31 @@ for name in tennis-a-singles tennis-a-doubles tennis-b-singles tennis-b-doubles 
     CTG_FRONTEND=native sh "$project/scripts/launch.sh" "$public_name"
     check_cleanup
     # Verify the selector itself contains the matching ID, not just the filename.
-    actual=$(od -An -tu1 "$project/content/slot-$id.ctg")
+    actual=$(od -An -tu1 "$CTG_TEST_CONTENT")
     set -- $actual
     [ "$#" -eq 5 ] && [ "$1" -eq 67 ] && [ "$2" -eq 84 ] && [ "$3" -eq 71 ] && [ "$4" -eq 49 ] && [ "$5" -eq "$slot" ]
     slot=$((slot + 1))
-done
+done <<'EOF'
+tennis-a-singles|Tennis Variant - Singles (Color TV Game 15).ctg
+tennis-a-doubles|Tennis Variant - Doubles (Color TV Game 15).ctg
+tennis-b-singles|Tennis Original - Singles (Color TV Game 6 + 15).ctg
+tennis-b-doubles|Tennis Original - Doubles (Color TV Game 6 + 15).ctg
+hockey-a-singles|Hockey Variant - Singles (Color TV Game 15).ctg
+hockey-a-doubles|Hockey Variant - Doubles (Color TV Game 15).ctg
+hockey-b-singles|Hockey Original - Singles (Color TV Game 6 + 15).ctg
+hockey-b-doubles|Hockey Original - Doubles (Color TV Game 6 + 15).ctg
+volleyball-a-singles|Volleyball Variant - Singles (Color TV Game 15).ctg
+volleyball-a-doubles|Volleyball Variant - Doubles (Color TV Game 15).ctg
+volleyball-b-singles|Volleyball Original - Singles (Color TV Game 6 + 15).ctg
+volleyball-b-doubles|Volleyball Original - Doubles (Color TV Game 6 + 15).ctg
+ping-pong-singles|Ping-Pong - Singles (Color TV Game 15).ctg
+ping-pong-doubles|Ping-Pong - Doubles (Color TV Game 15).ctg
+shooting-game-original|Shooting Game (Color TV Game 15).ctg
+EOF
+# Racing has a bundle but no launcher command or wrapper yet.
+actual=$(od -An -tu1 "$project/content/Racing 112 (Color TV Game Racing 112).ctg")
+set -- $actual
+[ "$#" -eq 5 ] && [ "$1" -eq 67 ] && [ "$2" -eq 84 ] && [ "$3" -eq 71 ] && [ "$4" -eq 49 ] && [ "$5" -eq 15 ]
 unset CTG_TEST_CONTENT
 # Exercise a noexec temporary filesystem when the host provides one.
 if [ -w /dev/shm ] && command -v findmnt >/dev/null 2>&1 &&
@@ -129,7 +146,7 @@ for frontend in native retrodeck auto; do
     CTG_FRONTEND=$frontend "$project/scripts/no-content.sh"
     check_cleanup
 done
-CTG_TEST_CONTENT=$project/content/slot-02.ctg
+CTG_TEST_CONTENT=$project/content/Tennis\ Original\ -\ Singles\ \(Color\ TV\ Game\ 6\ +\ 15\).ctg
 export CTG_TEST_CONTENT
 CTG_FRONTEND=retrodeck sh "$project/scripts/launch.sh" tennis-b-singles
 check_cleanup

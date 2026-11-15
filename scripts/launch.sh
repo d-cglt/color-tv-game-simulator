@@ -17,22 +17,22 @@ EOF
 
 [ "$#" -eq 1 ] || { usage >&2; exit 2; }
 case $1 in
-    tennis-variant-singles|tennis-a-singles) slot=00 ;;
-    tennis-variant-doubles|tennis-a-doubles) slot=01 ;;
-    tennis-original-singles|tennis-b-singles) slot=02 ;;
-    tennis-original-doubles|tennis-b-doubles) slot=03 ;;
-    hockey-variant-singles|hockey-a-singles) slot=04 ;;
-    hockey-variant-doubles|hockey-a-doubles) slot=05 ;;
-    hockey-original-singles|hockey-b-singles) slot=06 ;;
-    hockey-original-doubles|hockey-b-doubles) slot=07 ;;
-    volleyball-variant-singles|volleyball-a-singles) slot=08 ;;
-    volleyball-variant-doubles|volleyball-a-doubles) slot=09 ;;
-    volleyball-original-singles|volleyball-b-singles) slot=10 ;;
-    volleyball-original-doubles|volleyball-b-doubles) slot=11 ;;
-    ping-pong-singles) slot=12 ;;
-    ping-pong-doubles) slot=13 ;;
-    shooting-game-original) slot=14 ;;
-    no-content) slot= ;;
+    tennis-variant-singles|tennis-a-singles) selector='Tennis Variant - Singles (Color TV Game 15).ctg' ;;
+    tennis-variant-doubles|tennis-a-doubles) selector='Tennis Variant - Doubles (Color TV Game 15).ctg' ;;
+    tennis-original-singles|tennis-b-singles) selector='Tennis Original - Singles (Color TV Game 6 + 15).ctg' ;;
+    tennis-original-doubles|tennis-b-doubles) selector='Tennis Original - Doubles (Color TV Game 6 + 15).ctg' ;;
+    hockey-variant-singles|hockey-a-singles) selector='Hockey Variant - Singles (Color TV Game 15).ctg' ;;
+    hockey-variant-doubles|hockey-a-doubles) selector='Hockey Variant - Doubles (Color TV Game 15).ctg' ;;
+    hockey-original-singles|hockey-b-singles) selector='Hockey Original - Singles (Color TV Game 6 + 15).ctg' ;;
+    hockey-original-doubles|hockey-b-doubles) selector='Hockey Original - Doubles (Color TV Game 6 + 15).ctg' ;;
+    volleyball-variant-singles|volleyball-a-singles) selector='Volleyball Variant - Singles (Color TV Game 15).ctg' ;;
+    volleyball-variant-doubles|volleyball-a-doubles) selector='Volleyball Variant - Doubles (Color TV Game 15).ctg' ;;
+    volleyball-original-singles|volleyball-b-singles) selector='Volleyball Original - Singles (Color TV Game 6 + 15).ctg' ;;
+    volleyball-original-doubles|volleyball-b-doubles) selector='Volleyball Original - Doubles (Color TV Game 6 + 15).ctg' ;;
+    ping-pong-singles) selector='Ping-Pong - Singles (Color TV Game 15).ctg' ;;
+    ping-pong-doubles) selector='Ping-Pong - Doubles (Color TV Game 15).ctg' ;;
+    shooting-game-original) selector='Shooting Game (Color TV Game 15).ctg' ;;
+    no-content) selector= ;;
     -h|--help) usage; exit 0 ;;
     *) printf 'Unknown game: %s\n' "$1" >&2; usage >&2; exit 2 ;;
 esac
@@ -43,8 +43,8 @@ config=$root/scripts/launcher-input.cfg
 info=$root/colortvgame_libretro.info
 [ -r "$info" ] || { printf 'Core info not found or unreadable: %s\n' "$info" >&2; exit 1; }
 [ -r "$core" ] || { printf 'Core not found or unreadable: %s\nBuild it with: cmake -S "%s" -B "%s/build" && cmake --build "%s/build"\n' "$core" "$root" "$root" "$root" >&2; exit 1; }
-if [ -n "$slot" ]; then
-    content=$root/content/slot-$slot.ctg
+if [ -n "$selector" ]; then
+    content=$root/content/$selector
     [ -r "$content" ] || { printf 'Content not found or unreadable: %s\n' "$content" >&2; exit 1; }
     set -- "$content"
 else

@@ -1,4 +1,5 @@
 #include "core_test_harness.h"
+#include "bundled_selectors.h"
 
 #include <chrono>
 
@@ -22,11 +23,11 @@ int persistence_selector_demo_scenarios(ContentContext& context) {
     buttons = buttons2 = 0; axes = {{0, 0}}; keys.fill(false);
     retro_init();
     auto load_direct = [&](unsigned id) {
-        char path[512]; std::snprintf(path, sizeof path, "%s/slot-%02u.ctg", CONTENT_DIR, id);
+        const auto path = (fs::path(CONTENT_DIR) / bundled_selectors.at(id)).u8string();
         std::ifstream in(path, std::ios::binary);
         if (!in) return false;
         std::vector<unsigned char> content((std::istreambuf_iterator<char>(in)), {});
-        retro_game_info direct{}; direct.path = path; direct.data = content.data(); direct.size = content.size();
+        retro_game_info direct{}; direct.path = path.c_str(); direct.data = content.data(); direct.size = content.size();
         buttons = 0;
         if (!retro_load_game(&direct)) return false;
         retro_run(); return true;

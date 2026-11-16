@@ -162,6 +162,7 @@ If loading fails, check that the frontend accepts XRGB8888 and that the core and
 ## Documents
 
 - [Roadmap](docs/ROADMAP.md) — implementation status, frontend validation, and milestones.
+- [Experimental Linux ARM64 testing](docs/ARM64_TESTING.md) — volunteer checklist and compatibility limitations.
 - [Racing design](docs/RACING_DESIGN.md) — first-playable scope, compatibility and future plans.
 - [0.1.6 release notes](docs/RELEASE_NOTES_0.1.6.md) — planned sound, serving and score-display changes.
 - [0.1.5 release notes](docs/RELEASE_NOTES_0.1.5.md) — diagnostic menu and validation limits.

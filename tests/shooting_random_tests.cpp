@@ -79,8 +79,10 @@ int main() {
                 prepare_shot(true);
                 retro_run(); advance_expected();
                 CHECK(shooting.state().hits == 1 && shooting_random == expected);
-                for (int i = 0; i < 10; ++i) retro_run();
-                CHECK(shooting_random == expected); // One reroll per hit, not per frame.
+                while (shooting.state().flying) {
+                    retro_run();
+                    CHECK(shooting_random == expected); // No reroll during flight or on exit.
+                }
                 prepare_shot(true);
                 retro_run(); advance_expected();
                 CHECK(shooting.state().hits == 1 && shooting_random == expected);

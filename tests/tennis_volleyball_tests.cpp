@@ -12,7 +12,7 @@ int volleyball_singles() {
     auto& vt = const_cast<ctg::TennisState&>(volleyball_twin.state());
     CHECK(v.volleyball && !v.hockey && !v.doubles && v.serve_wait == 130);
     for (int i = 0; i < 130; ++i) CHECK(volleyball.step() == volleyball_twin.step());
-    CHECK(v.serve_wait == 0 && v.ball_x == 13 && same(v, vt));
+    CHECK(v.serve_wait == 0 && v.ball_x == 35 && same(v, vt));
     int reversed = 0, unchanged = 0;
     for (int n = 0; n < 1000; ++n) {
         const int direction = n % 2 ? -1 : 1;
@@ -59,7 +59,7 @@ int volleyball_singles() {
     CHECK(volleyball.step() & ctg::sound_point);
     CHECK(v.score[0] == 1 && v.serve_wait == 130);
     for (int i = 0; i < 130; ++i) volleyball.step();
-    CHECK(v.ball_x == 298 && v.ball_vx == -4);
+    CHECK(v.ball_x == 35 && v.ball_vx == 4 && v.ball_y == v.paddle_y[0] && v.ball_vy == 0);
     v.score[0] = 14; v.ball_x = 375; v.ball_y = 120; v.ball_vx = 4; v.ball_vy = 0;
     CHECK((volleyball.step() & (ctg::sound_point | ctg::sound_win)) == (ctg::sound_point | ctg::sound_win));
     CHECK(v.winner == 0);
@@ -108,7 +108,7 @@ int volleyball_doubles() {
     CHECK(vd.step() & ctg::sound_point);
     CHECK(d.score[0] == 1 && d.serve_wait == 130);
     for (int i = 0; i < 130; ++i) vd.step();
-    CHECK(d.ball_x == 298 && d.ball_vx == -4);
+    CHECK(d.ball_x == 35 && d.ball_vx == 4 && d.ball_y == d.paddle_y[0] && d.ball_vy == 0);
     d.score[0] = 14; d.ball_x = 375; d.ball_y = 120; d.ball_vx = 4; d.ball_vy = 0;
     CHECK((vd.step() & (ctg::sound_point | ctg::sound_win)) == (ctg::sound_point | ctg::sound_win));
     const auto vd_final = d;
@@ -142,7 +142,7 @@ int volleyball_doubles() {
         CHECK(va.step() == ctg::sound_point);
         CHECK(a.score[1 - missed] == 1 && a.serve_wait == 130);
         for (int i = 0; i < 130; ++i) va.step();
-        CHECK(a.ball_x == (missed == 0 ? 13 : 298));
+        CHECK(a.ball_x == (missed == 0 ? 286 : 35));
         a.score[1 - missed] = 14;
         a.ball_x = missed == 0 ? -60 : 380;
         a.ball_y = 120; a.ball_vx = missed == 0 ? -4 : 4; a.ball_vy = 0;

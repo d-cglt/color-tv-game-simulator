@@ -78,7 +78,7 @@ int ping_pong_doubles() {
             CHECK(ping.step() == ctg::sound_point);
             CHECK(s.score[1 - missed] == 1 && s.serve_wait == 130);
             for (int i = 0; i < 130; ++i) ping.step();
-            CHECK(s.ball_x == (missed == 0 ? 13 : 298));
+            CHECK(s.ball_x == (missed == 0 ? 286 : 35));
             s.score[1 - missed] = 14;
             s.ball_x = missed == 0 ? -60 : 380;
             s.ball_y = 120; s.ball_vx = missed == 0 ? -4 : 4; s.ball_vy = 0;

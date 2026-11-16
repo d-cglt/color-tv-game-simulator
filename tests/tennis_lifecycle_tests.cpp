@@ -6,6 +6,74 @@
 namespace tennis_tests {
 
 int tennis_lifecycle_and_doubles() {
+    // Every variant uses the same serve lifecycle, including its doubles form.
+    for (int mode = 0; mode < 7; ++mode) for (bool doubles : {false, true})
+        for (bool fast : {false, true}) for (int scorer : {0, 1})
+            for (int vy : {-6, 0, 6}) {
+                ctg::TennisB game(doubles, mode == 2 || mode == 3,
+                                  mode == 4 || mode == 5, mode == 1,
+                                  mode == 3, mode == 5, mode == 6);
+                game.set_options(fast, {false, false});
+                auto& s = const_cast<ctg::TennisState&>(game.state());
+                for (unsigned i = 1; i < ctg::TennisB::hockey_serve_delay; ++i) {
+                    CHECK(game.step({1, -1}) == ctg::sound_none);
+                    CHECK(s.serve_wait == ctg::TennisB::hockey_serve_delay - i);
+                    CHECK(s.ball_vx == 0 && s.ball_vy == 0);
+                }
+                CHECK(game.step({-1, 1}) == ctg::sound_none);
+                CHECK(s.serve_wait == 0 && s.ball_x == 35 && s.ball_y == s.paddle_y[0]);
+                CHECK(s.ball_vx == (fast ? 8 : 4) && s.ball_vy == (fast ? 4 : 2));
+
+                s.ball_x = scorer == 0 ? 380 : -60;
+                s.ball_y = 120;
+                s.ball_vx = (scorer == 0 ? 1 : -1) * (fast ? 8 : 4);
+                s.ball_vy = vy;
+                CHECK(game.step() & ctg::sound_point);
+                CHECK(s.score[scorer] == 1 && s.serve_wait == ctg::TennisB::hockey_serve_delay);
+                CHECK(s.ball_vx == 0 && s.ball_vy == 0);
+                for (unsigned i = 1; i < ctg::TennisB::hockey_serve_delay; ++i) {
+                    CHECK(game.step({-1, 1}) == ctg::sound_none);
+                    CHECK(s.serve_wait == ctg::TennisB::hockey_serve_delay - i);
+                }
+                CHECK(game.step({1, -1}) == ctg::sound_none);
+                CHECK(s.serve_wait == 0 && s.ball_x == (scorer == 0 ? 35 : 286));
+                CHECK(s.ball_y == s.paddle_y[scorer]);
+                CHECK(s.ball_vx == (scorer == 0 ? 1 : -1) * (fast ? 8 : 4));
+                CHECK(s.ball_vy == vy);
+            }
+    // A serve can start outside the vertical walls at an extreme paddle center.
+    for (bool hockey : {false, true}) for (bool small : {false, true})
+        for (int scorer : {0, 1}) for (int edge : {-1, 1}) for (bool inward : {false, true}) {
+            ctg::TennisB game(false, hockey);
+            game.set_options(false, {small, small});
+            auto& s = const_cast<ctg::TennisState&>(game.state());
+            s.serve_wait = 0;
+            s.ball_x = scorer == 0 ? 380 : -60;
+            s.ball_y = 120;
+            s.ball_vx = scorer == 0 ? 4 : -4;
+            const int vy = edge * (inward ? -2 : 2);
+            s.ball_vy = vy;
+            CHECK(game.step() & ctg::sound_point);
+            s.paddle_y[scorer] = edge < 0 ? game.paddle_min(scorer) : game.paddle_max(scorer);
+            for (unsigned i = 0; i < ctg::TennisB::hockey_serve_delay; ++i)
+                CHECK(game.step() == ctg::sound_none);
+            const int start_y = s.paddle_y[scorer];
+            CHECK(s.ball_y == start_y && s.ball_vy == vy);
+            CHECK(edge < 0 ? start_y < ctg::TennisB::ball_radius
+                           : start_y > ctg::TennisB::height - ctg::TennisB::ball_radius);
+            const unsigned events = game.step();
+            CHECK(bool(events & ctg::sound_wall) == !inward);
+            CHECK(s.ball_vy == (inward ? vy : -vy));
+            const int moved_y = start_y + vy;
+            CHECK(s.ball_y == (inward ? moved_y : edge < 0 ? 2 * ctg::TennisB::ball_radius - moved_y
+                : 2 * (ctg::TennisB::height - ctg::TennisB::ball_radius) - moved_y));
+            if (inward) {
+                while (s.ball_y < ctg::TennisB::ball_radius || s.ball_y > ctg::TennisB::height - ctg::TennisB::ball_radius) {
+                    CHECK(!(game.step() & ctg::sound_wall));
+                    CHECK(s.ball_vy == vy);
+                }
+            }
+        }
     for (bool doubles_mode : {false, true}) {
         for (int missed = 0; missed < 2; ++missed) {
             ctg::TennisB a(doubles_mode), b(doubles_mode);
@@ -22,12 +90,12 @@ int tennis_lifecycle_and_doubles() {
                 CHECK(a.step() == ctg::sound_none && b.step() == ctg::sound_none);
                 CHECK(same(as, bs));
             }
-            CHECK(as.serve_wait == 0 && as.ball_x == (missed == 0 ? 13 : 298));
-            CHECK((missed == 0 && as.ball_vx > 0) || (missed == 1 && as.ball_vx < 0));
+            CHECK(as.serve_wait == 0 && as.ball_x == (missed == 0 ? 286 : 35));
+            CHECK((missed == 0 && as.ball_vx < 0) || (missed == 1 && as.ball_vx > 0));
             if (doubles_mode) {
-                as.paddle_y[missed] = as.ball_y;
-                for (int i = 0; i < 20 && (missed == 0 ? as.ball_x < 96 : as.ball_x > 224); ++i) {
-                    as.paddle_y[missed] = as.ball_y;
+                as.paddle_y[1 - missed] = as.ball_y;
+                for (int i = 0; i < 20 && (missed == 1 ? as.ball_x < 96 : as.ball_x > 224); ++i) {
+                    as.paddle_y[1 - missed] = as.ball_y;
                     CHECK(!(a.step() & ctg::sound_paddle));
                 }
             }
@@ -56,8 +124,9 @@ int tennis_lifecycle_and_doubles() {
         walls += !!(events & ctg::sound_wall);
         paddles += !!(events & ctg::sound_paddle);
         CHECK(!(events & ctg::sound_point));
-        CHECK(game.state().serve_wait || (game.state().ball_y >= ctg::TennisB::ball_radius &&
-              game.state().ball_y <= ctg::TennisB::height - ctg::TennisB::ball_radius));
+        CHECK(game.state().serve_wait || game.state().ball_x == 35 || game.state().ball_x == 286 ||
+              (game.state().ball_y >= ctg::TennisB::ball_radius &&
+               game.state().ball_y <= ctg::TennisB::height - ctg::TennisB::ball_radius));
     }
     CHECK(walls > 0 && paddles > 2);
 

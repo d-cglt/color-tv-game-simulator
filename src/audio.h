@@ -32,7 +32,11 @@ public:
     Samples render(bool preview, bool finished, bool paused, unsigned id, unsigned racing_speed);
 
 private:
-    struct Tone { unsigned remaining = 0, phase = 0, period = 0; };
+    struct Tone {
+        unsigned remaining = 0, phase = 0, period = 0, total = 0;
+        bool collision = false, alternating = false;
+        double filtered = 0, previous_input = 0;
+    };
     static void trigger(Tone& tone, unsigned events, bool shooting);
     Tone game_, demo_;
     // Static core initialization deliberately starts crash recovery at zero.

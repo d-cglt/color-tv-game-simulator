@@ -7,6 +7,20 @@ namespace core_test {
 int demo_preview_scenarios(ContentContext& context) {
     auto& bytes = context.bytes;
     auto& game = context.game;
+    // The first Shooting preview frame fires; disabling only that event leaves later sounds intact.
+    bytes[4] = 14; buttons = buttons2 = 0; keys.fill(false);
+    shooting_fire_sound_value = "Off";
+    CHECK(retro_load_game(&game));
+    unsigned fire_audio = nonzero_audio;
+    retro_run(); CHECK(nonzero_audio == fire_audio);
+    for (int i = 0; i < 600; ++i) retro_run();
+    CHECK(nonzero_audio > fire_audio);
+    retro_unload_game();
+    shooting_fire_sound_value = "On";
+    CHECK(retro_load_game(&game));
+    fire_audio = nonzero_audio;
+    retro_run(); CHECK(nonzero_audio > fire_audio);
+    retro_unload_game(); shooting_fire_sound_value.clear();
     // The declared default and an unavailable frontend value both enable demo sound.
     CHECK(demo_sounds_definition.find("; On|Off") != std::string::npos);
     for (unsigned id : {2u, 14u}) {

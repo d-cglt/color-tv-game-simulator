@@ -37,7 +37,7 @@ unsigned Shooting::step(int direction, bool fire, int target_direction, bool aut
         state_.shot_y = state_.shooter_y;
         shot_position_ = 190;
         state_.shot_x = shot_position_ / 4;
-        events |= sound_paddle | event_player1_shot;
+        events |= sound_shot | event_player1_shot;
     }
     if (state_.flying) {
         shot_position_ += high_speed_ ? 24 : 12;
@@ -46,11 +46,12 @@ unsigned Shooting::step(int direction, bool fire, int target_direction, bool aut
             state_.shot_y + 2 > target_top() && state_.shot_y - 2 < target_top() + paddle_height(1)) {
             state_.hit = true;
             if (state_.hits < std::numeric_limits<unsigned>::max()) ++state_.hits;
-            events |= sound_point;
+            events |= sound_paddle;
         }
         if (state_.shot_x >= 320) {
             state_.flying = false;
             state_.hit = false;
+            events |= sound_point;
             if (state_.shots < std::numeric_limits<unsigned>::max()) ++state_.shots;
             if (!endless_ && state_.shots >= shot_limit_) { state_.finished = true; events |= sound_win; }
         }

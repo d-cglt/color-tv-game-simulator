@@ -30,10 +30,10 @@ int video_rumble_scenarios(ContentContext& context) {
         for (int i = 0; i < 700; ++i) {
             if (switch_live && i == 10) set_rebound("Paddle movement");
             buttons = 1u << ((i % 2) ? RETRO_DEVICE_ID_JOYPAD_UP : RETRO_DEVICE_ID_JOYPAD_DOWN);
-            // The first serve reaches the right paddle near y=210 after a wall
+            // The first serve reaches the right paddle near y=226 after a wall
             // bounce. Position P2 there during the serve delay, then keep it
             // moving so the two rebound modes produce different trajectories.
-            buttons2 = 1u << (i < 20 || i % 2 == 0 ? RETRO_DEVICE_ID_JOYPAD_DOWN : RETRO_DEVICE_ID_JOYPAD_UP);
+            buttons2 = 1u << (i < 27 || i % 2 == 0 ? RETRO_DEVICE_ID_JOYPAD_DOWN : RETRO_DEVICE_ID_JOYPAD_UP);
             retro_run();
             std::uint64_t hash = 14695981039346656037ull;
             for (auto byte : frame) { hash ^= byte; hash *= 1099511628211ull; }
@@ -282,11 +282,13 @@ int video_rumble_scenarios(ContentContext& context) {
 
     // Start a fresh shot for each interruption so a previous stop cannot mask it.
     for (int interruption = 0; interruption < 4; ++interruption) {
-        set_vibration("On"); buttons = 0; rumble_calls.clear();
+        set_vibration("On"); shooting_fire_sound_value = "Off"; buttons = 0; rumble_calls.clear();
         retro_init(); CHECK(retro_load_game(&game)); retro_run();
         buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
         buttons = 0; retro_run(); rumble_calls.clear();
+        const unsigned before_shot = nonzero_audio;
         buttons = 1u << RETRO_DEVICE_ID_JOYPAD_Y; retro_run();
+        CHECK(nonzero_audio == before_shot);
         bool active[2] = {};
         for (const auto& call : rumble_calls) {
             CHECK(call.port == 0);
@@ -309,6 +311,7 @@ int video_rumble_scenarios(ContentContext& context) {
         retro_deinit();
     }
 
+    shooting_fire_sound_value.clear();
     // A missing interface or a controller that rejects rumble must not prevent play.
     for (int unavailable = 0; unavailable < 2; ++unavailable) {
         rumble_available = unavailable != 0; rumble_accept = false;

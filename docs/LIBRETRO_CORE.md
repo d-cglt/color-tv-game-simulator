@@ -44,6 +44,7 @@ Change these in the frontend's core options; saved frontend settings can overrid
 | --- | --- | --- |
 | Generate game files | Ready | Switch to Generate to write named selectors as described above. |
 | Vibration | Off | Optional rumble on paddle hits, Shooting fire and Racing collisions; requires frontend and controller support. |
+| Shooting fire sound | On | Use the wall-collision sound when firing in Shooting gameplay and previews. Off matches the original console's silent firing. |
 | Demo sounds | On | Sound in menu previews; independent of gameplay audio. |
 | Selected game at start | Last used | No-content selector starts on the last successfully saved and readable manual selection, First, or Random. Direct content selects its own game. |
 | Demo game rotation | Random every 15 seconds | Idle selector rotates randomly, sequentially every 15 seconds, or not at all. Launch menus do not rotate. |

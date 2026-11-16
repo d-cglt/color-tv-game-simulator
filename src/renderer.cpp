@@ -248,8 +248,8 @@ void Renderer::render(const RenderState& state) {
         render_racing(background ? state.demo_racing : state.racing, !background, state.racing_player_visible, state.scores);
         if (state.finished) render_racing_score(state.racing.state(), state.scores);
     }
-    else if (state.content_id == 14) render_shooting(preview ? state.demo_shooting : state.shooting, !preview, state.scores);
-    else render_tennis(preview ? state.demo_tennis : state.tennis, !preview, state.scores);
+    else if (state.content_id == 14) render_shooting(preview ? state.demo_shooting : state.shooting, !preview && (!state.finished || state.rally_score_visible), state.scores);
+    else render_tennis(preview ? state.demo_tennis : state.tennis, !preview && state.rally_score_visible, state.scores);
     if (preview && state.menu_hidden) {
         centered_text(4, "DEMO MODE - PRESS ANY BUTTON TO SHOW MENU", 0xffffff);
         char label[64];

@@ -422,7 +422,7 @@ constexpr std::uint64_t expected[] = {
 
 };
 
-std::uint64_t draw(const fixtures::Case& c, bool diagnostics = false) {
+std::uint64_t draw(const fixtures::Case& c, bool diagnostics = false, bool rally_score_visible = true) {
     fixtures::Fixture f(c);
     const bool detail = c.kind != fixtures::select && c.kind != fixtures::launch && c.kind != fixtures::hidden;
     const ctg::RenderState state{
@@ -432,7 +432,7 @@ std::uint64_t draw(const fixtures::Case& c, bool diagnostics = false) {
         true, {true, false}, 21, 30, c.choice % 5, c.choice % 3, (c.choice + 1) % 3,
         f.modes, f.tennis, f.demo_tennis, f.shooting, f.demo_shooting,
         f.racing, f.demo_racing, c.kind != fixtures::crash,
-        {c.effect == fixtures::fixed, 87, 65}
+        {c.effect == fixtures::fixed, 87, 65}, rally_score_visible
     };
     auto renderer_storage = std::make_unique<ctg::Renderer>();
     auto& renderer = *renderer_storage;
@@ -489,9 +489,55 @@ std::uint64_t draw(const fixtures::Case& c, bool diagnostics = false) {
 }
 
 int main() {
+    // Exercise actual serve state through both ball rendering paths, comparing
+    // with the same frame with its ball hidden to measure its exact bounds.
+    for (int mode = 0; mode < 7; ++mode) for (int side = 0; side < 2; ++side) {
+        ctg::TennisB game(false, mode == 2 || mode == 3, mode == 4 || mode == 5,
+                          mode == 1, mode == 3, mode == 5, mode == 6);
+        auto& s = const_cast<ctg::TennisState&>(game.state());
+        if (side == 1) {
+            s.serve_wait = 0; s.ball_x = -60; s.ball_y = 120;
+            s.ball_vx = -4; s.ball_vy = 2;
+            if (!(game.step() & ctg::sound_point)) return 1;
+        }
+        for (unsigned i = 0; i < ctg::TennisB::hockey_serve_delay; ++i) game.step();
+        auto renderer = std::make_unique<ctg::Renderer>();
+        renderer->render_tennis(game, false);
+        const auto visible = renderer->pixels;
+        s.serve_wait = 1;
+        renderer->render_tennis(game, false);
+        const int left = side == 0 ? 61 : 253;
+        const int top = 21 + s.ball_y * 188 / 240 - 2;
+        for (int y = 0; y < 240; ++y) for (int x = 0; x < 320; ++x) {
+            const bool ball = x >= left && x < left + 7 && y >= top && y < top + 5;
+            if ((visible[y * 320 + x] != renderer->pixels[y * 320 + x]) != ball) {
+                std::fprintf(stderr, "Serve pixels mismatch mode=%d side=%d at %d,%d\n", mode, side, x, y);
+                return 1;
+            }
+        }
+    }
     static_assert(ctg::menu::option_count(14) == ctg::menu::shooting_row_count);
     static_assert(ctg::menu::shooting_shots_row == 8);
     static_assert(ctg::menu::launch_layout(ctg::menu::shooting_row_count, ctg::menu::shooting_shots_row).first == 4);
+    for (unsigned id : {0u, 14u, 15u}) {
+        for (auto effect : {fixtures::plain, fixtures::fixed}) {
+            const fixtures::Case c{id, fixtures::result_menu, 0, effect};
+            const bool should_change = id != 15 && effect == fixtures::plain;
+            if ((draw(c) != draw(c, false, false)) != should_change) {
+                std::fprintf(stderr, "Unexpected result score visibility for id=%u effect=%u\n", id, static_cast<unsigned>(effect));
+                return 1;
+            }
+        }
+    }
+    for (auto kind : {fixtures::inplay, fixtures::select, fixtures::launch, fixtures::pause}) {
+        for (auto effect : {fixtures::plain, fixtures::fixed}) {
+            const fixtures::Case c{14, kind, 0, effect};
+            if (draw(c) != draw(c, false, false)) {
+                std::fprintf(stderr, "Unexpected shooting score visibility change for kind=%u effect=%u\n", static_cast<unsigned>(kind), static_cast<unsigned>(effect));
+                return 1;
+            }
+        }
+    }
     const auto cases = fixtures::cases();
     if (cases.size() != std::size(expected)) {
         std::fprintf(stderr, "Fixture count changed: %zu cases, %zu original goldens\n", cases.size(), std::size(expected));

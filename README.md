@@ -40,6 +40,10 @@ Racing 112 follows the same research-driven approach, using original-hardware fo
 
 The **Selected game at start** core option controls the initial highlight when starting without content: **Last used** (default), **First**, or **Random**. Last used remembers the last game highlighted while navigating the selector, without requiring confirmation; games opened directly as `.ctg` files do not change it. The core stores that selection in `colortvgame-last-game` under the frontend's save directory, so it can survive a full restart if the directory is available and writable. If it cannot be read, the selector starts on the first game; if saving fails, the core reports a message. Direct `.ctg` launches always open their specified game.
 
+## Rally serves
+
+Rally games serve automatically after approximately 2.17 seconds. The first serve starts on the left; after a point, the player who scored serves from their paddle's current center. The ball retains the previous vertical velocity and horizontal speed, traveling away from the server. The first serve has no previous angle and uses a provisional generated angle.
+
 ## Rebound behavior
 
 The **Rebound behavior** core option selects an approximate paddle rebound model for competitive games and their demos. **Hit position** is the default and retains the existing behavior; **Paddle movement** instead uses each player's last actual paddle movement, even after stopping, to select the vertical rebound direction; contact position selects its magnitude. Before a paddle has moved, it falls back to hit-position behavior. Movement history resets when the match is reset. Changes apply during play and previews. The original hardware's behavior is uncertain, so neither model should be considered verified; the movement-based model can also produce long, nearly horizontal rallies.
@@ -47,6 +51,10 @@ The **Rebound behavior** core option selects an approximate paddle rebound model
 ## Vibration
 
 The **Vibration** core option defaults to **Off**. When enabled, a supported controller briefly vibrates when its player's paddle hits the ball or when the player fires in Shooting. Automatic serves do not trigger vibration. AI-controlled players and menu demos do not trigger vibration. This is a modern convenience, not a feature of the original controllers; it requires frontend and controller rumble support. The user confirmed vibration works with a controller in RetroArch; the Off default has not been separately confirmed there.
+
+## Shooting fire sound
+
+The **Shooting fire sound** core option defaults to **On**, playing the wall-collision sound when firing in gameplay and previews. Set it to **Off** for silent firing, as observed on the original console. This does not affect the target-hit or shot-exit sounds, or vibration.
 
 ## Anti-stalemate
 
@@ -92,13 +100,13 @@ The [build workflow](.github/workflows/build.yml) is configured to build Release
 
 ## Linux release package
 
-The **0.1.5** release is being prepared with updated rally visuals and a diagnostic test menu; see the [release notes](docs/RELEASE_NOTES_0.1.5.md). No 0.1.5 package is claimed as published or frontend-tested. Build and test a Release configuration, then assemble the versioned package from that exact core:
+The **0.1.6** release is being prepared; see the [release notes](docs/RELEASE_NOTES_0.1.6.md). No 0.1.6 package is claimed as published or frontend-tested. Build and test a Release configuration, then assemble the versioned package from that exact core:
 
 ```sh
 cmake -S . -B build-release -DCMAKE_BUILD_TYPE=Release
 cmake --build build-release
 ctest --test-dir build-release --output-on-failure
-sh scripts/package-linux.sh build-release/colortvgame_libretro.so build-release/colortvgame-0.1.5-linux.tar.gz
+sh scripts/package-linux.sh build-release/colortvgame_libretro.so build-release/colortvgame-0.1.6-linux.tar.gz
 ```
 
 The archive contains the Color TV-Game Simulator core, project license, vendored libretro header's MIT notice, and [end-user instructions](docs/LINUX_RELEASE.md). The script packages the supplied binary as-is; build it on an appropriate Linux target and verify runtime compatibility for distribution. The CMake project version controls the version reported by the core; choose an archive name matching the built binary, since the script does not verify its version or revision. It does not guarantee byte-identical archives or bundle RetroArch, metadata, launchers, or content. CTest assembles and extracts a package, checks its payload and notices, and dynamically loads the packaged core; this is not a substitute for frontend validation.
@@ -120,14 +128,14 @@ The project launchers append `scripts/launcher-input.cfg` for that RetroArch ses
 
 ## Separate selector archive
 
-Each release is to include a separate, versioned, platform-independent archive of 16 generated `.ctg` selectors for IDs 0–15, even when the selectors are unchanged. The planned 0.1.5 asset is `colortvgame-0.1.5-selectors.zip`; the existing [0.1.4 selector archive](https://github.com/d-cglt/color-tv-game-simulator/releases/download/v0.1.4/colortvgame-0.1.4-selectors.zip) also remains compatible. These five-byte files select built-in games; they are not ROMs and require a compatible core. Extract them and use the frontend's **Load Content** after loading the core. ID 15 selects the Racing prototype and requires a core with Racing support (0.1.3 or newer); older cores reject it. The core archives and CI artifacts do not include these files. From the repository root, a release maintainer can create the separate archive with:
+Each release is to include a separate, versioned, platform-independent archive of 16 generated `.ctg` selectors for IDs 0–15, even when the selectors are unchanged. The planned 0.1.6 asset is `colortvgame-0.1.6-selectors.zip`; the existing [0.1.5 selector archive](https://github.com/d-cglt/color-tv-game-simulator/releases/download/v0.1.5/colortvgame-0.1.5-selectors.zip) also remains compatible. These five-byte files select built-in games; they are not ROMs and require a compatible core. Extract them and use the frontend's **Load Content** after loading the core. ID 15 selects the Racing prototype and requires a core with Racing support (0.1.3 or newer); older cores reject it. The core archives and CI artifacts do not include these files. From the repository root, a release maintainer can create the separate archive with:
 
 ```sh
 cmake -S . -B build
 cmake --build build --config Release --target package_selectors
 ```
 
-This requires Python 3 and produces `build/colortvgame-selectors.zip` with named selectors and usage instructions. For 0.1.5, copy it to `colortvgame-0.1.5-selectors.zip` for the release. Check the archive contains exactly IDs 00–15 before publishing; this command does not create or publish a release. Alternatively, generate descriptively named selectors in the frontend as described below.
+This requires Python 3 and produces `build/colortvgame-selectors.zip` with named selectors and usage instructions. For 0.1.6, copy it to `colortvgame-0.1.6-selectors.zip` for the release. Check the archive contains exactly IDs 00–15 before publishing; this command does not create or publish a release. Alternatively, generate descriptively named selectors in the frontend as described below.
 
 ## Generate individual game files
 
@@ -155,7 +163,8 @@ If loading fails, check that the frontend accepts XRGB8888 and that the core and
 
 - [Roadmap](docs/ROADMAP.md) — implementation status, frontend validation, and milestones.
 - [Racing design](docs/RACING_DESIGN.md) — first-playable scope, compatibility and future plans.
-- [0.1.5 release notes](docs/RELEASE_NOTES_0.1.5.md) — planned release changes, diagnostic menu and validation limits.
+- [0.1.6 release notes](docs/RELEASE_NOTES_0.1.6.md) — planned sound, serving and score-display changes.
+- [0.1.5 release notes](docs/RELEASE_NOTES_0.1.5.md) — diagnostic menu and validation limits.
 - [0.1.4 release notes](docs/RELEASE_NOTES_0.1.4.md) — generator fix, release targets and selector archive.
 - [0.1.3 release notes](docs/RELEASE_NOTES_0.1.3.md) — changes and validation limits.
 - [Content format](docs/CONTENT_FORMAT.md) — five-byte format and provisional slots.

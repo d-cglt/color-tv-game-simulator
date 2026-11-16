@@ -48,11 +48,12 @@ unsigned test_left_score = 0, test_right_score = 0, test_choice = 0;
 std::array<std::uint32_t, width * height> test_background{}, test_clean_frame{};
 unsigned selector_choice = 0, menu_choice = 1, pause_choice = 0, result_choice = 0;
 unsigned rotation_frames = 0;
+unsigned rally_result_frames = 0;
 bool playable() { return content_id < ctg::slot_count; }
 retro_rumble_interface rumble{};
 std::array<unsigned, 2> rumble_frames{};
 bool rumble_enabled = false;
-constexpr unsigned sound_mask = ctg::sound_wall | ctg::sound_paddle | ctg::sound_point | ctg::sound_win;
+constexpr unsigned sound_mask = ctg::sound_wall | ctg::sound_paddle | ctg::sound_point | ctg::sound_win | ctg::sound_shot;
 
 void stop_rumble(unsigned port) {
     if (rumble_frames[port] && rumble.set_rumble_state)
@@ -84,6 +85,7 @@ bool anti_stalemate = true;
 unsigned inactivity_frames = 0;
 bool menu_hidden = false, suppress_wake_input = false;
 bool demo_sounds = true;
+bool shooting_fire_sound = true;
 ctg::Audio audio_engine;
 void reset_demo() {
     controls.reset_racing();
@@ -94,7 +96,8 @@ void reset_demo() {
 }
 void step_demo(unsigned id) {
     if (demo.current_id() != id) audio_engine.clear_demo();
-    const unsigned events = demo.step(id, paddle_movement_rebound, anti_stalemate);
+    unsigned events = demo.step(id, paddle_movement_rebound, anti_stalemate);
+    if (id == 14 && !shooting_fire_sound) events &= ~ctg::sound_shot;
     if (demo_sounds && events) audio_engine.trigger_demo(events, id);
 }
 bool high_speed = false;
@@ -126,7 +129,8 @@ ctg::RenderState render_state() {
             selector_choice, menu_choice, pause_choice, result_choice, high_speed, small_paddle,
             winning_score, shot_limit, shooting_target, shooting_direction, shooting_blinking,
             opponent_modes, tennis, demo.tennis, shooting, demo.shooting, racing, demo.racing,
-            audio_engine.racing_player_visible(), {test_fixed_score, test_left_score, test_right_score}};
+            audio_engine.racing_player_visible(), {test_fixed_score, test_left_score, test_right_score},
+            rally_result_frames < 24};
 }
 void select_game(unsigned id) {
     content_id = id;
@@ -357,6 +361,9 @@ void retro_run() {
         tennis.set_anti_stalemate(enabled);
         demo.tennis.set_anti_stalemate(enabled);
     }
+    retro_variable fire_option{"colortvgame_shooting_fire_sound", nullptr};
+    shooting_fire_sound = !(environment && environment(RETRO_ENVIRONMENT_GET_VARIABLE, &fire_option) &&
+                            fire_option.value && std::strcmp(fire_option.value, "Off") == 0);
     retro_variable demo_option{"colortvgame_demo_sounds", nullptr};
     demo_sounds = !(environment && environment(RETRO_ENVIRONMENT_GET_VARIABLE, &demo_option) &&
                     demo_option.value && std::strcmp(demo_option.value, "Off") == 0);
@@ -406,6 +413,10 @@ void retro_run() {
         else if (audio) for (unsigned i = 0; i < 800; ++i) audio(0, 0);
         return;
     }
+    if (result() && content_id <= 14 && !paused)
+        rally_result_frames = (rally_result_frames + 1) % 32;
+    else if (!result())
+        rally_result_frames = 0;
     const bool preview_menu = loaded && (selector || !detail);
     const bool any_input = controls.any_input(preview_menu, buttons);
     const bool was_hidden = menu_hidden;
@@ -489,10 +500,11 @@ void retro_run() {
                     const int target_direction = controls.shooting_direction(1);
                     unsigned events = shooting.step(direction, pressed & ((1u << RETRO_DEVICE_ID_JOYPAD_A) | (1u << RETRO_DEVICE_ID_JOYPAD_Y)), target_direction, shooting_target != 0);
                     if (events & ctg::event_player1_shot) pulse_rumble(0);
-                    if (events & ctg::sound_point) resolve_shooting_settings();
+                    if (events & ctg::sound_paddle) resolve_shooting_settings();
                     events &= sound_mask;
+                    if (!shooting_fire_sound) events &= ~ctg::sound_shot;
                     if (events) {
-                        if (events & ctg::sound_win) result_choice = 0;
+                        if (events & ctg::sound_win) { result_choice = 0; rally_result_frames = 0; }
                         audio_engine.trigger_game(events, true);
                     }
                 }
@@ -510,7 +522,7 @@ void retro_run() {
                     if (!opponent_modes[content_id] && (events & ctg::event_player2_hit)) pulse_rumble(1);
                     events &= sound_mask;
                     if (events) {
-                        if (events & ctg::sound_win) result_choice = 0;
+                        if (events & ctg::sound_win) { result_choice = 0; rally_result_frames = 0; }
                         audio_engine.trigger_game(events, false);
                     }
                 }

@@ -21,6 +21,8 @@ const Expected expected[] = {
      {"Ready", "Generate"}, "Ready", "Generate game files; Ready|Generate"},
     {"colortvgame_vibration", "Vibration", "Vibrate controllers during gameplay.",
      {"Off", "On"}, "Off", "Vibration; Off|On"},
+    {"colortvgame_shooting_fire_sound", "Shooting fire sound", "Play a firing sound in Shooting gameplay and previews. Off matches the original console's silent firing.",
+     {"On", "Off"}, "On", "Shooting fire sound; On|Off"},
     {"colortvgame_demo_sounds", "Demo sounds", "Play sounds during menu previews.",
      {"On", "Off"}, "On", "Demo sounds; On|Off"},
     {"colortvgame_start_game", "Selected game at start", "Choose the initial game in the no-content selector.",
@@ -42,7 +44,7 @@ const Expected expected[] = {
      "RF signal quality (no effect when RF filter is off); 100%|0%|10%|20%|30%|40%|50%|60%|70%|80%|90%"}
 };
 constexpr unsigned option_count = sizeof(expected) / sizeof(expected[0]);
-static_assert(option_count == 10, "Golden option count");
+static_assert(option_count == 11, "Golden option count");
 bool equal(const char* actual, const char* golden) {
     return actual && std::strcmp(actual, golden) == 0;
 }

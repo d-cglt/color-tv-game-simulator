@@ -15,7 +15,8 @@ enum TennisSound : unsigned {
     sound_wall = 1 << 0,
     sound_paddle = 1 << 1,
     sound_point = 1 << 2,
-    sound_win = 1 << 3
+    sound_win = 1 << 3,
+    sound_shot = 1 << 4
 };
 
 // Additional owner-aware events; low bits remain reserved for TennisSound.
@@ -95,7 +96,9 @@ private:
     std::array<int, 2> paddle_displacement_{};
     std::array<bool, 2> paddle_missed_{};
     std::uint32_t random_state_ = 1;
-    int missed_side_ = 1;
+    int serving_side_ = 0;
+    int serve_vx_ = 0, serve_vy_ = 0;
+    bool previous_trajectory_ = false;
     bool hockey_scoring_side_ = false;
     bool tennis_spawning_ = false;
     int last_block_ = -1, block_collision_speed_ = 0;

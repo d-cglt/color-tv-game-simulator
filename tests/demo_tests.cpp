@@ -15,7 +15,7 @@ struct Original {
     std::array<ctg::Opponent, 2> demo_opponents;
     unsigned demo_id = ctg::slot_count, demo_frame = 0;
     bool paddle_movement_rebound = false, anti_stalemate = true;
-    static constexpr unsigned sound_mask = ctg::sound_wall | ctg::sound_paddle | ctg::sound_point | ctg::sound_win;
+    static constexpr unsigned sound_mask = ctg::sound_wall | ctg::sound_paddle | ctg::sound_point | ctg::sound_win | ctg::sound_shot;
     void reset() { demo_id = ctg::slot_count; demo_frame = 0; }
     unsigned step(unsigned id) {
     if (demo_id != id) {
@@ -89,6 +89,31 @@ bool same(const ctg::Demo& demo, const Original& original) {
 }
 
 int main() {
+    {
+        ctg::Demo shooting_demo;
+        bool saw_shot = false, saw_hit = false, saw_miss = false, saw_final = false;
+        for (unsigned frame = 0; frame < 4000; ++frame) {
+            const auto before = shooting_demo.shooting.state();
+            const unsigned events = shooting_demo.step(14, false, true);
+            const auto& after = shooting_demo.shooting.state();
+            if (events & ctg::sound_shot) {
+                saw_shot = true;
+                CHECK(!(events & ctg::event_player1_shot));
+            }
+            if (!before.hit && after.hit) {
+                saw_hit = true;
+                CHECK(events & ctg::sound_paddle);
+                CHECK(!(events & ctg::sound_point));
+            }
+            if (before.flying && !after.flying) {
+                saw_miss |= !before.hit;
+                saw_final |= after.finished;
+                CHECK(events & ctg::sound_point);
+                CHECK(bool(events & ctg::sound_win) == after.finished);
+            }
+        }
+        CHECK(saw_shot && saw_hit && saw_miss && saw_final);
+    }
     ctg::Demo demo;
     Original original;
     CHECK(demo.current_id() == ctg::slot_count);
@@ -117,7 +142,7 @@ int main() {
             }
             const unsigned events = demo.step(id, original.paddle_movement_rebound, original.anti_stalemate);
             CHECK(events == original.step(id));
-            CHECK((events & ~15u) == 0);
+            CHECK((events & ~(ctg::sound_wall | ctg::sound_paddle | ctg::sound_point | ctg::sound_win | ctg::sound_shot)) == 0);
             CHECK(same(demo, original));
         }
     }

@@ -142,7 +142,7 @@ int gameplay_rendering_scenarios(ContentContext& context, MenuSnapshot& snapshot
     CHECK(nonzero_audio > 0);
     auto won = frame;
     for (int i = 0; i < 10; ++i) retro_run();
-    CHECK(frame == won);
+    CHECK(pixel(75, 99) == 0x295166);
     buttons2 = 0; buttons = 1u << RETRO_DEVICE_ID_JOYPAD_A; retro_run();
     CHECK(frame != won);
     retro_unload_game();
@@ -293,7 +293,7 @@ int gameplay_rendering_scenarios(ContentContext& context, MenuSnapshot& snapshot
             if (x > serve_max_x) serve_max_x = x;
         }
     }
-    CHECK(serve_min_x == 44 && serve_max_x == 50);
+    CHECK(serve_min_x == 61 && serve_max_x == 67);
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_UP; buttons2 = 1u << RETRO_DEVICE_ID_JOYPAD_UP;
     bool saw_point = false;
     for (int i = 0; i < 10000 && !saw_point; ++i) {
@@ -650,19 +650,25 @@ int gameplay_rendering_scenarios(ContentContext& context, MenuSnapshot& snapshot
         buttons = 1u << RETRO_DEVICE_ID_JOYPAD_A; retro_run();
         if (shot != 14) { buttons = 0; for (int i = 0; i < 100; ++i) retro_run(); }
     }
-    for (int i = 0; i < 100; ++i) retro_run();
-    CHECK(pixel(75, 99) == 0x295166);
-    auto shooting_result = frame;
+    int shooting_remaining = 100;
+    while (pixel(75, 99) != 0x295166 && --shooting_remaining) retro_run();
+    CHECK(shooting_remaining > 0);
+    const auto shooting_result = frame;
+    for (int i = 0; i < 23; ++i) { retro_run(); CHECK(frame == shooting_result); }
+    retro_run();
+    const auto shooting_hidden = frame;
+    CHECK(shooting_hidden != shooting_result);
+    for (int i = 0; i < 7; ++i) { retro_run(); CHECK(frame == shooting_hidden); }
     retro_run(); CHECK(frame == shooting_result);
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_DOWN; retro_run(); CHECK(pixel(75, 115) == 0x295166);
     for (int i = 0; i < 23; ++i) retro_run();
     CHECK(pixel(75, 115) == 0x295166);
-    retro_run(); CHECK(frame == shooting_result);
+    retro_run(); CHECK(pixel(75, 99) == 0x295166);
     buttons = 0; retro_run();
-    press(RETRO_DEVICE_ID_JOYPAD_START); CHECK(frame == shooting_result);
-    keys[RETROK_p] = true; buttons = 0; retro_run(); keys[RETROK_p] = false; retro_run(); CHECK(frame == shooting_result);
+    press(RETRO_DEVICE_ID_JOYPAD_START); CHECK(pixel(75, 99) == 0x295166);
+    keys[RETROK_p] = true; buttons = 0; retro_run(); keys[RETROK_p] = false; retro_run(); CHECK(pixel(75, 99) == 0x295166);
     keys[RETROK_DOWN] = true; retro_run(); CHECK(pixel(75, 115) == 0x295166);
-    keys[RETROK_DOWN] = false; retro_run(); keys[RETROK_UP] = true; retro_run(); CHECK(frame == shooting_result);
+    keys[RETROK_DOWN] = false; retro_run(); keys[RETROK_UP] = true; retro_run(); CHECK(pixel(75, 99) == 0x295166);
     keys[RETROK_UP] = false; retro_run(); keys[RETROK_RETURN] = true; retro_run();
     CHECK(pixel(75, 99) != 0x295166);
     keys[RETROK_RETURN] = false; retro_run();
@@ -684,8 +690,23 @@ int gameplay_rendering_scenarios(ContentContext& context, MenuSnapshot& snapshot
         do { retro_run(); } while (pixel(75, 99) != 0x295166 && --remaining);
         CHECK(remaining > 0);
         auto tennis_result = frame;
+        buttons = buttons2 = 0;
+        for (int i = 0; i < 23; ++i) { retro_run(); CHECK(frame == tennis_result); }
+        retro_run();
+        const auto score_hidden = frame;
+        CHECK(score_hidden != tennis_result);
+        if (round == 0) {
+            buttons = (1u << RETRO_DEVICE_ID_JOYPAD_START) | (1u << RETRO_DEVICE_ID_JOYPAD_L2) | (1u << RETRO_DEVICE_ID_JOYPAD_R2);
+            retro_run();
+            buttons = 0;
+            for (int i = 0; i < 40; ++i) retro_run();
+            buttons = 1u << RETRO_DEVICE_ID_JOYPAD_B; retro_run();
+            CHECK(frame == score_hidden);
+            buttons = 0;
+        }
+        for (int i = 0; i < 7; ++i) { retro_run(); CHECK(frame == score_hidden); }
         retro_run(); CHECK(frame == tennis_result);
-        buttons = buttons2 = 0; retro_run();
+        retro_run();
         press(RETRO_DEVICE_ID_JOYPAD_START); CHECK(frame == tennis_result);
         press(RETRO_DEVICE_ID_JOYPAD_DOWN); CHECK(pixel(75, 115) == 0x295166);
         if (round == 0) {

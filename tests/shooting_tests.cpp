@@ -7,6 +7,32 @@
 
 int main() {
     {
+        for (bool hit : {false, true}) for (bool final : {false, true}) {
+            ctg::Shooting game;
+            game.set_target_behavior(11, 1, false);
+            game.set_shot_limit(final ? 1 : 2);
+            if (!hit) for (int i = 0; i < 40; ++i) game.step(-1, false);
+            CHECK(game.step(0, true) == (ctg::sound_shot | ctg::event_player1_shot));
+            unsigned collisions = 0, exits = 0;
+            for (int frame = 0; frame < 200 && game.state().flying; ++frame) {
+                const bool was_hit = game.state().hit;
+                const unsigned events = game.step(0, false);
+                if (!was_hit && game.state().hit) {
+                    ++collisions;
+                    CHECK(events == ctg::sound_paddle);
+                } else if (!game.state().flying) {
+                    ++exits;
+                    CHECK(events == (ctg::sound_point | (final ? ctg::sound_win : 0u)));
+                } else {
+                    CHECK(events == ctg::sound_none);
+                }
+            }
+            CHECK(collisions == (hit ? 1u : 0u) && exits == 1);
+            CHECK(game.state().hits == (hit ? 1u : 0u));
+            CHECK(game.state().shots == 1 && game.state().finished == final);
+        }
+    }
+    {
         ctg::Shooting game;
         game.set_shot_limit(1);
         game.set_target_behavior(11, 1, false);
@@ -177,7 +203,7 @@ int main() {
     CHECK(hidden && visible);
     game.reset();
     CHECK(game.step(0, false) == ctg::sound_none);
-    CHECK(game.step(0, true) == (ctg::sound_paddle | ctg::event_player1_shot));
+    CHECK(game.step(0, true) == (ctg::sound_shot | ctg::event_player1_shot));
     CHECK(game.state().flying);
     CHECK(!(game.step(0, true) & ctg::event_player1_shot));
     CHECK(game.state().shots == 0);

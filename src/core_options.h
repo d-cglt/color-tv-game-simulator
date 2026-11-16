@@ -23,6 +23,8 @@ inline constexpr Option definitions[] = {
      {{"Ready", nullptr}, {"Generate", nullptr}}, "Ready"},
     {"colortvgame_vibration", "Vibration", "Vibrate controllers during gameplay.",
      {{"Off", nullptr}, {"On", nullptr}}, "Off"},
+    {"colortvgame_shooting_fire_sound", "Shooting fire sound", "Play a firing sound in Shooting gameplay and previews. Off matches the original console's silent firing.",
+     {{"On", nullptr}, {"Off", nullptr}}, "On"},
     {"colortvgame_demo_sounds", "Demo sounds", "Play sounds during menu previews.",
      {{"On", nullptr}, {"Off", nullptr}}, "On"},
     {"colortvgame_start_game", "Selected game at start", "Choose the initial game in the no-content selector.",

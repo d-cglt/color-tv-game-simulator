@@ -20,6 +20,6 @@ public:
 private:
     std::array<Opponent, 2> opponents_;
     unsigned id_ = slot_count, frame_ = 0;
-    static constexpr unsigned sound_mask = sound_wall | sound_paddle | sound_point | sound_win;
+    static constexpr unsigned sound_mask = sound_wall | sound_paddle | sound_point | sound_win | sound_shot;
 };
 }

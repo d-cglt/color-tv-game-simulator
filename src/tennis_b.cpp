@@ -12,20 +12,28 @@ TennisB::TennisB(bool doubles, bool hockey, bool volleyball, bool tennis_a, bool
 
 // Independent deterministic approximation, not the reference's random sequence.
 void TennisB::hockey_serve() {
-    // Map the reference's display coordinates through the current renderer;
-    // clamp the top to the playable ball-center range.
+
     const auto next_random = [this]() {
         random_state_ = random_state_ * 1664525u + 1013904223u;
         return random_state_ >> 8;
     };
-    state_.ball_x = missed_side_ == 0 ? 13 : 298;
-    state_.ball_y = ball_radius + static_cast<int>(next_random() % 207u);
-    state_.ball_vx = (missed_side_ == 0 ? 4 : -4) * (state_.high_speed ? 2 : 1);
+    // hockey_x maps these centers to 64 and 256: the seven-pixel ball
+    // starts at display x=61 (grid X04) or x=253 (grid X36).
+    state_.ball_x = serving_side_ == 0 ? 35 : 286;
+    state_.ball_y = state_.paddle_y[serving_side_];
+    if (previous_trajectory_) {
+        state_.ball_vx = (serving_side_ == 0 ? 1 : -1) * (serve_vx_ ? std::abs(serve_vx_) : 4 * (state_.high_speed ? 2 : 1));
+        state_.ball_vy = serve_vy_;
+        return;
+    }
+    // Consume the original position draw to retain the initial angle sequence.
+    next_random();
+    state_.ball_vx = (serving_side_ == 0 ? 4 : -4) * (state_.high_speed ? 2 : 1);
     const bool downward = (next_random() % 2u) != 0;
-    const int max_slope = downward && missed_side_ == 1 ? 6 : 4;
+    const int max_slope = downward && serving_side_ == 1 ? 6 : 4;
     // A horizontal integer trajectory outside the opening would never score.
     const int magnitude = 1 + static_cast<int>(next_random() % max_slope);
-    state_.ball_vy = (downward ? magnitude : -magnitude) * (state_.high_speed ? 2 : 1);
+    state_.ball_vy = magnitude * (state_.high_speed ? 2 : 1);
 }
 
 int TennisB::paddle_rebound(int owner, int offset) {
@@ -70,7 +78,9 @@ void TennisB::reset() {
     state_.winner = -1;
     state_.paddle_y = {height / 2, height / 2};
     random_state_ = 1;
-    missed_side_ = 0;
+    serving_side_ = 0;
+    serve_vx_ = serve_vy_ = 0;
+    previous_trajectory_ = false;
     hockey_scoring_side_ = false;
     tennis_spawning_ = false;
     state_.serve_wait = hockey_serve_delay;
@@ -141,7 +151,10 @@ unsigned TennisB::step(TennisInput input) {
             state_.ball_vx = state_.ball_vy = 0;
             sounds |= sound_win;
         } else {
-            missed_side_ = 1 - scorer;
+            serving_side_ = scorer;
+            serve_vx_ = state_.ball_vx;
+            serve_vy_ = state_.ball_vy;
+            previous_trajectory_ = true;
             state_.ball_vx = state_.ball_vy = 0;
             state_.serve_wait = hockey_serve_delay;
             tennis_spawning_ = false;
@@ -258,7 +271,8 @@ unsigned TennisB::step(TennisInput input) {
     }
     state_.ball_x += state_.ball_vx;
     state_.ball_y += state_.ball_vy;
-    if (!hockey_scoring_side_ && (state_.ball_y < ball_radius || state_.ball_y > height - ball_radius)) {
+    if (!hockey_scoring_side_ && ((state_.ball_y < ball_radius && state_.ball_vy < 0) ||
+                                  (state_.ball_y > height - ball_radius && state_.ball_vy > 0))) {
         if (state_.ball_y < ball_radius) state_.ball_y = 2 * ball_radius - state_.ball_y;
         else state_.ball_y = 2 * (height - ball_radius) - state_.ball_y;
         obstacle_vy(-state_.ball_vy);

@@ -59,7 +59,7 @@ int hockey_lifecycle_and_scoring() {
         CHECK(same(h, hockey_twin.state()));
         CHECK(h.serve_wait == ctg::TennisB::hockey_serve_delay - i - 1);
     }
-    CHECK(h.ball_x == 13 && h.ball_vx == 4);
+    CHECK(h.ball_x == 35 && h.ball_vx == 4);
     CHECK(h.paddle_y[0] == hockey.paddle_min(0));
     CHECK(h.paddle_y[1] == hockey.paddle_max(1));
     // A hockey ball on the scoring side can leave the field vertically. Only
@@ -131,51 +131,16 @@ int hockey_lifecycle_and_scoring() {
                 CHECK(h.serve_wait == ctg::TennisB::hockey_serve_delay - i);
             }
             CHECK(hockey.step() == ctg::sound_none && h.serve_wait == 0);
-            CHECK(h.ball_x == (direction < 0 ? 13 : 298));
-            CHECK(h.ball_vx == -direction * 4);
-            CHECK(h.ball_y >= ctg::TennisB::ball_radius && h.ball_y <= ctg::TennisB::height - ctg::TennisB::ball_radius);
-            h.paddle_y[direction < 0 ? 0 : 1] = h.ball_y;
+            CHECK(h.ball_x == (direction < 0 ? 286 : 35));
+            CHECK(h.ball_vx == direction * 4);
+            CHECK(h.ball_y == h.paddle_y[direction < 0 ? 1 : 0]);
             CHECK(!(hockey.step() & ctg::sound_paddle));
-            CHECK(h.ball_vx == -direction * 4);
-            CHECK(h.ball_x == (direction < 0 ? 17 : 294));
+            CHECK(h.ball_vx == direction * 4);
+            CHECK(h.ball_x == (direction < 0 ? 282 : 39));
         }
     }
 
-    // Repeated side serves remain deterministic and cover multiple positions and slopes.
-    for (int side = 0; side < 2; ++side) {
-        ctg::TennisB a(false, true), b(false, true);
-        auto& as = const_cast<ctg::TennisState&>(a.state());
-        auto& bs = const_cast<ctg::TennisState&>(b.state());
-        bool upward = false, downward = false, steep = false;
-        int min_y = ctg::TennisB::height, max_y = 0;
-        for (int n = 0; n < 100; ++n) {
-            for (auto* state : {&as, &bs}) {
-                state->serve_wait = 0;
-                state->score = {};
-                state->ball_x = side == 0 ? -55 : 375;
-                state->ball_y = 120;
-                state->ball_vx = side == 0 ? -4 : 4;
-                state->ball_vy = 0;
-            }
-            CHECK(a.step() == b.step());
-            CHECK(as.serve_wait == ctg::TennisB::hockey_serve_delay);
-            for (unsigned i = 0; i < ctg::TennisB::hockey_serve_delay; ++i)
-                CHECK(a.step() == b.step());
-            CHECK(same(as, bs));
-            CHECK(as.ball_x == (side == 0 ? 13 : 298));
-            CHECK(as.ball_vx == (side == 0 ? 4 : -4));
-            CHECK(as.ball_y >= 2 && as.ball_y <= 208);
-            CHECK(as.ball_vy >= -4 && as.ball_vy <= (side == 0 ? 4 : 6));
-            if (as.ball_y < min_y) min_y = as.ball_y;
-            if (as.ball_y > max_y) max_y = as.ball_y;
-            upward |= as.ball_vy < 0;
-            downward |= as.ball_vy > 0;
-            CHECK(as.ball_vy != 0);
-            steep |= as.ball_vy > 4;
-        }
-        CHECK(upward && downward && max_y - min_y > 150);
-        if (side == 1) CHECK(steep);
-    }
+
     // The opening includes exactly the rows where the entire ball fits.
     for (bool doubles : {false, true}) for (int direction : {-1, 1}) {
         for (int y : {76, 77, 163, 164}) {

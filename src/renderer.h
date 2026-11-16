@@ -57,6 +57,7 @@ struct RenderState {
     const Racing& demo_racing;
     bool racing_player_visible;
     ScoreOverride scores;
+    bool rally_score_visible = true;
 };
 
 class Renderer : public Graphics {

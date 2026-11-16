@@ -8,6 +8,24 @@ The core implementation and headless tests build and pass on Linux. A bounded Re
 
 **Disclaimer:** Color TV-Game Simulator is an independently developed project. It is not affiliated with, endorsed by, or sponsored by Nintendo.
 
+## Screenshots
+
+
+| Game selector | Racing 112 prototype |
+| --- | --- |
+| ![Game selector with Volleyball Original Singles highlighted](screenshots/game-selector.png) | ![Racing 112 prototype showing cars on a road](screenshots/racing-112.png) |
+| Choose a game from the built-in selector. | Drive on the prototype's wide road. |
+
+| Tennis | Hockey |
+| --- | --- |
+| ![Tennis playfield with two paddles](screenshots/tennis.png) | ![Hockey playfield with four paddles and goals](screenshots/hockey.png) |
+| Tennis playfield. | Hockey doubles playfield. |
+
+| Volleyball | Shooting Game |
+| --- | --- |
+| ![Volleyball playfield with two paddles and a center barrier](screenshots/volleyball.png) | ![Shooting Game playfield with two vertical objects and a projectile](screenshots/shooting-game.png) |
+| Volleyball playfield. | Shooting Game playfield. |
+
 ## License
 
 The project is licensed under the [MIT License](LICENSE). The vendored Libretro API header has its own copyright and MIT license notice in `third_party/libretro/libretro.h`; retain that notice when distributing it or applicable portions of the software.

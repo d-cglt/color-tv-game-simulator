@@ -1,0 +1,10 @@
+---
+description: Write concise public release changelogs
+alwaysApply: true
+---
+
+# Public release notes
+
+When preparing a public release description, keep the changelog concise and user-focused. Summarize what changed and why it matters; omit implementation details such as precise frequencies and timings unless users need them. Preserve important compatibility, migration, platform, and validation limitations, and do not overstate fidelity.
+
+Detailed technical release notes and documentation in the repository may remain detailed.

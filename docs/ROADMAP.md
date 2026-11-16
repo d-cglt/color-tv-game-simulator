@@ -272,6 +272,8 @@ For 0.1.2, Linux is the established target; Windows x86-64 and macOS Intel remai
 - [ ] Use existing frontend confirmations where applicable and perform only a concise smoke test of content loading, controls, video, audio and lifecycle on each intended release platform; investigate failures rather than repeating complete playthroughs.
 - [ ] Review licenses and asset rights; prepare versioned artifacts, core metadata, installation instructions, controls and known limitations.
 - [ ] Record test environments and results, and verify packages before distribution.
+- [ ] Investigate Linux ARM support for Raspberry Pi, targeting ARM64 initially and assessing ARM 32-bit separately, including toolchain and runtime requirements.
+- [ ] Explore potential Recalbox and RetroPie integration. Compile and test on relevant ARM hardware and frontends, including content loading, controls, video, audio and lifecycle, before claiming compatibility; integration and distribution depend on each project's requirements.
 
 **Acceptance:** passing tests and reproducible builds for the platforms actually shipped, recorded essential frontend checks, and release packages with documented licensing and limitations. Windows and macOS Intel remain experimental targets; do not claim frontend support without validation. Upstream acceptance is a separate process and is not assumed.
 

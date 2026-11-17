@@ -17,6 +17,29 @@ int predict_y(const TennisState& state, int frames) {
     return static_cast<int>(low + (y <= span ? y : 2 * span - y));
 }
 
+int predict_ping_pong_y(const TennisState& state, int frames) {
+    int x = state.ball_x, y = state.ball_y, vy = state.ball_vy;
+    int left_face = 0;
+    while (hockey_x(left_face) + 3 < 156) ++left_face;
+    for (int i = 0; i < frames; ++i) {
+        const int next_x = x + state.ball_vx;
+        if (x < left_face && next_x >= left_face && hockey_y(y) + 3 >= 155)
+            return TennisB::height / 2; // The lower net sends the ball away.
+        if (hockey_y(y) + 3 < 155 && hockey_x(x) <= 160 && hockey_x(next_x) >= 160 && vy < 0)
+            vy = -vy;
+        x = next_x;
+        y += vy;
+        if (y < TennisB::ball_radius && vy < 0) {
+            y = 2 * TennisB::ball_radius - y;
+            vy = -vy;
+        } else if (y > TennisB::height - TennisB::ball_radius && vy > 0) {
+            y = 2 * (TennisB::height - TennisB::ball_radius) - y;
+            vy = -vy;
+        }
+    }
+    return y;
+}
+
 int intercept(const TennisState& state) {
     if (state.ball_vx == 0) return TennisB::height / 2;
     const bool right = state.ball_vx > 0;
@@ -32,7 +55,7 @@ int intercept(const TennisState& state) {
     const std::int64_t distance = std::abs(static_cast<std::int64_t>(face) - state.ball_x);
     const std::int64_t speed = std::abs(static_cast<std::int64_t>(state.ball_vx));
     const int frames = static_cast<int>(std::min<std::int64_t>((distance + speed - 1) / speed, 10000));
-    return predict_y(state, frames);
+    return state.ping_pong ? predict_ping_pong_y(state, frames) : predict_y(state, frames);
 }
 }
 

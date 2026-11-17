@@ -192,7 +192,7 @@ int menus_options_scenarios(ContentContext& context, const MenuSnapshot& snapsho
             buttons2 = manual && tick >= 5 && tick < 10 ? 1u << RETRO_DEVICE_ID_JOYPAD_DOWN : 0;
             retro_run();
             for (auto& c : candidates) {
-                c.position += manual ? (buttons2 ? 12 : 0) : c.speed * c.direction;
+                c.position += manual ? (buttons2 ? 24 : 0) : c.speed * c.direction;
                 // The 32-pixel target wraps after its top travels from -8 to 216.
                 if (c.position < -8 * 4) c.position += 225 * 4;
                 if (c.position >= 217 * 4) c.position -= 225 * 4;
@@ -322,7 +322,7 @@ int menus_options_scenarios(ContentContext& context, const MenuSnapshot& snapsho
             }
             if (id == 1 || id == 3 || id == 9 || id == 11 || id == 13) {
                 const std::uint32_t color = id == 13 ? 0x9b8cff : id >= 8 ? 0xa6e6ff : 0xd0ecb2;
-                const std::uint32_t background = id == 13 ? 0 : id >= 8 ? 0x6d70f9 : 0xc07645;
+                const std::uint32_t background = id == 13 ? 0x706a6a : id >= 8 ? 0x6d70f9 : 0xc07645;
                 for (int side = 0; side < 2; ++side) {
                     const int x = side ? 205 : 109;
                     const int height = sizes & (1u << side) ? 16 : 32;

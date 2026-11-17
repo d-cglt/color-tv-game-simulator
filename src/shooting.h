@@ -12,7 +12,8 @@ struct ShootingState {
 
 class Shooting {
 public:
-    void reset() { state_ = {}; target_position_ = 405; shot_position_ = 0; }
+    void reset() { state_ = {}; target_position_ = 405; shot_position_ = 0; analog_remainder_ = {}; }
+    void reset_input(unsigned player) { if (player < 2) analog_remainder_[player] = 0; }
     static constexpr unsigned default_shot_limit = 15;
     void set_shot_limit(unsigned limit) { shot_limit_ = limit; }
     // Configuration persists across reset; enabling does not reopen a finished game.
@@ -25,7 +26,7 @@ public:
     int paddle_height(int owner) const { return small_paddle_[owner] ? 16 : (owner == 0 ? 32 : 33); }
     int shooter_top() const { return state_.shooter_y - paddle_height(0) / 2; }
     int target_top() const { return state_.target_y + (33 - paddle_height(1)) / 2; }
-    unsigned step(int direction, bool fire, int target_direction = 0, bool automatic_target = false);
+    unsigned step(int direction, bool fire, int target_direction = 0, bool automatic_target = false, bool human_shooter = true, std::array<int, 2> analog = {});
     const ShootingState& state() const { return state_; }
     bool target_visible() const { return !target_blinking_ || state_.frame % 32 < 26; }
 private:
@@ -41,5 +42,6 @@ private:
     bool high_speed_ = false;
     std::array<bool, 2> small_paddle_{};
     int target_position_ = 405, shot_position_ = 0;
+    std::array<int, 2> analog_remainder_{};
 };
 }

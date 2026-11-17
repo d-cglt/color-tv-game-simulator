@@ -161,7 +161,7 @@ int tennis_lifecycle_and_doubles() {
     ctg::TennisB doubles(true);
     CHECK(doubles.state().doubles && !fresh.state().doubles);
     doubles.step({-1, 1});
-    CHECK(doubles.state().paddle_y[0] == 116 && doubles.state().paddle_y[1] == 124);
+    CHECK(doubles.state().paddle_y[0] == 112 && doubles.state().paddle_y[1] == 128);
     doubles.reset();
     CHECK(doubles.state().doubles && doubles.state().paddle_y[0] == 120);
     // Front faces rebound; behind-side crossings pass through without deflection.

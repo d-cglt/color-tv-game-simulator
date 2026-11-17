@@ -33,7 +33,7 @@ int video_rumble_scenarios(ContentContext& context) {
             // The first serve reaches the right paddle near y=226 after a wall
             // bounce. Position P2 there during the serve delay, then keep it
             // moving so the two rebound modes produce different trajectories.
-            buttons2 = 1u << (i < 27 || i % 2 == 0 ? RETRO_DEVICE_ID_JOYPAD_DOWN : RETRO_DEVICE_ID_JOYPAD_UP);
+            buttons2 = 1u << (i < 14 || i % 2 == 0 ? RETRO_DEVICE_ID_JOYPAD_DOWN : RETRO_DEVICE_ID_JOYPAD_UP);
             retro_run();
             std::uint64_t hash = 14695981039346656037ull;
             for (auto byte : frame) { hash ^= byte; hash *= 1099511628211ull; }

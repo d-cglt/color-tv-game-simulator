@@ -29,8 +29,10 @@ These are Libretro RetroPad controls; physical controller and frontend keyboard 
 | Menus | D-pad navigates and changes settings; A confirms, B goes back. After the idle demo hides a menu, input first restores it without activating a selection. |
 | Rally games | Each player's D-pad or left stick moves their paddle. Choose two players or one player with an AI opponent in the launch menu. |
 | Shooting | P1 D-pad or left stick aims; A or Y fires. In manual target mode, P2 D-pad or left stick controls the target. |
-| Racing | P1 D-pad left/right or left-stick horizontal axis steers; L2 selects speed 1 and R2 speed 2. The selection stays after release. Analog deflection controls steering rate; releasing the stick holds position. |
+| Racing | P1 D-pad left/right or left-stick horizontal axis steers; L2 shifts down and R2 shifts up one step per press through low, medium and high. Holding does not repeat; both held together cancel shifting. The selection stays after release. Analog deflection controls steering rate; releasing the stick holds position. |
 | During play | Start opens the pause menu (resume, restart, exit). Frontend Reset returns to the game's launch menu. |
+
+In rally games and Shooting, stick deflection outside the inclusive 8192 deadzone sets a proportional movement rate, reaching the normal digital speed at full deflection; small movements accumulate over frames. Releasing the stick stops movement. Rally paddles and the shooter stop at their bounds; the manual Shooting target continues to wrap as before. Active analog deflection takes precedence over RetroPad directions, including frontend-generated analog-to-digital directions; center the stick to use the D-pad at full speed. Direct Shooting W/S overrides the stick. AI, demos, automatic targets and menu navigation retain their existing behavior.
 
 Direct keyboard input includes arrow keys for menu navigation, Enter to confirm, Escape to go back, and P for pause. Racing accepts Left/Right or A/D for steering; Shooting accepts W/S to aim and X or Space to fire. RetroArch may intercept keys or map them to RetroPad inputs, so actual behavior depends on frontend configuration.
 

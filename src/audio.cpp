@@ -74,7 +74,9 @@ Audio::Samples Audio::render(bool preview, bool finished, bool paused, unsigned 
             } else {
                 const unsigned frequency = racing_speed <= Racing::low_speed
                     ? 128 + 65 * (racing_speed - Racing::start_speed) / (Racing::low_speed - Racing::start_speed)
-                    : 193 + 200 * (racing_speed - Racing::low_speed) / (Racing::max_speed - Racing::low_speed);
+                    : racing_speed <= Racing::medium_speed
+                        ? 193 + 50 * (racing_speed - Racing::low_speed) / (Racing::medium_speed - Racing::low_speed)
+                        : 243 + 150 * (racing_speed - Racing::medium_speed) / (Racing::max_speed - Racing::medium_speed);
                 samples[2 * i] = samples[2 * i + 1] = engine_phase_ < 4800 ? 6000 : -667;
                 engine_phase_ = (engine_phase_ + frequency) % 48000;
             }

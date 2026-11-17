@@ -176,28 +176,27 @@ bool test_racing() {
         std::memcpy(&value, frame.data() + (y * 320 + x) * 4, sizeof(value));
         return value;
     };
-    // Racing uses the shared zero glyph at a narrower horizontal scale.
-    for (unsigned origin : {52u, 74u})
+    // Racing uses the shared zero glyph at grid columns X04 and X12, starting at Y04.
+    for (unsigned origin : {70u, 102u})
         for (unsigned y = 0; y < 33; ++y)
             for (unsigned x = 0; x < 16; ++x) {
                 const bool stroke = x < 4 || x >= 12 || y < 4 || y >= 28;
-                CHECK((pixel(origin + x, 6 + y) == 0xffffff) == stroke);
+                CHECK((pixel(origin + x, 20 + y) == 0xffffff) == stroke);
             }
     CHECK(pixel(0, 100) == 0x66594a && pixel(319, 100) == 0x66594a);
-    CHECK(pixel(40, 100) == 0xc3f5df && pixel(43, 100) == 0xc3f5df);
-    CHECK(pixel(276, 100) == 0xc3f5df && pixel(279, 100) == 0xc3f5df);
-    CHECK(pixel(40, 200) == 0xc3f5df && pixel(279, 200) == 0xc3f5df);
-    const std::array<const char*, 14> car_mask{{
-        "-------00000000-------", "-------00000000-------",
-        "0000---00000000---0000", "0000---00000000---0000", "0000000000000000000000",
-        "0000---00000000---0000", "0000---00000000---0000",
-        "-------00000000-------", "-------00000000-------",
-        "0000---00000000---0000", "0000---00000000---0000", "0000000000000000000000",
-        "0000---00000000---0000", "0000---00000000---0000"
-    }};
-    for (unsigned y = 0; y < 28; ++y)
-        for (unsigned x = 0; x < 22; ++x)
-            CHECK(pixel(149 + x, 198 + y) == (car_mask[y / 2][x] == '0' ? 0xeb65e7u : 0x39b800u));
+    for (unsigned x = 54; x < 58; ++x) CHECK(pixel(x, 100) == 0xc3f5df);
+    for (unsigned x = 262; x < 266; ++x) CHECK(pixel(x, 100) == 0xc3f5df);
+    CHECK(pixel(53, 100) == 0x66594a && pixel(266, 100) == 0x66594a);
+    CHECK(pixel(58, 100) == 0x39b800 && pixel(261, 100) == 0x39b800);
+    CHECK(pixel(159, 100) == 0x39b800); // X26 has no divider.
+    CHECK(pixel(54, 200) == 0xc3f5df && pixel(265, 200) == 0xc3f5df);
+    const std::array<const char*, 6> car_mask{{"--++--", "+-++-+", "+-++-+", "--++--", "+-++-+", "+-++-+"}};
+    for (unsigned y = 0; y < 30; ++y)
+        for (unsigned x = 0; x < 24; ++x) {
+            const unsigned col = x / 4;
+            const bool bridge = (col == 1 || col == 4) && (y == 9 || y == 10 || y == 24 || y == 25);
+            CHECK(pixel(148 + x, 194 + y) == (car_mask[y / 5][col] == '+' || bridge ? 0xeb65e7u : 0x39b800u));
+        }
     const auto countdown_frame = frame;
     buttons[0] = 1u << RETRO_DEVICE_ID_JOYPAD_LEFT;
     for (unsigned n = 0; n < 20; ++n) retro_run();
@@ -211,7 +210,7 @@ bool test_racing() {
     buttons[0] = 1u << RETRO_DEVICE_ID_JOYPAD_LEFT;
     for (unsigned n = 0; n < 40; ++n) retro_run();
     unsigned gap_pixels = 0;
-    for (unsigned y = 0; y < 240; ++y) gap_pixels += pixel(40, y) == 0x39b800;
+    for (unsigned y = 0; y < 240; ++y) gap_pixels += pixel(54, y) == 0x39b800;
     CHECK(gap_pixels == 24);
     const auto left = frame;
     retro_reset(); buttons[0] = 0; retro_run();
@@ -294,9 +293,9 @@ bool test_racing() {
     const unsigned left_button = 1u << RETRO_DEVICE_ID_JOYPAD_LEFT;
     const unsigned right_button = 1u << RETRO_DEVICE_ID_JOYPAD_RIGHT;
     steer(-32768, 0, false, 120);
-    CHECK(pixel(39, 202) == 0x66594a && pixel(40, 202) == 0xeb65e7);
+    CHECK(pixel(57, 204) != 0xeb65e7 && pixel(58, 204) == 0xeb65e7);
     steer(32767, 0, false, 120);
-    CHECK(pixel(280, 202) == 0x66594a && pixel(279, 202) == 0xeb65e7);
+    CHECK(pixel(262, 204) != 0xeb65e7 && pixel(261, 204) == 0xeb65e7);
     const auto neutral = steer(0, 0, false);
     CHECK(steer(-32768, 0, false) == steer(0, left_button, false));
     CHECK(steer(32767, 0, false) == steer(0, right_button, false));
@@ -318,8 +317,8 @@ bool test_racing() {
     const auto avoid_traffic = [&](unsigned speed_buttons = 0) {
         int player_x = 160;
         for (unsigned x = 40; x < 280; ++x) {
-            if (pixel(x, 210) == 0xeb65e7) {
-                player_x = static_cast<int>(x) + 11;
+            if (pixel(x, 209) == 0xeb65e7) {
+                player_x = static_cast<int>(x) + 4;
                 break;
             }
         }
@@ -328,10 +327,13 @@ bool test_racing() {
             bool found = false;
             for (unsigned x = 40; x < 280; ++x) {
                 if (pixel(x, y) == 0xf5ed48) {
-                    const int traffic_x = static_cast<int>(x) + 4;
-                    if (player_x > traffic_x - 30 && player_x < traffic_x + 30) {
-                        if (traffic_x < 85) avoidance = right_button;
-                        else if (traffic_x > 235) avoidance = left_button;
+                    unsigned right = x;
+                    for (unsigned probe = x + 1; probe < 266; ++probe)
+                        if (pixel(probe, y) == 0xf5ed48) right = probe;
+                    const int traffic_x = static_cast<int>((x + right + 1) / 2);
+                    if (player_x > traffic_x - 24 && player_x < traffic_x + 24) {
+                        if (traffic_x < 94) avoidance = right_button;
+                        else if (traffic_x > 226) avoidance = left_button;
                         else avoidance = player_x < traffic_x ? left_button : right_button;
                     }
                     found = true;
@@ -346,18 +348,34 @@ bool test_racing() {
     steering_axis = 0; buttons[0] = 0;
     retro_reset(); retro_run();
     press(RETRO_DEVICE_ID_JOYPAD_START);
-    for (unsigned n = 0; n < 245; ++n) avoid_traffic();
+    // A trigger pressed during countdown and held into play is not queued.
+    for (unsigned n = 0; n < 245; ++n) avoid_traffic(1u << RETRO_DEVICE_ID_JOYPAD_R2);
     CHECK(transitions() >= 4 && transitions() <= 5);
     for (unsigned n = 0; n < 120; ++n) avoid_traffic();
     CHECK(transitions() >= 6 && transitions() <= 7);
-    for (unsigned n = 0; n < 124; ++n) avoid_traffic(1u << RETRO_DEVICE_ID_JOYPAD_R2);
+    const unsigned r2 = 1u << RETRO_DEVICE_ID_JOYPAD_R2;
+    const unsigned l2 = 1u << RETRO_DEVICE_ID_JOYPAD_L2;
+    for (unsigned n = 0; n < 124; ++n) avoid_traffic(r2);
+    CHECK(transitions() >= 8 && transitions() <= 9); // Holding shifts only to medium.
+    // Pause with R2 held, release and re-press it while paused; it is not queued.
+    buttons[0] = r2 | (1u << RETRO_DEVICE_ID_JOYPAD_START); retro_run();
+    buttons[0] = 0; retro_run();
+    buttons[0] = r2; retro_run();
+    buttons[0] = r2 | (1u << RETRO_DEVICE_ID_JOYPAD_START); retro_run();
+    for (unsigned n = 0; n < 100; ++n) avoid_traffic(r2);
+    CHECK(transitions() >= 8 && transitions() <= 9);
+    avoid_traffic(); avoid_traffic(r2);
+    for (unsigned n = 0; n < 100; ++n) avoid_traffic(r2);
     CHECK(transitions() >= 12 && transitions() <= 14);
-    for (unsigned n = 0; n < 30; ++n) avoid_traffic();
+    avoid_traffic(); avoid_traffic(l2 | r2); // Both cancel; releasing one is not a press.
+    for (unsigned n = 0; n < 100; ++n) avoid_traffic(l2);
     CHECK(transitions() >= 12 && transitions() <= 14);
-    for (unsigned n = 0; n < 30; ++n) avoid_traffic(1u << RETRO_DEVICE_ID_JOYPAD_L2);
-    CHECK(transitions() >= 11 && transitions() <= 13);
-    for (unsigned n = 0; n < 94; ++n) avoid_traffic();
-    CHECK(transitions() >= 6 && transitions() <= 7);
+    avoid_traffic(); avoid_traffic(l2);
+    for (unsigned n = 0; n < 100; ++n) avoid_traffic(l2);
+    CHECK(transitions() >= 8 && transitions() <= 9);
+    avoid_traffic(); avoid_traffic(l2);
+    for (unsigned n = 0; n < 100; ++n) avoid_traffic(l2);
+    CHECK(transitions() >= 6 && transitions() <= 8);
     buttons[0] = 0;
     press(RETRO_DEVICE_ID_JOYPAD_START);
     CHECK(audio_frame[0] == 0);
@@ -365,6 +383,7 @@ bool test_racing() {
     retro_reset(); retro_run();
     press(RETRO_DEVICE_ID_JOYPAD_START);
     for (unsigned n = 0; n < 245; ++n) avoid_traffic();
+    avoid_traffic(r2); avoid_traffic(); avoid_traffic(r2);
     unsigned until_bonus = 0;
     while (until_bonus++ < 3500) {
         avoid_traffic(1u << RETRO_DEVICE_ID_JOYPAD_R2);

@@ -88,6 +88,26 @@ int main() {
     s.serve_wait = 10; s.paddle_y[1] = 80; ai.reset();
     CHECK(ai.step(s, 3) == 1);
 
+    // Ping-Pong predicts the upper net's vertical reversal before it happens.
+    // Check the real ball trajectory as well as the AI's initial direction.
+    for (bool doubles : {false, true}) {
+        ctg::TennisB ping(doubles, false, false, false, false, false, true);
+        auto& ball = const_cast<ctg::TennisState&>(ping.state());
+        ball.serve_wait = 0; ball.ball_x = 100; ball.ball_y = 180;
+        ball.ball_vx = 4; ball.ball_vy = -4; ball.paddle_y = {120, 120};
+        ctg::Opponent ping_ai;
+        CHECK(ping_ai.step(ball, 3) == 1);
+        const int face = (doubles ? ctg::TennisB::inner_right : ctg::TennisB::paddle_right) - ctg::TennisB::ball_radius;
+        while (ball.ball_x < face && ball.ball_vx > 0) ping.step();
+        CHECK(ball.ball_vx > 0 && ball.ball_y > 130);
+        // A low ball reflects horizontally at the solid net, so wait centrally.
+        ball.ball_x = 100; ball.ball_y = 190; ball.ball_vx = 4; ball.ball_vy = 0;
+        ball.paddle_y[1] = 80; ping_ai.reset();
+        CHECK(ping_ai.step(ball, 3) == 1);
+        while (ball.ball_x < face && ball.ball_vx > 0) ping.step();
+        CHECK(ball.ball_vx < 0);
+    }
+
     // Doubles tennis intercepts the right inner paddle before the outer paddle.
     s.serve_wait = 0; s.paddle_y[1] = 120; s.doubles = true;
     s.ball_x = 200; s.ball_y = 80; s.ball_vx = 4; s.ball_vy = 4; ai.reset();

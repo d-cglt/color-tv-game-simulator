@@ -39,7 +39,7 @@ struct Original {
         const auto& state = demo_shooting.state();
         if (state.finished) demo_shooting.reset();
         const int delta = demo_shooting.state().target_y + 16 - demo_shooting.state().shooter_y;
-        events = demo_shooting.step((delta > 3) - (delta < -3), demo_frame % 45 == 0, 0, true);
+        events = demo_shooting.step((delta > 3) - (delta < -3), demo_frame % 45 == 0, 0, true, false);
     } else {
         auto mirrored = demo_tennis.state();
         mirrored.ball_x = ctg::TennisB::width - mirrored.ball_x;
@@ -49,7 +49,7 @@ struct Original {
         const unsigned difficulty = (demo_frame / 180) % 2 == 0 ? 3 : 1;
         const int left = demo_opponents[0].step(mirrored, difficulty);
         const int right = demo_opponents[1].step(demo_tennis.state(), difficulty);
-        events = demo_tennis.step({left, right});
+        events = demo_tennis.step({left, right, {false, false}});
         if (events & ctg::sound_point) {
             demo_tennis.reset();
             for (auto& ai : demo_opponents) ai.reset();

@@ -129,7 +129,7 @@ int gameplay_rendering_scenarios(ContentContext& context, MenuSnapshot& snapshot
     // Simulate the frontend mapping W/S to P1 and arrows to P2 RetroPad input.
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_DOWN;
     buttons2 = 1u << RETRO_DEVICE_ID_JOYPAD_UP; retro_run();
-    CHECK(!paddle(49, 94) && !paddle(265, 136));
+    CHECK(!paddle(49, 86) && !paddle(265, 144));
     buttons = buttons2 = 0;
     keys.fill(false); exit_pause(); CHECK(same_menu(frame, menu));
     keys[RETROK_ESCAPE] = false; buttons = 0; retro_run(); buttons = 1u << RETRO_DEVICE_ID_JOYPAD_A; retro_run();
@@ -221,9 +221,9 @@ int gameplay_rendering_scenarios(ContentContext& context, MenuSnapshot& snapshot
     CHECK(a_pixel(49, 20) == 0xff9fff && a_pixel(195, 20) == 0xff9fff);
     CHECK(a_pixel(123, 219) == 0xd5e87c && a_pixel(265, 219) == 0xd5e87c);
     buttons = buttons2 = 0; axes = {{20000, -20000}};
-    for (int i = 0; i < 10; ++i) retro_run();
+    for (int i = 0; i < 5; ++i) retro_run();
     CHECK(a_pixel(49, 30) == 0xff9fff && a_pixel(195, 30) == 0xff9fff);
-    CHECK(a_pixel(123, 200) == 0xd5e87c && a_pixel(265, 200) == 0xd5e87c);
+    CHECK(a_pixel(123, 210) == 0xd5e87c && a_pixel(265, 210) == 0xd5e87c);
     axes = {{0, 0}}; retro_reset(); retro_run(); CHECK(same_menu(frame, hockey_a_doubles_menu));
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
     CHECK(a_pixel(160, 94) == 0x2cc94c && a_pixel(123, 105) == 0xd5e87c);
@@ -258,9 +258,9 @@ int gameplay_rendering_scenarios(ContentContext& context, MenuSnapshot& snapshot
     CHECK(pixel(265, 215) != 0xd5e87c && pixel(265, 216) == 0xd5e87c);
     CHECK(pixel(265, 219) == 0xd5e87c && pixel(265, 220) != 0xd5e87c);
     buttons = buttons2 = 0; axes = {{20000, -20000}};
-    for (int i = 0; i < 10; ++i) retro_run();
+    for (int i = 0; i < 5; ++i) retro_run();
     CHECK(pixel(49, 30) == 0xff9fff && pixel(49, 55) != 0xff9fff);
-    CHECK(pixel(265, 200) == 0xd5e87c && pixel(265, 180) != 0xd5e87c);
+    CHECK(pixel(265, 210) == 0xd5e87c && pixel(265, 180) != 0xd5e87c);
     axes = {{0, 0}}; retro_reset(); retro_run();
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
     auto count_color = [](std::uint32_t color) {
@@ -370,9 +370,9 @@ int gameplay_rendering_scenarios(ContentContext& context, MenuSnapshot& snapshot
         CHECK(pixel(x, 220) != 0xd5e87c);
     }
     buttons = buttons2 = 0; axes = {{20000, -20000}};
-    for (int i = 0; i < 10; ++i) retro_run();
+    for (int i = 0; i < 5; ++i) retro_run();
     CHECK(pixel(49, 30) == 0xff9fff && pixel(195, 30) == 0xff9fff);
-    CHECK(pixel(123, 200) == 0xd5e87c && pixel(265, 200) == 0xd5e87c);
+    CHECK(pixel(123, 210) == 0xd5e87c && pixel(265, 210) == 0xd5e87c);
     axes = {{0, 0}}; retro_reset(); retro_run(); CHECK(same_menu(frame, hockey_doubles_menu));
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
     CHECK(pixel(123, 105) == 0xd5e87c && pixel(195, 105) == 0xff9fff);
@@ -532,8 +532,8 @@ int gameplay_rendering_scenarios(ContentContext& context, MenuSnapshot& snapshot
     auto ping_menu = frame;
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
     CHECK(!same_menu(frame, ping_menu));
-    CHECK(pixel(100, 60) == 0 && pixel(160, 156) == 0xffffff);
-    CHECK(pixel(160, 177) == 0 && pixel(160, 188) == 0xffffff);
+    CHECK(pixel(0, 0) == 0x706a6a && pixel(100, 60) == 0x706a6a && pixel(160, 156) == 0xffffff);
+    CHECK(pixel(160, 177) == 0x706a6a && pixel(160, 188) == 0xffffff);
     CHECK(pixel(100, 216) == 0xffffff && pixel(49, 105) == 0x9b8cff);
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_UP; buttons2 = 1u << RETRO_DEVICE_ID_JOYPAD_DOWN; retro_run();
     CHECK(pixel(49, 98) == 0x9b8cff && pixel(265, 133) == 0x9b8cff);
@@ -546,8 +546,8 @@ int gameplay_rendering_scenarios(ContentContext& context, MenuSnapshot& snapshot
     CHECK(!same_menu(ping_doubles_menu, ping_menu));
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_START; retro_run();
     CHECK(!same_menu(frame, ping_doubles_menu));
-    CHECK(pixel(100, 60) == 0 && pixel(160, 156) == 0xffffff);
-    CHECK(pixel(160, 177) == 0 && pixel(160, 188) == 0xffffff && pixel(100, 216) == 0xffffff);
+    CHECK(pixel(0, 0) == 0x706a6a && pixel(100, 60) == 0x706a6a && pixel(160, 156) == 0xffffff);
+    CHECK(pixel(160, 177) == 0x706a6a && pixel(160, 188) == 0xffffff && pixel(100, 216) == 0xffffff);
     CHECK(count_color(0x8affa1) > 0);
     for (int x : {49, 109, 205, 265}) CHECK(pixel(x, 105) == 0x9b8cff);
     buttons = 1u << RETRO_DEVICE_ID_JOYPAD_UP; buttons2 = 1u << RETRO_DEVICE_ID_JOYPAD_DOWN; retro_run();

@@ -22,7 +22,7 @@ unsigned Demo::step(unsigned id, bool rebound, bool anti) {
         const auto& state = shooting.state();
         if (state.finished) shooting.reset();
         const int delta = shooting.state().target_y + 16 - shooting.state().shooter_y;
-        events = shooting.step((delta > 3) - (delta < -3), frame_ % 45 == 0, 0, true);
+        events = shooting.step((delta > 3) - (delta < -3), frame_ % 45 == 0, 0, true, false);
     } else {
         auto mirrored = tennis.state();
         mirrored.ball_x = ctg::TennisB::width - mirrored.ball_x;
@@ -32,7 +32,7 @@ unsigned Demo::step(unsigned id, bool rebound, bool anti) {
         const unsigned difficulty = (frame_ / 180) % 2 == 0 ? 3 : 1;
         const int left = opponents_[0].step(mirrored, difficulty);
         const int right = opponents_[1].step(tennis.state(), difficulty);
-        events = tennis.step({left, right});
+        events = tennis.step({left, right, {false, false}});
         if (events & ctg::sound_point) {
             tennis.reset();
             for (auto& ai : opponents_) ai.reset();

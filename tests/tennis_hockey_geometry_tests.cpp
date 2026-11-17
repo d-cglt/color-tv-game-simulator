@@ -68,7 +68,7 @@ int hockey_paddle_geometry() {
     }
     hockey_doubles.reset();
     hockey_doubles.step({-1, 1});
-    CHECK(hd.paddle_y[0] == 116 && hd.paddle_y[1] == 124);
+    CHECK(hd.paddle_y[0] == 112 && hd.paddle_y[1] == 128);
     hockey_doubles.reset();
     CHECK(hd.hockey && hd.doubles && hd.hockey_a == hockey_a && hd.paddle_y[0] == 120 && hd.paddle_y[1] == 120);
     }

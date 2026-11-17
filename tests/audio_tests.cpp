@@ -1,6 +1,7 @@
 #include "audio.h"
 #include "tennis_b.h"
 #include <cstdio>
+#include <utility>
 
 #define CHECK(x) do { if (!(x)) { std::fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, #x); return 1; } } while (0)
 
@@ -63,7 +64,8 @@ struct Baseline {
                 value = pulse(start_phase, start >= 153600 ? 484 : 164);
             ++start;
         } else {
-            const unsigned hz = speed <= 120 ? 128 + 65 * (speed - 30) / 90 : 193 + 200 * (speed - 120) / 124;
+            const unsigned hz = speed <= 133 ? 128 + 65 * (speed - 30) / 103 :
+                                speed <= 161 ? 193 + 50 * (speed - 133) / 28 : 243 + 150 * (speed - 161) / 66;
             value = pulse(engine_phase, hz);
         }
         if (crash >= 77760 && bonus < 62976) {
@@ -274,12 +276,29 @@ int main() {
             if (f % 7 == 0) {
                 audio.trigger_game(8, false); baseline.trigger(8, false, false);
             }
-            CHECK(frame(audio, baseline, false, false, f == 31 || f == 193, 15, 244));
+            CHECK(frame(audio, baseline, false, false, f == 31 || f == 193, 15, 227));
         }
         CHECK(!audio.racing_starting());
         // Every valid speed, preserving oscillator phase across changes.
-        for (unsigned speed = 30; speed <= 244; ++speed)
+        for (unsigned speed = 30; speed <= 227; ++speed)
             CHECK(frame(audio, baseline, false, false, false, 15, speed));
+    }
+    // Count oscillator periods over exactly one second at each steady speed.
+    for (const auto test : {std::pair<unsigned, unsigned>{30, 128}, {133, 193}, {161, 243}, {227, 393}}) {
+        ctg::Audio audio;
+        audio.start_racing();
+        for (unsigned f = 0; f < 241; ++f) audio.render(false, false, false, 15, test.first);
+        unsigned rising = 0;
+        int previous = 0;
+        for (unsigned f = 0; f < 60; ++f) {
+            const auto samples = audio.render(false, false, false, 15, test.first);
+            for (unsigned i = 0; i < 800; ++i) {
+                const int sample = samples[2 * i];
+                if (previous < 0 && sample > 0) ++rising;
+                previous = sample;
+            }
+        }
+        CHECK(rising == test.second);
     }
     // Bonus note boundaries, crash-over-bonus priority, suspended bonus clock,
     // crash retrigger, and underlying countdown/engine advancement.

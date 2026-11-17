@@ -5,6 +5,11 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
+#include <string>
 #include <vector>
 
 namespace {
@@ -15,8 +20,19 @@ unsigned buttons = 0, key = 0;
 int16_t axis = 0;
 std::vector<std::uint32_t> frame;
 bool silent = false;
+std::string save_dir;
+unsigned save_errors = 0;
 
 bool environment(unsigned command, void* data) {
+    if (command == RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY) {
+        if (save_dir.empty()) return false;
+        *static_cast<const char**>(data) = save_dir.c_str(); return true;
+    }
+    if (command == RETRO_ENVIRONMENT_SET_MESSAGE) {
+        const auto* msg = static_cast<retro_message*>(data);
+        if (std::string(msg->msg) == "Could not save test menu preferences") ++save_errors;
+        return true;
+    }
     if (command == RETRO_ENVIRONMENT_SET_PIXEL_FORMAT)
         return *static_cast<retro_pixel_format*>(data) == RETRO_PIXEL_FORMAT_XRGB8888;
     return command == RETRO_ENVIRONMENT_SET_SUPPORT_NO_GAME || command == RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS;
@@ -44,7 +60,7 @@ void keyboard(unsigned k) { key = k; run(); key = 0; run(); }
 void open() { run(); run(chord); }
 bool menu() { return frame.size() == 320 * 240 && frame[55 * 320 + 50] == 0x101820; }
 unsigned selection() {
-    for (unsigned i = 0; i < 5; ++i) if (frame[(82 + i * 18) * 320 + 60] == 0x295166) return i;
+    for (unsigned i = 0; i < 6; ++i) if (frame[(82 + i * 18) * 320 + 60] == 0x295166) return i;
     return 99;
 }
 std::vector<std::uint32_t> row(unsigned i) {
@@ -162,19 +178,68 @@ bool controls() {
     const auto right_max = row(3); press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(row(3) == right_max);
     press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(row(3) != right_max);
     const auto left_saved = row(2), right_saved = row(3);
+    press(RETRO_DEVICE_ID_JOYPAD_DOWN); CHECK(selection() == 4);
+    const auto collision_on = row(4);
+    press(RETRO_DEVICE_ID_JOYPAD_LEFT); const auto collision_off = row(4); CHECK(collision_off != collision_on);
     keyboard(RETROK_ESCAPE); CHECK(!menu());
     open(); CHECK(reopened_snapshot({{grid_on, fixed_on, left_saved, right_saved}}));
-    press(RETRO_DEVICE_ID_JOYPAD_UP); CHECK(selection() == 4);
+    CHECK(row(4) == collision_off);
+    press(RETRO_DEVICE_ID_JOYPAD_UP); CHECK(selection() == 5);
     press(RETRO_DEVICE_ID_JOYPAD_DOWN); CHECK(selection() == 0);
     press(RETRO_DEVICE_ID_JOYPAD_UP); press(RETRO_DEVICE_ID_JOYPAD_A); CHECK(!menu());
     open(); CHECK(menu()); retro_reset(); run(); CHECK(!menu());
-    open(); CHECK(row(0) == grid_on && row(1) == fixed_on && row(2) == left_saved && row(3) == right_saved);
+    open(); CHECK(row(0) == grid_on && row(1) == fixed_on && row(2) == left_saved && row(3) == right_saved && row(4) == collision_off);
     retro_unload_game(); CHECK(load(14)); run(); open();
-    CHECK(row(0) == grid_on && row(1) == fixed_on && row(2) == left_saved && row(3) == right_saved);
+    CHECK(row(0) == grid_on && row(1) == fixed_on && row(2) == left_saved && row(3) == right_saved && row(4) == collision_off);
     retro_unload_game();
     retro_deinit(); retro_init(); CHECK(load(0)); run(); open();
-    CHECK(row(0) == initial && row(1) == fixed_off && row(2) == left_zero && row(3) == right_zero);
+    CHECK(row(0) == initial && row(1) == fixed_off && row(2) == left_zero && row(3) == right_zero && row(4) == collision_on);
     retro_unload_game();
+    return true;
+}
+
+bool persistence() {
+    namespace fs = std::filesystem;
+    const auto dir = fs::temp_directory_path() / ("ctg-diagnostic-test-" +
+        std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+    CHECK(fs::create_directory(dir));
+    struct Cleanup { fs::path path; ~Cleanup() { std::error_code ec; fs::remove_all(path, ec); } } cleanup{dir};
+    const auto file = dir / "colortvgame-diagnostics";
+    auto bytes = [&]() { std::ifstream in(file, std::ios::binary); return std::vector<unsigned char>(std::istreambuf_iterator<char>(in), {}); };
+    auto put = [&](const std::vector<unsigned char>& data) { std::ofstream out(file, std::ios::binary | std::ios::trunc); out.write(reinterpret_cast<const char*>(data.data()), data.size()); return bool(out); };
+    retro_deinit(); retro_init();
+    save_dir = dir.string();
+    CHECK(retro_load_game(nullptr)); run(); open();
+    press(RETRO_DEVICE_ID_JOYPAD_RIGHT);
+    press(RETRO_DEVICE_ID_JOYPAD_DOWN); press(RETRO_DEVICE_ID_JOYPAD_RIGHT);
+    press(RETRO_DEVICE_ID_JOYPAD_DOWN); press(RETRO_DEVICE_ID_JOYPAD_RIGHT);
+    press(RETRO_DEVICE_ID_JOYPAD_DOWN); press(RETRO_DEVICE_ID_JOYPAD_RIGHT); press(RETRO_DEVICE_ID_JOYPAD_RIGHT);
+    press(RETRO_DEVICE_ID_JOYPAD_DOWN); press(RETRO_DEVICE_ID_JOYPAD_RIGHT);
+    const std::vector<unsigned char> expected{'C','T','G','D',1,1,1,1,2,0};
+    CHECK(bytes() == expected);
+    const auto timestamp = fs::last_write_time(file);
+    for (int i = 0; i < 10; ++i) run();
+    CHECK(fs::last_write_time(file) == timestamp);
+    retro_unload_game(); retro_deinit(); retro_init();
+    CHECK(load(15)); run(); open();
+    // Editing one field verifies all other fields were restored, not merely left on disk.
+    press(RETRO_DEVICE_ID_JOYPAD_RIGHT);
+    auto changed = expected; changed[5] = 0; CHECK(bytes() == changed);
+    retro_unload_game(); retro_deinit(); retro_init();
+    CHECK(put({'C','T','G','D',1,1}));
+    CHECK(retro_load_game(nullptr)); run(); open(); press(RETRO_DEVICE_ID_JOYPAD_RIGHT);
+    CHECK(bytes() == std::vector<unsigned char>({'C','T','G','D',1,1,0,0,0,1}));
+    retro_unload_game(); retro_deinit(); retro_init();
+    // Failed writes must not let a stale disk record overwrite changed session values.
+    save_dir.clear(); CHECK(load(0)); run(); open();
+    const auto errors = save_errors;
+    press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(save_errors == errors + 1);
+    CHECK(put({'C','T','G','D',1,0,1,30,30,0}));
+    save_dir = dir.string(); retro_unload_game();
+    CHECK(bytes() == std::vector<unsigned char>({'C','T','G','D',1,1,0,0,0,1}));
+    CHECK(load(14)); run(); open(); press(RETRO_DEVICE_ID_JOYPAD_RIGHT);
+    CHECK(bytes() == std::vector<unsigned char>({'C','T','G','D',1,0,0,0,0,1}));
+    retro_unload_game(); save_dir.clear(); retro_deinit(); retro_init();
     return true;
 }
 
@@ -228,6 +293,65 @@ bool grid_overlay()  {
     const auto overlaid = frame; for (int i = 0; i < 5; ++i) run(); CHECK(frame == overlaid);
     press(RETRO_DEVICE_ID_JOYPAD_A); CHECK(frame == clean);
     retro_unload_game(); return true;
+}
+
+bool racing_grid_contexts() {
+    retro_deinit(); retro_init(); CHECK(load(15)); run();
+    // Toggle over the frozen launch-menu frame and verify both road edges.
+    open(); const auto clean = frame;
+    press(RETRO_DEVICE_ID_JOYPAD_A);
+    for (int row = 0; row < 48; ++row) for (int col = 0; col < 53; ++col)
+        for (int dy = 0; dy < 5; ++dy) for (int dx = 0; dx < 4; ++dx) {
+            const int x = 54 + col * 4 + dx, y = row * 5 + dy;
+            if (y < 11 || (y >= 82 && y < 96)) continue; // Labels and changed menu row.
+            const auto original = clean[y * 320 + x];
+            CHECK(frame[y * 320 + x] == (dx < 3 && dy < 4 ? blend(original) : original));
+        }
+    CHECK(frame[40 * 320 + 53] == clean[40 * 320 + 53]);
+    CHECK(frame[40 * 320 + 266] == clean[40 * 320 + 266]);
+    // Check the last coordinate label, X52, including its leading digit.
+    CHECK(frame[0 * 320 + 262] == 0xffffff);
+    CHECK(frame[6 * 320 + 262] == 0xffffff);
+    press(RETRO_DEVICE_ID_JOYPAD_B);
+    // Return to the selector with Racing selected, then to the launch menu.
+    press(RETRO_DEVICE_ID_JOYPAD_B);
+    open(); const auto selector_grid = frame;
+    press(RETRO_DEVICE_ID_JOYPAD_A); const auto selector_clean = frame;
+    CHECK(selector_grid[40 * 320 + 264] == blend(selector_clean[40 * 320 + 264]));
+    CHECK(selector_grid[40 * 320 + 265] == selector_clean[40 * 320 + 265]);
+    press(RETRO_DEVICE_ID_JOYPAD_A); press(RETRO_DEVICE_ID_JOYPAD_B);
+    press(RETRO_DEVICE_ID_JOYPAD_A); press(RETRO_DEVICE_ID_JOYPAD_A);
+    open(); const auto gameplay_grid = frame;
+    press(RETRO_DEVICE_ID_JOYPAD_A); const auto gameplay_clean = frame;
+    CHECK(gameplay_grid[40 * 320 + 264] == blend(gameplay_clean[40 * 320 + 264]));
+    CHECK(gameplay_grid[40 * 320 + 265] == gameplay_clean[40 * 320 + 265]);
+    retro_unload_game(); return true;
+}
+
+bool racing_collision_setting() {
+    auto play = [](bool enabled) {
+        retro_deinit(); retro_init();
+        if (!load(15)) return std::vector<std::vector<std::uint32_t>>{};
+        run(); open();
+        for (int i = 0; i < 4; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+        press(RETRO_DEVICE_ID_JOYPAD_A);
+        if (enabled) press(RETRO_DEVICE_ID_JOYPAD_A);
+        press(RETRO_DEVICE_ID_JOYPAD_B);
+        press(RETRO_DEVICE_ID_JOYPAD_A);
+        for (int i = 0; i < 300; ++i) run();
+        for (int i = 0; i < 10; ++i) run(bit(RETRO_DEVICE_ID_JOYPAD_LEFT));
+        std::vector<std::vector<std::uint32_t>> frames;
+        for (int i = 0; i < 600; ++i) {
+            run();
+            if (i % 10 == 0) frames.push_back(frame);
+        }
+        retro_unload_game();
+        return frames;
+    };
+    const auto on = play(true), off = play(false);
+    CHECK(!on.empty() && on.size() == off.size());
+    CHECK(on != off);
+    return true;
 }
 
 bool fixed_scores() {
@@ -299,7 +423,7 @@ bool fixed_scores() {
     CHECK(frame[99 * 320 + 75] == 0x295166);
     open(); press(RETRO_DEVICE_ID_JOYPAD_DOWN); press(RETRO_DEVICE_ID_JOYPAD_A);
     retro_unload_game(); CHECK(load(15)); run(); press(RETRO_DEVICE_ID_JOYPAD_A);
-    CHECK(large_digit(52, 6, 4, 3) && large_digit(74, 6, 4, 0));
+    CHECK(large_digit(70, 20, 4, 3) && large_digit(102, 20, 4, 0));
     retro_unload_game();
     return true;
 }
@@ -307,6 +431,6 @@ bool fixed_scores() {
 int main() {
     retro_set_environment(environment); retro_set_video_refresh(video); retro_set_audio_sample_batch(audio);
     retro_set_input_poll(poll); retro_set_input_state(input); retro_init();
-    const bool ok = contexts() && controls() && grid_overlay() && fixed_scores();
+    const bool ok = contexts() && controls() && persistence() && grid_overlay() && racing_grid_contexts() && racing_collision_setting() && fixed_scores();
     retro_deinit(); return ok ? 0 : 1;
 }

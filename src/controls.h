@@ -23,6 +23,8 @@ public:
     bool any_input(bool preview_menu, unsigned buttons) const;
     int paddle_direction(unsigned port) const;
     int shooting_direction(unsigned port) const;
+    // Raw active stick deflection; zero inside the deadzone or when disconnected.
+    int paddle_axis(unsigned port, bool shooting = false) const;
     RacingInput racing_input(bool recovering);
     unsigned menu_navigation(int menu, unsigned buttons, unsigned pressed, bool suppress);
     void reset_repeat();

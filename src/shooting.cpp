@@ -1,4 +1,5 @@
 #include "shooting.h"
+#include "analog_motion.h"
 #include "tennis_b.h"
 #include <algorithm>
 #include <limits>
@@ -17,15 +18,25 @@ void Shooting::set_options(bool high_speed, std::array<bool, 2> small_paddle) {
     state_.target_y = target_position_ / 4;
 }
 
-unsigned Shooting::step(int direction, bool fire, int target_direction, bool automatic_target) {
+unsigned Shooting::step(int direction, bool fire, int target_direction, bool automatic_target, bool human_shooter, std::array<int, 2> analog) {
     if (state_.finished) return sound_none;
-    state_.shooter_y += std::clamp(direction, -1, 1) * 3;
+    int shooter_movement;
+    if (human_shooter && analog[0]) shooter_movement = analog_motion(analog[0], 6, analog_remainder_[0]);
+    else { analog_remainder_[0] = 0; shooter_movement = std::clamp(direction, -1, 1) * (human_shooter ? 6 : 3); }
+    state_.shooter_y += shooter_movement;
     clamp_shooter();
+    const int half_height = paddle_height(0) / 2;
+    if ((state_.shooter_y == 24 - half_height && analog[0] < 0) ||
+        (state_.shooter_y == 216 + half_height && analog[0] > 0)) analog_remainder_[0] = 0;
     const int min_position = target_min_y() * 4;
     const int range = (target_max_y() - target_min_y() + 1) * 4;
-    const int movement = automatic_target
-        ? static_cast<int>(target_speed_ % static_cast<unsigned>(range)) * target_direction_
-        : std::clamp(target_direction, -1, 1) * 12;
+    int movement;
+    if (!automatic_target && analog[1]) movement = analog_motion(analog[1], 24, analog_remainder_[1]);
+    else {
+        analog_remainder_[1] = 0;
+        movement = automatic_target ? static_cast<int>(target_speed_ % static_cast<unsigned>(range)) * target_direction_
+                                    : std::clamp(target_direction, -1, 1) * 24;
+    }
     target_position_ = (target_position_ - min_position + movement + range) % range + min_position;
     state_.target_y = target_position_ / 4;
     // Wrap on a blink-period boundary so visibility continues uninterrupted.

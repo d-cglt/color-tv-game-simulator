@@ -4,16 +4,18 @@
 
 namespace ctg {
 namespace {
-constexpr int traffic_width = 16;
-constexpr int traffic_height = 24;
+constexpr int traffic_width = racing_car_width;
+constexpr int traffic_height = racing_car_height;
+unsigned opponent_positions(const RacingRect& road) {
+    return static_cast<unsigned>(road.width - 2 * racing_road_border_width - traffic_width + 1);
+}
 }
 
 int racing_opponent_x(const RacingRect& road, unsigned index) {
-    constexpr int border = 4;
-    const int left = road.x + border + racing_car_overhang;
-    const int right = road.x + road.width - border - racing_car_overhang - traffic_width;
-    const unsigned positions = static_cast<unsigned>(right - left + 1);
-    return left + static_cast<int>((25 + (index % positions) * 80) % positions);
+    const int left = road.x + racing_road_border_width;
+    const unsigned positions = opponent_positions(road);
+    // 81 is coprime to the default road's 181 legal positions.
+    return left + static_cast<int>((25 + (index % positions) * 81) % positions);
 }
 
 namespace {
@@ -63,8 +65,8 @@ unsigned Racing::step(RacingInput input) {
     if (state_.finished) return racing_none;
 
     auto& player = state_.player;
-    const int left = state_.road.x + racing_car_overhang;
-    const int right = state_.road.x + state_.road.width - player.width - racing_car_overhang;
+    const int left = state_.road.x + racing_road_border_width;
+    const int right = state_.road.x + state_.road.width - racing_road_border_width - player.width;
     constexpr int steering_speed = 6;
     if (input.analog) {
         constexpr int deadzone = 8192, range = 32767 - deadzone;
@@ -85,8 +87,12 @@ unsigned Racing::step(RacingInput input) {
                                           static_cast<int>(input.left)) * steering_speed, left, right);
     }
 
-    if (input.select_high_speed != input.select_low_speed)
-        state_.selected_speed = input.select_high_speed ? max_speed : low_speed;
+    if (input.select_high_speed != input.select_low_speed) {
+        if (input.select_high_speed)
+            state_.selected_speed = state_.selected_speed == low_speed ? medium_speed : max_speed;
+        else
+            state_.selected_speed = state_.selected_speed == max_speed ? medium_speed : low_speed;
+    }
     if (!input.recovering) {
         if (state_.speed < state_.selected_speed) ++state_.speed;
         else if (state_.speed > state_.selected_speed) --state_.speed;
@@ -101,7 +107,7 @@ unsigned Racing::step(RacingInput input) {
     unsigned events = racing_none;
     for (auto& car : state_.traffic) {
         car.rect.y += static_cast<int>(distance);
-        if (!car.collided && overlaps(player, car.rect)) {
+        if (car_collision_ && !car.collided && overlaps(player, car.rect)) {
             car.collided = true;
             state_.section_collided = true;
             if (state_.collisions < std::numeric_limits<unsigned>::max()) ++state_.collisions;
@@ -114,7 +120,7 @@ unsigned Racing::step(RacingInput input) {
                         car.rect.y - static_cast<int>(racing_road_dash_length + racing_road_gap_length),
                         traffic_width, traffic_height};
             // Keep the placement sequence periodic without overflowing the lane counter.
-            const unsigned positions = static_cast<unsigned>(state_.road.width - 8 - 2 * racing_car_overhang - traffic_width + 1);
+            const unsigned positions = opponent_positions(state_.road);
             next_lane_ = (next_lane_ + 1) % positions;
             car.collided = false;
         }

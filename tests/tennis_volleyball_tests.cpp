@@ -75,7 +75,7 @@ int volleyball_doubles() {
     auto& single = const_cast<ctg::TennisState&>(vs.state());
     CHECK(d.doubles && d.volleyball && !d.hockey && d.serve_wait == 130);
     vd.step({-1, 1});
-    CHECK(d.paddle_y[0] == 116 && d.paddle_y[1] == 124);
+    CHECK(d.paddle_y[0] == 112 && d.paddle_y[1] == 128);
     for (int player = 0; player < 2; ++player) for (int direction : {-1, 1}) {
         vd.reset(); d.serve_wait = 0;
         d.paddle_y[player] = 80; d.paddle_y[1 - player] = 160;
@@ -119,7 +119,7 @@ int volleyball_doubles() {
     ctg::TennisB va(true, false, true, false, false, true);
     auto& a = const_cast<ctg::TennisState&>(va.state());
     va.step({-1, 1});
-    CHECK(a.paddle_y[0] == 116 && a.paddle_y[1] == 124);
+    CHECK(a.paddle_y[0] == 112 && a.paddle_y[1] == 128);
     for (int player = 0; player < 2; ++player) for (int direction : {-1, 1}) {
         va.reset(); a.serve_wait = 0;
         a.paddle_y[player] = 80; a.paddle_y[1 - player] = 160;

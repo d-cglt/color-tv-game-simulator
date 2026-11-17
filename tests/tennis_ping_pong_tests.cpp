@@ -43,7 +43,7 @@ int ping_pong_doubles() {
         auto& s = const_cast<ctg::TennisState&>(ping.state());
         CHECK(s.doubles && s.ping_pong && !s.hockey && !s.volleyball);
         ping.step({-1, 1});
-        CHECK(s.paddle_y[0] == 116 && s.paddle_y[1] == 124);
+        CHECK(s.paddle_y[0] == 112 && s.paddle_y[1] == 128);
         for (int player = 0; player < 2; ++player) for (int direction : {-1, 1}) {
             for (int overlap : {0, 1}) {
                 ping.reset(); s.serve_wait = 0;

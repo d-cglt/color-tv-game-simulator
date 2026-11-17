@@ -39,8 +39,8 @@ const retro_input_descriptor* Controls::descriptors(unsigned content_id) {
         {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_START, "Pause / resume"},
         {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_LEFT, "Steer left"},
         {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_RIGHT, "Steer right"},
-        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L2, "Select speed 1"},
-        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R2, "Select speed 2"},
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L2, "Shift down"},
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R2, "Shift up"},
         {0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_X, "Steering"},
         {0, 0, 0, 0, nullptr}
     };
@@ -105,6 +105,12 @@ int Controls::paddle_direction(unsigned port) const {
     const int digital = (input_(port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_DOWN) != 0) -
                         (input_(port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_UP) != 0);
     return digital ? digital : analog;
+}
+int Controls::paddle_axis(unsigned port, bool shooting) const {
+    if (!input_ || !enabled(port)) return 0;
+    if (shooting && port == 0 && (input_(0, RETRO_DEVICE_KEYBOARD, 0, RETROK_w) || input_(0, RETRO_DEVICE_KEYBOARD, 0, RETROK_s))) return 0;
+    const int axis = input_(port, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_Y);
+    return axis < -threshold || axis > threshold ? axis : 0;
 }
 int Controls::shooting_direction(unsigned port) const {
     int direction = paddle_direction(port);

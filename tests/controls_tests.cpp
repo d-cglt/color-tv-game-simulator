@@ -1,4 +1,6 @@
 #include "controls.h"
+#include "tennis_b.h"
+#include "shooting.h"
 #include <cstdio>
 #include <cstring>
 #include <map>
@@ -55,8 +57,8 @@ int descriptor_tests() {
         {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_START, "Pause / resume"},
         {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_LEFT, "Steer left"},
         {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_RIGHT, "Steer right"},
-        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L2, "Select speed 1"},
-        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R2, "Select speed 2"},
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L2, "Shift down"},
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R2, "Shift up"},
         {0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_X, "Steering"},
         {0, 0, 0, 0, nullptr}
     };
@@ -97,8 +99,79 @@ int descriptor_tests() {
     CHECK(std::strcmp(racing[7].description, "Steering") == 0);
     return 0;
 }
+int analog_movement_tests() {
+    ctg::Controls controls;
+    controls.set_input_state(input);
+    for (unsigned port = 0; port < 2; ++port) for (int sign : {-1, 1}) {
+        for (int deflection : {8193, 16384, 32767}) {
+            values.clear();
+            axis(port, RETRO_DEVICE_ID_ANALOG_Y, sign * deflection);
+            // Frontends may synthesize D-pad input from the same stick.
+            pad(port, sign < 0 ? RETRO_DEVICE_ID_JOYPAD_UP : RETRO_DEVICE_ID_JOYPAD_DOWN);
+            CHECK(controls.paddle_axis(port) == sign * deflection);
+            ctg::TennisB rally;
+            ctg::Shooting shooting;
+            const int start = rally.state().paddle_y[port];
+            for (int frame = 0; frame < 8; ++frame) {
+                ctg::TennisInput input{};
+                input.analog[port] = controls.paddle_axis(port);
+                rally.step(input);
+                std::array<int, 2> axes{}; axes[port] = controls.paddle_axis(port, true);
+                shooting.step(0, false, 0, false, true, axes);
+            }
+            const int expected = (deflection - 8192) * 8 * 8 / 24575;
+            CHECK(rally.state().paddle_y[port] == start + sign * expected);
+            if (port == 0) CHECK(shooting.state().shooter_y == 117 + sign * ((deflection - 8192) * 6 * 8 / 24575));
+            else CHECK(shooting.state().target_y == (405 + sign * ((deflection - 8192) * 24 * 8 / 24575)) / 4);
+        }
+    }
+    values.clear(); axis(0, RETRO_DEVICE_ID_ANALOG_Y, 8192);
+    CHECK(controls.paddle_axis(0) == 0);
+    axis(0, RETRO_DEVICE_ID_ANALOG_Y, -32768);
+    CHECK(controls.paddle_axis(0) == -32768);
+    key(RETROK_w); CHECK(controls.paddle_axis(0, true) == 0);
+    controls.set_enabled(0, false); CHECK(controls.paddle_axis(0) == 0);
+    ctg::TennisB fractional;
+    ctg::TennisInput slow{}; slow.analog[0] = 10000;
+    const int center = fractional.state().paddle_y[0];
+    fractional.step(slow);
+    slow.analog[0] = -10000; fractional.step(slow);
+    CHECK(fractional.state().paddle_y[0] == center);
+    fractional.step(slow);
+    CHECK(fractional.state().paddle_y[0] == center - 1);
+    fractional.reset(); slow.analog[0] = 10000; fractional.step(slow);
+    fractional.reset_input(0); fractional.step(slow);
+    CHECK(fractional.state().paddle_y[0] == center);
+    slow.analog[0] = 0; fractional.step(slow);
+    slow.analog[0] = 10000; fractional.step(slow);
+    CHECK(fractional.state().paddle_y[0] == center);
+    ctg::TennisB rally;
+    ctg::TennisInput in{}; in.analog[0] = 16384;
+    rally.step(in); rally.reset();
+    const int initial = rally.state().paddle_y[0];
+    in.analog[0] = -8193; rally.step(in);
+    CHECK(rally.state().paddle_y[0] == initial);
+    in.analog[0] = 32767;
+    for (int i = 0; i < 100; ++i) rally.step(in);
+    CHECK(rally.state().paddle_y[0] == rally.paddle_max(0));
+    in.analog[0] = -32767; rally.step(in);
+    CHECK(rally.state().paddle_y[0] == rally.paddle_max(0) - 8);
+    ctg::Shooting shooting;
+    for (int i = 0; i < 100; ++i) shooting.step(0, false, 0, false, true, {32767, 0});
+    const int edge = shooting.state().shooter_y;
+    shooting.step(0, false, 0, false, true, {-32767, 0});
+    CHECK(shooting.state().shooter_y == edge - 6);
+    shooting.reset();
+    shooting.step(0, false, 0, true, true, {0, 32767});
+    ctg::Shooting automatic;
+    automatic.step(0, false, 0, true);
+    CHECK(shooting.state().target_y == automatic.state().target_y);
+    return 0;
+}
 int main() {
     CHECK(descriptor_tests() == 0);
+    CHECK(analog_movement_tests() == 0);
+    values.clear();
     ctg::Controls controls;
     ctg::ControlsContext context;
     controls.poll();
@@ -133,6 +206,21 @@ int main() {
     CHECK(controls.read_buttons(context) == (common | (1u << RETRO_DEVICE_ID_JOYPAD_Y)));
 
     values.clear(); context = {};
+    for (unsigned port = 0; port < 2; ++port) for (int direction : {-1, 1}) {
+        values.clear();
+        pad(port, direction < 0 ? RETRO_DEVICE_ID_JOYPAD_UP : RETRO_DEVICE_ID_JOYPAD_DOWN);
+        ctg::TennisB rally;
+        ctg::Shooting shooting;
+        const int start = rally.state().paddle_y[port];
+        rally.step(port == 0 ? ctg::TennisInput{controls.paddle_direction(port), 0} : ctg::TennisInput{0, controls.paddle_direction(port)});
+        shooting.step(controls.shooting_direction(0), false, controls.shooting_direction(1));
+        CHECK(rally.state().paddle_y[port] == start + direction * 8);
+        CHECK(port == 0 ? shooting.state().shooter_y == 117 + direction * 6 : shooting.state().target_y == (405 + direction * 24) / 4);
+        values.clear();
+        axis(port, RETRO_DEVICE_ID_ANALOG_Y, direction * 9000);
+        CHECK(controls.paddle_direction(port) == direction && controls.shooting_direction(port) == direction);
+    }
+    values.clear();
     for (int value : {-8193, -8192, 8192, 8193}) {
         axis(0, RETRO_DEVICE_ID_ANALOG_Y, value);
         CHECK(controls.read_buttons(context) == (value < -8192 ? up : value > 8192 ? down : 0));

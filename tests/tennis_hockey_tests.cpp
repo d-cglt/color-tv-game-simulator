@@ -104,9 +104,9 @@ int hockey_lifecycle_and_scoring() {
     for (int i = 0; i < 100; ++i) hockey.step({-1, 1});
     CHECK(h.paddle_y[0] == hockey.paddle_min(0) && h.paddle_y[1] == hockey.paddle_max(1));
     hockey.step({1, -1});
-    CHECK(h.paddle_y[0] == hockey.paddle_min(0) + 4 && h.paddle_y[1] == hockey.paddle_max(1) - 4);
+    CHECK(h.paddle_y[0] == hockey.paddle_min(0) + 8 && h.paddle_y[1] == hockey.paddle_max(1) - 8);
     hockey.step({0, 0});
-    CHECK(h.paddle_y[0] == hockey.paddle_min(0) + 4 && h.paddle_y[1] == hockey.paddle_max(1) - 4);
+    CHECK(h.paddle_y[0] == hockey.paddle_min(0) + 8 && h.paddle_y[1] == hockey.paddle_max(1) - 8);
     for (int direction : {-1, 1}) {
         for (int y : {30, 74, 166, 210}) {
             hockey.reset(); h.serve_wait = 0;

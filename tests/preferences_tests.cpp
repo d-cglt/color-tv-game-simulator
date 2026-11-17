@@ -107,6 +107,34 @@ int main() {
     CHECK(!pref::read(path, output));
     CHECK(output == golden);
 
+    const auto diagnostic = base / "diagnostic";
+    const pref::DiagnosticData diag{{'C', 'T', 'G', 'D', 1, 1, 0, 0, 30, 1}};
+    pref::DiagnosticData diag_sentinel; diag_sentinel.fill(0xa5);
+    auto diag_output = diag_sentinel;
+    CHECK(!pref::read_diagnostic({}, diag_output));
+    CHECK(!pref::read_diagnostic(base, diag_output));
+    CHECK(diag_output == diag_sentinel);
+    CHECK(pref::write_diagnostic(diagnostic, diag, rng));
+    CHECK(pref::read_diagnostic(diagnostic, diag_output) && diag_output == diag);
+    for (std::size_t field = 0; field < diag.size(); ++field) {
+        for (unsigned value = 0; value < 256; ++value) {
+            Bytes bytes(diag.begin(), diag.end()); bytes[field] = static_cast<unsigned char>(value);
+            const bool valid = field < 5 ? value == diag[field] :
+                               (field == 7 || field == 8) ? value <= 30 : value <= 1;
+            CHECK(put(diagnostic, bytes)); diag_output = diag_sentinel;
+            CHECK(pref::read_diagnostic(diagnostic, diag_output) == valid);
+            auto expected = diag; expected[field] = static_cast<unsigned char>(value);
+            CHECK(diag_output == (valid ? expected : diag_sentinel));
+        }
+    }
+    for (std::size_t size = 0; size < diag.size(); ++size) {
+        CHECK(put(diagnostic, Bytes(diag.begin(), diag.begin() + size)));
+        diag_output = diag_sentinel;
+        CHECK(!pref::read_diagnostic(diagnostic, diag_output) && diag_output == diag_sentinel);
+    }
+    CHECK(put(diagnostic, Bytes(11, 0)));
+    CHECK(!pref::read_diagnostic(diagnostic, diag_output));
+
     const auto last = base / "last-game";
     constexpr unsigned fallback = 1234;
     static_assert(ctg::slot_count == 16);
@@ -141,15 +169,16 @@ int main() {
     CHECK(pref::read_last_game(unicode_path, fallback) == 15);
 
     // Exercise the same atomic-writer contract through both public entry points.
-    for (unsigned kind = 0; kind < 2; ++kind) {
+    for (unsigned kind = 0; kind < 3; ++kind) {
         const auto dir = base / ("atomic-" + std::to_string(kind));
         CHECK(fs::create_directory(dir));
         const auto target = dir / "target";
-        const Bytes expected = kind ? Bytes{7} : golden_bytes;
+        const Bytes expected = kind == 1 ? Bytes{7} : kind == 2 ? Bytes(diag.begin(), diag.end()) : golden_bytes;
         const Bytes original{9, 8, 7};
         auto write = [&](const fs::path& destination, std::mt19937& engine) {
-            return kind ? pref::write_last_game(destination, 7, engine)
-                        : pref::write(destination, golden, engine);
+            return kind == 1 ? pref::write_last_game(destination, 7, engine)
+                 : kind == 2 ? pref::write_diagnostic(destination, diag, engine)
+                             : pref::write(destination, golden, engine);
         };
         CHECK(!write({}, rng));
         CHECK(put(target, original));

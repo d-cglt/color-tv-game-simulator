@@ -1,4 +1,5 @@
 #include "tennis_b.h"
+#include "analog_motion.h"
 #include "hockey_ball.h"
 #include "tennis_a_blocks.h"
 #include <algorithm>
@@ -61,6 +62,7 @@ void TennisB::reset() {
     const auto small_paddle = state_.small_paddle;
     state_ = {};
     paddle_displacement_ = {};
+    analog_remainder_ = {};
     paddle_missed_ = {};
     horizontal_rebounds_ = 0;
     state_.high_speed = high_speed;
@@ -118,8 +120,16 @@ unsigned TennisB::step(TennisInput input) {
     for (int i = 0; i < 2; ++i) {
         const int direction = (controls[i] > 0) - (controls[i] < 0);
         const int previous_y = state_.paddle_y[i];
-        state_.paddle_y[i] = std::clamp(state_.paddle_y[i] + direction * paddle_speed,
-                                        paddle_min(i), paddle_max(i));
+        int movement;
+        if (input.human[i] && input.analog[i])
+            movement = analog_motion(input.analog[i], paddle_speed * 2, analog_remainder_[i]);
+        else {
+            analog_remainder_[i] = 0;
+            movement = direction * paddle_speed * (input.human[i] ? 2 : 1);
+        }
+        state_.paddle_y[i] = std::clamp(state_.paddle_y[i] + movement, paddle_min(i), paddle_max(i));
+        if ((state_.paddle_y[i] == paddle_min(i) && input.analog[i] < 0) ||
+            (state_.paddle_y[i] == paddle_max(i) && input.analog[i] > 0)) analog_remainder_[i] = 0;
         const int displacement = state_.paddle_y[i] - previous_y;
         if (displacement != 0) paddle_displacement_[i] = displacement;
     }
@@ -215,6 +225,7 @@ unsigned TennisB::step(TennisInput input) {
             for (int row = 0; row < 6; ++row)
                 for (int col = 0; col < tennis_a_block_columns; ++col) {
                     const auto block = tennis_a_block(color, row, col);
+                    if (block.red != (state_.ball_vx < 0)) continue;
                     const int y = hockey_y(state_.ball_y);
                     if (y + 3 <= block.y || y - 2 >= block.y + block.height) continue;
                     int face = 0;
@@ -233,7 +244,7 @@ unsigned TennisB::step(TennisInput input) {
                 }
         if (hit) {
             state_.ball_x = 2 * hit_face - state_.ball_x;
-            const bool directed = (hit_block.red ? state_.ball_vx < 0 : state_.ball_vx > 0) && volleyball_block_bounces_ < 10;
+            const bool directed = volleyball_block_bounces_ < 10;
             if (directed) {
                 // Normalize contact by the reference's nominal 130-pixel paddle height.
                 const double offset = std::clamp((4.0 * hockey_y(state_.ball_y) - (4.0 * hit_block.y + 12.5)) / 65.0, -1.0, 1.0);

@@ -62,7 +62,7 @@ struct RenderState {
 
 class Renderer : public Graphics {
 public:
-    void test_grid_overlay();
+    void test_grid_overlay(bool racing = false);
     void rally_score_value(bool right, unsigned value, std::uint32_t color);
     void render_tennis(const TennisB& game, bool show_score = true, ScoreOverride scores = {});
     void render_shooting(const Shooting& game, bool show_score = true, ScoreOverride scores = {});
@@ -70,6 +70,6 @@ public:
     void render_racing(const Racing& game, bool show_score = true, bool player_visible = true, ScoreOverride scores = {});
     void render(const RenderState& state);
     void monochrome_selection_outline(const RenderState& state);
-    void diagnostic_menu(bool grid, ScoreOverride scores, unsigned choice);
+    void diagnostic_menu(bool grid, ScoreOverride scores, bool car_collision, unsigned choice);
 };
 }

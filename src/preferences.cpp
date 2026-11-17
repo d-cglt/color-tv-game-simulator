@@ -87,6 +87,25 @@ bool write(const std::filesystem::path& path, const Data& data, std::mt19937& ra
     return atomic_write(path, data.data(), data.size(), random);
 }
 
+bool read_diagnostic(const std::filesystem::path& path, DiagnosticData& data) noexcept {
+    try {
+        if (path.empty()) return false;
+        std::ifstream file(path, std::ios::binary);
+        DiagnosticData record{};
+        if (!file.read(reinterpret_cast<char*>(record.data()), record.size()) ||
+            file.peek() != std::char_traits<char>::eof() || file.bad() ||
+            record[0] != 'C' || record[1] != 'T' || record[2] != 'G' || record[3] != 'D' ||
+            record[4] != 1 || record[5] > 1 || record[6] > 1 ||
+            record[7] > 30 || record[8] > 30 || record[9] > 1) return false;
+        data = record;
+        return true;
+    } catch (...) { return false; }
+}
+
+bool write_diagnostic(const std::filesystem::path& path, const DiagnosticData& data, std::mt19937& random) noexcept {
+    return atomic_write(path, data.data(), data.size(), random);
+}
+
 unsigned read_last_game(const std::filesystem::path& path, unsigned fallback) noexcept {
     try {
         if (path.empty()) return fallback;

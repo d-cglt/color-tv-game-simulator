@@ -58,6 +58,14 @@ int main() {
         CHECK((events & ctg::sound_win) && s.finished);
     }
     {
+        for (int direction : {-1, 1}) {
+            ctg::Shooting human, automatic;
+            human.step(direction, false, direction);
+            automatic.step(direction, false, 0, true, false);
+            CHECK(human.state().shooter_y == 117 + direction * 6);
+            CHECK(automatic.state().shooter_y == 117 + direction * 3);
+            CHECK(human.state().target_y == (405 + direction * 24) / 4);
+        }
         for (unsigned speed : {6u, 11u, 16u}) {
             for (int direction : {-1, 1}) {
                 ctg::Shooting target;
@@ -72,7 +80,7 @@ int main() {
         ctg::Shooting manual;
         manual.set_target_behavior(16, -1, false);
         manual.step(0, false, 1);
-        CHECK(manual.state().target_y == (405 + 12) / 4);
+        CHECK(manual.state().target_y == (405 + 24) / 4);
         manual.step(0, false, -1);
         CHECK(manual.state().target_y == 405 / 4);
     }
@@ -154,7 +162,7 @@ int main() {
     for (bool small : {false, true}) {
         ctg::Shooting target;
         target.set_options(false, {false, small});
-        for (int i = 0; i < 5; ++i) target.step(-1, false);
+        for (int i = 0; i < 2; ++i) target.step(-1, false);
         target.step(0, true);
         while (target.state().flying) target.step(0, false);
         CHECK(target.state().hits == (small ? 0u : 1u));
@@ -179,9 +187,9 @@ int main() {
     CHECK(game.state().shots == 0 && !game.state().flying);
     int initial = game.state().target_y;
     game.step(-1, false);
-    CHECK(game.state().target_y == initial && game.state().shooter_y == 114);
+    CHECK(game.state().target_y == initial && game.state().shooter_y == 111);
     game.step(0, false, 1);
-    CHECK(game.state().target_y == initial + 3 && game.state().shooter_y == 114);
+    CHECK(game.state().target_y == initial + 6 && game.state().shooter_y == 111);
     game.step(0, false, -1);
     CHECK(game.state().target_y == initial);
     game.step(0, false, -1, true);

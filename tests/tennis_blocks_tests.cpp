@@ -26,12 +26,18 @@ int variant_block_collisions() {
             }
             s.ball_vx = direction * 4; s.ball_vy = 0;
             const int start_x = s.ball_x;
-            CHECK(game.step() & ctg::sound_paddle);
-            CHECK(s.ball_vx == -direction * 4);
-            CHECK(s.ball_x == start_x + direction * 2);
-            if ((color == 0 && direction < 0) || (color == 1 && direction > 0)) CHECK(s.ball_vy == 0);
-            else CHECK(s.ball_vy == -4 || s.ball_vy == 0 || s.ball_vy == 4);
-            if ((direction > 0 && col == 0) || (direction < 0 && col == 1))
+            const bool solid = (color == 0 && direction < 0) || (color == 1 && direction > 0);
+            CHECK(bool(game.step() & ctg::sound_paddle) == solid);
+            CHECK(s.ball_vx == (solid ? -direction : direction) * 4);
+            CHECK(s.ball_x == start_x + direction * (solid ? 2 : 4));
+            CHECK(s.ball_vy == 0);
+            if (!solid) {
+                // Traverse the whole transparent block without a delayed collision.
+                for (int i = 0; i < 4; ++i) {
+                    CHECK(!(game.step() & ctg::sound_paddle));
+                    CHECK(s.ball_vx == direction * 4 && s.ball_vy == 0);
+                }
+            } else if ((direction > 0 && col == 0) || (direction < 0 && col == 1))
                 CHECK(!(game.step() & ctg::sound_paddle));
             game.reset(); CHECK(game.state().volleyball_a && game.state().volleyball && game.state().doubles == doubles_mode);
         }
@@ -62,12 +68,13 @@ int variant_block_collisions() {
         }
         game.reset(); twin.reset();
         for (int n = 0; n < 25; ++n) {
-            CHECK(contact(game, -directed, 3, n % 2 ? 2 : 0) & ctg::sound_paddle);
-            CHECK(contact(twin, -directed, 3, n % 2 ? 2 : 0) & ctg::sound_paddle);
-            CHECK(same(game.state(), twin.state()));
-            const int vy = game.state().ball_vy;
-            CHECK(n % 2 ? (vy == -2 || vy == 0) : (vy == -(high ? 8 : 4) || vy == 0 || vy == (high ? 8 : 4)));
+            CHECK(!(contact(game, -directed, 3, n % 2 ? 2 : 0) & ctg::sound_paddle));
+            CHECK(game.state().ball_vy == (n % 2 ? 2 : 0));
         }
+        // Passing through blocks does not consume rebounds or advance randomness.
+        CHECK(contact(game, directed, 5, 2) & ctg::sound_paddle);
+        CHECK(contact(twin, directed, 5, 2) & ctg::sound_paddle);
+        CHECK(same(game.state(), twin.state()));
         // Ten consecutive block hits switch even a normally directed hit to the random rule.
         game.reset();
         for (int n = 0; n < 10; ++n) CHECK(contact(game, directed, 3, 2) & ctg::sound_paddle);

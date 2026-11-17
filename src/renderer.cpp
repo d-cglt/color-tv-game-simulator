@@ -8,13 +8,19 @@
 
 namespace ctg {
 using namespace menu;
-void Renderer::test_grid_overlay() {
-    // White at 25% opacity over the upper-left 5 x 3 pixels of each cell.
-    for (int row = 0; row < 50; ++row)
-        for (int col = 0; col < 41; ++col)
-            for (int dy = 0; dy < 3; ++dy)
-                for (int dx = 0; dx < 5; ++dx) {
-                    auto& p = pixels[(rally_y(row) + dy) * width + rally_x(col) + dx];
+void Renderer::test_grid_overlay(bool racing) {
+    const int columns = racing ? racing_road_columns : 41;
+    const auto grid_x = [racing](int col) { return racing ? racing_x(col) : rally_x(col); };
+    // Leave the last pixel of each cell untinted in either grid.
+    const int tint_width = racing ? racing_cell_width - 1 : 5;
+    const int rows = racing ? racing_road_rows : 50;
+    const int tint_height = racing ? racing_cell_height - 1 : 3;
+    const auto grid_y = [racing](int row) { return racing ? row * racing_cell_height : rally_y(row); };
+    for (int row = 0; row < rows; ++row)
+        for (int col = 0; col < columns; ++col)
+            for (int dy = 0; dy < tint_height; ++dy)
+                for (int dx = 0; dx < tint_width; ++dx) {
+                    auto& p = pixels[(grid_y(row) + dy) * width + grid_x(col) + dx];
                     const auto blend = [](unsigned c) { return (c * 3 + 255) / 4; };
                     p = (blend((p >> 16) & 255) << 16) | (blend((p >> 8) & 255) << 8) | blend(p & 255);
                 }
@@ -37,15 +43,18 @@ void Renderer::test_grid_overlay() {
                 p = (p & 0xfefefeu) >> 1;
             }
     };
-    for (int col = 0; col < 41; ++col) {
-        backdrop(rally_x(col), 8, 5, 11);
-        digit(rally_x(col) + 1, 8, col / 10);
-        digit(rally_x(col) + 1, 14, col % 10);
+    const int column_label_y = racing ? 0 : 8;
+    for (int col = 0; col < columns; ++col) {
+        backdrop(grid_x(col), column_label_y, racing ? 4 : 5, 11);
+        const int digit_x = grid_x(col) + (racing ? 0 : 1);
+        digit(digit_x, column_label_y, col / 10);
+        digit(digit_x, column_label_y + 6, col % 10);
     }
-    for (int row = 0; row < 50; row += 2) {
-        backdrop(29, rally_y(row), 7, 5);
-        digit(29, rally_y(row), row / 10);
-        digit(33, rally_y(row), row % 10);
+    const int row_label_x = racing ? racing_road_x - 8 : 29;
+    for (int row = 0; row < rows; row += 2) {
+        backdrop(row_label_x, grid_y(row), 7, 5);
+        digit(row_label_x, grid_y(row), row / 10);
+        digit(row_label_x + 4, grid_y(row), row % 10);
     }
 }
 
@@ -64,8 +73,8 @@ void Renderer::rally_score_value(bool right, unsigned value, std::uint32_t color
 
 void Renderer::render_tennis(const ctg::TennisB& tennis, bool show_score, ScoreOverride scores) {
     const auto& state = tennis.state();
-    pixels.fill(state.ping_pong ? 0x000000 : state.hockey ? 0x505068 : state.volleyball ? 0x19b537 : 0x0e7aab);
-    rect(rally_x(0), rally_y(0), 246, 200, state.ping_pong ? 0x000000 : state.hockey ? 0x2cc94c : state.volleyball ? 0x6d70f9 : 0xc07645);
+    pixels.fill(state.ping_pong ? 0x706a6a : state.hockey ? 0x505068 : state.volleyball ? 0x19b537 : 0x0e7aab);
+    rect(rally_x(0), rally_y(0), 246, 200, state.ping_pong ? 0x706a6a : state.hockey ? 0x2cc94c : state.volleyball ? 0x6d70f9 : 0xc07645);
     if (state.ping_pong) {
         rect(rally_x(0), rally_y(49), 246, 4, 0xffffff);
         rect(rally_x(20), rally_y(34), 6, 16, 0xffffff);
@@ -180,8 +189,8 @@ void Renderer::render_shooting(const ctg::Shooting& shooting, bool show_score, S
 }
 void Renderer::render_racing_score(const ctg::RacingState& s, ScoreOverride scores) {
     const unsigned score = scores.enabled ? scores.left : s.score;
-    score_digit(s.road.x + 12, 6, (score / 10) % 10, 0xffffff, 4);
-    score_digit(s.road.x + 34, 6, score % 10, 0xffffff, 4);
+    score_digit(racing_x(4), 4 * racing_cell_height, (score / 10) % 10, 0xffffff, racing_cell_width);
+    score_digit(racing_x(12), 4 * racing_cell_height, score % 10, 0xffffff, racing_cell_width);
 }
 void Renderer::render_racing(const ctg::Racing& game, bool show_score, bool player_visible, ScoreOverride scores) {
     const auto& s = game.state();
@@ -189,8 +198,8 @@ void Renderer::render_racing(const ctg::Racing& game, bool show_score, bool play
     rect(s.road.x, s.road.y, s.road.width, s.road.height, 0x39b800);
     constexpr int road_period = ctg::racing_road_dash_length + ctg::racing_road_gap_length;
     for (int y = -road_period + static_cast<int>(s.road_scroll); y < static_cast<int>(height); y += road_period) {
-        rect(s.road.x, y, 4, ctg::racing_road_dash_length, 0xc3f5df);
-        rect(s.road.x + s.road.width - 4, y, 4, ctg::racing_road_dash_length, 0xc3f5df);
+        rect(s.road.x, y, ctg::racing_road_border_width, ctg::racing_road_dash_length, 0xc3f5df);
+        rect(s.road.x + s.road.width - ctg::racing_road_border_width, y, ctg::racing_road_border_width, ctg::racing_road_dash_length, 0xc3f5df);
     }
     const auto car_shape = [this](const ctg::RacingRect& car, std::uint32_t color, bool opponent) {
         const auto piece = [this, color, opponent](int x, int y, int w, int h) {
@@ -198,15 +207,14 @@ void Renderer::render_racing(const ctg::Racing& game, bool show_score, bool play
             const int bottom = opponent ? std::min(y + h, 224) : y + h;
             if (bottom > top) rect(x, top, w, bottom - top, color);
         };
-        piece(car.x + 4, car.y - 2, 8, 28);
-        piece(car.x - ctg::racing_car_overhang, car.y + 2, 4, 10);
-        piece(car.x + car.width + ctg::racing_car_overhang - 4, car.y + 2, 4, 10);
-        piece(car.x - ctg::racing_car_overhang, car.y + 16, 4, 10);
-        piece(car.x + car.width + ctg::racing_car_overhang - 4, car.y + 16, 4, 10);
-        piece(car.x + 1, car.y + 6, 3, 2);
-        piece(car.x + 12, car.y + 6, 3, 2);
-        piece(car.x + 1, car.y + 20, 3, 2);
-        piece(car.x + 12, car.y + 20, 3, 2);
+        constexpr int cw = ctg::racing_cell_width, ch = ctg::racing_cell_height;
+        piece(car.x + 2 * cw, car.y, 2 * cw, 6 * ch);
+        for (int row : {1, 4}) {
+            piece(car.x, car.y + row * ch, cw, 2 * ch);
+            piece(car.x + 5 * cw, car.y + row * ch, cw, 2 * ch);
+            piece(car.x + cw, car.y + (row + 1) * ch - 1, cw, 2);
+            piece(car.x + 4 * cw, car.y + (row + 1) * ch - 1, cw, 2);
+        }
     };
     for (const auto& car : s.traffic)
         car_shape(car.rect, car.collided ? 0xffc782 : 0xf5ed48, true);
@@ -350,16 +358,17 @@ void Renderer::render(const RenderState& state) {
         if (layout.scroll && first + layout.rows < count) arrow(181, false);
     }
 }
-void Renderer::diagnostic_menu(bool grid, ScoreOverride scores, unsigned choice) {
-    rect(50, 54, 220, 132, 0x101820);
+void Renderer::diagnostic_menu(bool grid, ScoreOverride scores, bool car_collision, unsigned choice) {
+    rect(50, 54, 220, 150, 0x101820);
     centered_text(64, "TEST MENU", 0xffffff);
-    char labels[5][40];
+    char labels[6][40];
     std::snprintf(labels[0], sizeof labels[0], "GRID: %s", grid ? "ON" : "OFF");
     std::snprintf(labels[1], sizeof labels[1], "FIXED SCORE: %s", scores.enabled ? "ON" : "OFF");
     std::snprintf(labels[2], sizeof labels[2], "LEFT SCORE: %u", scores.left);
     std::snprintf(labels[3], sizeof labels[3], "RIGHT SCORE: %u", scores.right);
-    std::snprintf(labels[4], sizeof labels[4], "EXIT");
-    for (unsigned i = 0; i < 5; ++i) {
+    std::snprintf(labels[4], sizeof labels[4], "CAR COLLISION: %s", car_collision ? "ON" : "OFF");
+    std::snprintf(labels[5], sizeof labels[5], "EXIT");
+    for (unsigned i = 0; i < 6; ++i) {
         if (i == choice) rect(59, 82 + i * 18, 202, 14, 0x295166);
         centered_text(85 + i * 18, labels[i], i == choice ? 0x70e0ff : 0xffffff);
     }

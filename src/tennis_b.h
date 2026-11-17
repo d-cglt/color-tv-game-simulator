@@ -8,6 +8,9 @@ struct TennisInput {
     // Negative moves up, positive moves down, zero holds position.
     int left = 0;
     int right = 0;
+    // Computer-controlled paddles retain their original movement rate.
+    std::array<bool, 2> human{{true, true}};
+    std::array<int, 2> analog{{0, 0}};
 };
 
 enum TennisSound : unsigned {
@@ -60,6 +63,7 @@ public:
 
     explicit TennisB(bool doubles = false, bool hockey = false, bool volleyball = false, bool tennis_a = false, bool hockey_a = false, bool volleyball_a = false, bool ping_pong = false);
     void reset();
+    void reset_input(unsigned player) { if (player < 2) analog_remainder_[player] = 0; }
     void set_winning_score(unsigned score) { winning_score_ = score; }
     // Configuration persists across reset; enabling does not reopen a finished game.
     void set_endless(bool enabled) { endless_ = enabled; }
@@ -94,6 +98,7 @@ private:
     bool anti_stalemate_ = true;
     unsigned horizontal_rebounds_ = 0;
     std::array<int, 2> paddle_displacement_{};
+    std::array<int, 2> analog_remainder_{};
     std::array<bool, 2> paddle_missed_{};
     std::uint32_t random_state_ = 1;
     int serving_side_ = 0;

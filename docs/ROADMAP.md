@@ -140,7 +140,9 @@ Latest development check: a clean Linux Debug build with `-Wall -Wextra -Wpedant
 - [x] User confirmed Shooting automatic mode moves the target continuously from top to bottom.
 - [x] User confirmed a complete Shooting Game session in RetroArch.
 - [ ] Verify Shooting Game manual-control behavior against original hardware.
-- [ ] Check the blinking ball's behavior in Shooting Game on the original console.
+- [x] User observed that the Shooting ball blinks on the original console: 200 ms on and 125 ms off. Implement this pattern with a provisional visible start for each shot.
+- [x] Apply the user's observed Shooting target blink timing: 375 ms on and 125 ms off. With no evidence establishing off-phase collision rules, make hits independent of ball and target visibility as a provisional fallback; remove the blinking menu option.
+- [x] Close the blink-off collision investigation: retain hits regardless of ball or target visibility as the chosen gameplay rule; original-hardware behavior is not established.
 - [ ] Confirm all 15 variants and game-specific controls and rules against the reference and available original documentation.
 - [x] Add a 15-variant headless Libretro harness for content loading, menu transitions, gameplay frames and reset/unload/reload; generated files are checked separately.
 - [ ] Verify each `.ctg` and menu entry interactively where needed; investigate historical identity and control differences independently.
@@ -248,6 +250,8 @@ Latest development check: a clean Linux Debug build with `-Wall -Wextra -Wpedant
 
 ### Future ideas
 
+- [x] Make demo previews follow applicable selected game options, with independent demo randomness. Score and shot limits and opponent mode do not govern previews; Racing carries its preview road and traffic layout into the race, with the player centered in the selected lane.
+- [x] User confirmed option-aware previews and the narrow Racing result background in RetroArch.
 - [ ] Organize core options by topic, such as gameplay, video and audio; check category support and fallback behavior in Libretro frontends.
 - [ ] Explore a core option to hide and deactivate features not present on the original hardware, such as vibration, single-player AI and custom options. Define the affected features using available evidence, and design how previous settings are restored when the mode is disabled; hiding options may depend on frontend support.
 - [ ] Add an option to prevent switching to another game when the core was launched with a specific content selector, while preserving normal selection for no-content launches.
@@ -267,6 +271,8 @@ Latest development check: a clean Linux Debug build with `-Wall -Wextra -Wpedant
 - [ ] Coordinate with Libretro maintainers on buildbot integration, platform targets and CI requirements. The [official core development guide](https://docs.libretro.com/development/cores/developing-cores/) calls for core info in libretro-super and a `.gitlab-ci.yml`; validate actual requirements before submitting. Downloader availability depends on maintainer acceptance. A public [integration proposal](https://github.com/libretro/libretro-super/issues/2195) has been submitted; maintainer response and any subsequent changes remain pending.
 
 ## Milestone 8: Testing and releases — in progress
+
+0.1.8 preparation covers Shooting, option-aware demos and Racing modes and controls; see [release notes](RELEASE_NOTES_0.1.8.md). The user confirmed the gray Racing options and two-player scoring and behavior. Release CI, packaged-core frontend validation and distribution remain to be verified; prior checks do not establish those results. Demo AI may struggle at fast speeds. Back up game-menu preferences before upgrading if a downgrade is planned: older cores cannot read records written by 0.1.8.
 
 - [x] Publish the source under `d-cglt` and create the [0.1.0 GitHub release](https://github.com/d-cglt/color-tv-game-simulator/releases/tag/v0.1.0) with the Linux x86-64 archive. RetroArch Core Downloader inclusion is a separate, unsubmitted process.
 - [x] Publish [0.1.1](https://github.com/d-cglt/color-tv-game-simulator/releases/tag/v0.1.1) with CI-tested Linux, Windows x86-64 and macOS Intel artifacts; Windows and macOS are labeled experimental pending frontend tests.
@@ -303,7 +309,7 @@ These milestones include future projects and Racing work in progress, not claims
 
 ## Milestone 10: Racing 112 — first implementation in progress
 
-The first-playable scope is **one player on a wide road**, with approximate steering, traffic, scoring and timing. A separate Racing engine is integrated into the core with a single five-byte console descriptor, ID 15 (`0F`); automated tests cover the implementation, and the user confirmed Racing play and steering in a frontend; broader frontend verification remains pending. The descriptor does not select one of 112 combinations. Preserve IDs 0–14, existing files and settings; released older cores reject ID 15. See [RACING_DESIGN.md](RACING_DESIGN.md) for current scope and future proposals. Historical numbering remains provisional.
+The current scope includes **one player on a spacious or narrow road and newly implemented two-player Racing**, with approximate steering, traffic, scoring and timing. A separate Racing engine is integrated into the core with a single five-byte console descriptor, ID 15 (`0F`); automated tests cover the implementation, and the user confirmed Racing play and steering in a frontend; broader frontend verification remains pending. The descriptor does not select one of 112 combinations. Preserve IDs 0–14, existing files and settings; released older cores reject ID 15. See [RACING_DESIGN.md](RACING_DESIGN.md) for current scope and future proposals. Historical numbering remains provisional.
 
 - [x] Record a secondary source's seven configuration groups and 16 option combinations, including its non-binary numbering order, in [RESEARCH.md](RESEARCH.md).
 - [ ] Verify the translated configuration table and numbering against the original Japanese chart and hardware; do not treat 112 combinations as 112 independently established games.
@@ -326,10 +332,24 @@ The first-playable scope is **one player on a wide road**, with approximate stee
 - [x] Investigate the user's observations that score follows road gaps, one car appears per section, active duration may be 64 seconds, and a full-speed score may reach 96; record candidate runs and uncertainties in [RESEARCH.md](RESEARCH.md). A recorded 96 is not proof of a maximum.
 - [x] Tie a single opponent to each road section ahead of the gap and retain the final score during game over; the 40-pixel offset is provisional. Following user screenshots, clip the opponent inside approximate top and bottom screen insets; collision and scoring geometry are unchanged.
 - [x] At the user's request, scale V1 and V2 road/traffic movement by 96/54; a deterministic full-V2, no-collision engine test reached 96 points in 60 active seconds, and the user confirmed 96 points in a perfect RetroArch run under the previous timer. With the 64-second active timer, the deterministic run reaches 102 points; the approximately four-second startup remains separate and unchanged. Original timing and maximum score still require verification.
-- [ ] Verify the one-car-per-section mode and opponent-to-gap spacing against original footage and user feedback. The user observed opponents can appear across the road with an approximately 4-pixel border margin; deterministic placement remains provisional.
+- [x] User confirmed a 96-point high-speed Racing run with version 0.1.7 after calibration for the 64-second race and initial acceleration.
+- [x] User confirmed pseudo-random horizontal placement, straight traffic and one car per section for standard mode; sideways movement remains a future option. Adjust the gap to six vertical cells and the opponent offset to ten cells, recalibrating speeds for the observed scores; seek frontend confirmation.
 - [ ] Examine additional continuous footage and audio for scoring, collision, steering and game-ending behavior before revising those prototype mechanics; distinguish modes and switch settings where possible.
 - [ ] Broaden real-frontend validation of Racing controls, direct content, lifecycle and isolation. The user confirmed play and steering; this does not establish all paths or package validation.
-- [ ] In later increments, recreate the seven reported configurations and all 16 combinations of four binary difficulty switches, exposing all 112 advertised combinations with intuitive settings and original numbering where verified. Research wide/narrow roads, speed combinations, independent two-player tracks and fixed speed, straight/zigzag traffic, optional roadside collisions, bad-road steering hazards, one/two opponents, road scrolling and markers, crashes, scoring, timers, game-over, restart, graphics and sound. Investigate optional AI assistance only as a clearly labeled modern addition; do not assume any details verified.
+- [x] Add a one-player narrow-road mode with an X26 center boundary, one-cell opponent overlap at either boundary and a provisional purple palette; retain spacious mode. User confirmed its appearance in RetroArch.
+- [x] Allow the player car to overlap either boundary by one cell in both road modes, as observed by the user.
+- [x] Center the player at the start of a race in either mode; user confirmed the starting position in RetroArch.
+- [x] Allow steering during the Racing countdown; user confirmed it in RetroArch.
+- [x] Replace the repeating opponent-position cycle with random placement in each road mode, using a separate gameplay random stream; seek frontend confirmation.
+- [x] Add the user's Low/Medium/High SPEED switch and two-position lever mapping for one-player Racing. Seek frontend confirmation.
+- [x] Implement two-player Racing with side-by-side tracks, a green road and green player cars in approximate reference colors, one opponent and independent scoring per lane, and a shared switch-selected fixed speed. P2 steers with its own D-pad or left stick; one-player modes are unchanged. The diagnostic fixed-score display uses both values in this mode.
+- [x] User confirmed the two-player gamepad and keyboard mapping after routing Racing steering through RetroArch.
+- [x] Add shared startup acceleration in two-player mode toward the selected speed; seek frontend confirmation.
+- [x] Following the user's original-console observation, slow both lanes when either player collides, then accelerate them together after recovery; seek frontend confirmation.
+- [x] Use the same randomly selected lane-relative opponent position in both two-player lanes, following the user's reference; seek frontend confirmation.
+- [x] User confirmed two-player score and behavior in RetroArch; original-hardware fidelity and exact colors remain unverified.
+- [x] Show the four future Racing switches as disabled IN DEV menu rows; no unimplemented behavior is enabled.
+- [ ] In later increments, recreate the seven reported configurations and all 16 combinations of four binary difficulty switches, exposing all 112 advertised combinations with intuitive settings and original numbering where verified. Further research wide/narrow roads, speed combinations, two-player track and speed fidelity, straight/zigzag traffic, optional roadside collisions, bad-road steering hazards, one/two opponents, road scrolling and markers, crashes, scoring, timers, game-over, restart, graphics and sound. Investigate optional AI assistance only as a clearly labeled modern addition; do not assume any details verified.
 - [ ] Test every base game and its 16 combinations or document evidence-backed exceptions; cover steering limits, digital and analog input, multiplayer, collision boundaries, scoring, timing, configuration, restart and transitions with deterministic tests. Compare visuals, sound and play with recordings and hardware where available, then record representative real-frontend playthroughs and limitations.
 
 **Acceptance:** the researched mode/variation matrix is selectable and playable, with automated coverage of all supported combinations, documented control mappings and frontend checks; any unverified mechanics and unsupported combinations are explicit.

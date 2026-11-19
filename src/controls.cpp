@@ -39,9 +39,12 @@ const retro_input_descriptor* Controls::descriptors(unsigned content_id) {
         {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_START, "Pause / resume"},
         {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_LEFT, "Steer left"},
         {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_RIGHT, "Steer right"},
-        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L2, "Shift down"},
-        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R2, "Shift up"},
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L2, "Low lever"},
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R2, "High lever"},
         {0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_X, "Steering"},
+        {1, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_LEFT, "P2 steer left"},
+        {1, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_RIGHT, "P2 steer right"},
+        {1, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_X, "P2 steering"},
         {0, 0, 0, 0, nullptr}
     };
     return content_id == 15 ? racing_descriptors : content_id == 14 ? shooting_descriptors : descriptors;
@@ -121,25 +124,25 @@ int Controls::shooting_direction(unsigned port) const {
     }
     return direction;
 }
-RacingInput Controls::racing_input(bool recovering) {
+RacingInput Controls::racing_input(bool recovering, unsigned port) {
     RacingInput steering{};
-    if (input_ && enabled(0)) {
-        const int axis = input_(0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_X);
-        if (axis < -threshold || axis > threshold) racing_analog_active_ = true;
-        steering.analog = racing_analog_active_;
-        steering.steering = axis;
-        steering.left = input_(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_LEFT) != 0;
-        steering.right = input_(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_RIGHT) != 0;
-        steering.select_high_speed = input_(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R2) != 0;
-        steering.select_low_speed = input_(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L2) != 0;
-    }
-    if (input_) {
-        steering.left |= input_(0, RETRO_DEVICE_KEYBOARD, 0, RETROK_LEFT) || input_(0, RETRO_DEVICE_KEYBOARD, 0, RETROK_a);
-        steering.right |= input_(0, RETRO_DEVICE_KEYBOARD, 0, RETROK_RIGHT) || input_(0, RETRO_DEVICE_KEYBOARD, 0, RETROK_d);
-    }
-    if ((steering.left || steering.right) && steering.steering >= -threshold && steering.steering <= threshold)
-        racing_analog_active_ = steering.analog = false;
     steering.recovering = recovering;
+    if (port >= racing_analog_active_.size()) return steering;
+    if (input_ && enabled(port)) {
+        const int axis = input_(port, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_X);
+        if (axis < -threshold || axis > threshold) racing_analog_active_[port] = true;
+        steering.analog = racing_analog_active_[port];
+        steering.steering = axis;
+        steering.left = input_(port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_LEFT) != 0;
+        steering.right = input_(port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_RIGHT) != 0;
+        if (port == 0) {
+            steering.select_high_speed = input_(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R2) != 0;
+            steering.select_low_speed = input_(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L2) != 0;
+        }
+    }
+
+    if ((steering.left || steering.right) && steering.steering >= -threshold && steering.steering <= threshold)
+        racing_analog_active_[port] = steering.analog = false;
     return steering;
 }
 void Controls::reset_repeat() {

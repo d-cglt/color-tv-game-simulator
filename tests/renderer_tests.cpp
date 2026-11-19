@@ -1,12 +1,5 @@
-// Golden frames captured from build/core-before-refactor.cpp, except Racing frames
-// updated for the 49-column road, five-pixel borders, score alignment, Racing grid,
-// and Ping-Pong's gray background.
-// Baseline: g++ -std=c++17 -O2 -I src -I third_party/libretro
-// -DCORE_VERSION="renderer-baseline" build/renderer_baseline.cpp
-// src/{preferences,content,generator,tennis_b,shooting,racing,opponent}.cpp
-// -o build/renderer_baseline; build/renderer_baseline > build/renderer_goldens.inc
-// Explicit fixtures below are shared verbatim with that temporary baseline runner.
-// Hashes cover all 320x240 pixels (including the unused high byte).
+// Full-frame renderer regression hashes; see docs/RENDERER_TESTS.md for their
+// provenance, scenario ordering, limitations, and safe update procedure.
 #include "renderer.h"
 #include "score_digits.h"
 #include "tennis_b.h"
@@ -76,6 +69,7 @@ struct Fixture {
         demo_racing.reset_from_layout(layout);
     }
 };
+// The order here must match the expected[] table, including the extra effect cases.
 inline std::vector<Case> cases() {
     std::vector<Case> out;
     for (unsigned id = 0; id < 16; ++id) {
@@ -84,7 +78,7 @@ inline std::vector<Case> cases() {
         out.push_back({id, inplay, 0, fixed});
         out.push_back({id, select, id, plain});
         out.push_back({id, hidden, 0, plain});
-        for (unsigned i = 0; i < (id == 15 ? 2u : id == 14 ? 9u : 7u); ++i)
+        for (unsigned i = 0; i < (id == 15 ? 8u : 7u); ++i)
             out.push_back({id, launch, i, plain});
         for (unsigned i = 0; i < 3; ++i) out.push_back({id, pause, i, plain});
         for (unsigned i = 0; i < 2; ++i) out.push_back({id, result_menu, i, plain});
@@ -93,7 +87,7 @@ inline std::vector<Case> cases() {
              {0, select, 0, mono}, {7, select, 15, mono},
              {8, pause, 2, mono}, {14, result_menu, 1, mono},
              {14, launch, 0, mono}, {14, launch, 4, mono},
-             {14, launch, 8, mono}, {15, launch, 1, mono}}}) out.push_back(c);
+             {14, launch, 6, mono}, {15, launch, 1, mono}}}) out.push_back(c);
     for (auto effect : {grid, rf100, rf50, rf0, combined})
         for (unsigned id : {0u, 6u, 10u, 12u, 14u, 15u})
             out.push_back({id, inplay, 0, effect});
@@ -113,6 +107,8 @@ template<class Frame> std::uint64_t hash(const Frame& frame) {
 }
 
 namespace {
+// One FNV-1a hash per case, in fixtures::cases() order. Comments encode the
+// Case fields; kind and effect numbers correspond to the enums above.
 constexpr std::uint64_t expected[] = {
     UINT64_C(0xde91ce5585951b45), // id=0 kind=0 choice=0 effect=0
     UINT64_C(0x0468239e93d6d079), // id=0 kind=1 choice=0 effect=0
@@ -352,87 +348,92 @@ constexpr std::uint64_t expected[] = {
     UINT64_C(0xfb61ee2bc82076a9), // id=13 kind=4 choice=2 effect=0
     UINT64_C(0xef45b51d5d9cc5ed), // id=13 kind=5 choice=0 effect=0
     UINT64_C(0xdab3e5113ad11fa1), // id=13 kind=5 choice=1 effect=0
-    UINT64_C(0xf52c9bbf95bd28e5), // id=14 kind=0 choice=0 effect=0
+    UINT64_C(0xfe0bd81cdb27abe5), // id=14 kind=0 choice=0 effect=0
     UINT64_C(0x577ae7e1f856f7e1), // id=14 kind=1 choice=0 effect=0
     UINT64_C(0xf07708fb422eb571), // id=14 kind=1 choice=0 effect=1
     UINT64_C(0xd8bd37c640f9e893), // id=14 kind=2 choice=14 effect=0
     UINT64_C(0xa1b31116b3cf593d), // id=14 kind=6 choice=0 effect=0
-    UINT64_C(0x6d36be7fc1fa3ffc), // id=14 kind=3 choice=0 effect=0
-    UINT64_C(0xc80fa7b8b6da4a49), // id=14 kind=3 choice=1 effect=0
-    UINT64_C(0x856de9bdc8dc5390), // id=14 kind=3 choice=2 effect=0
-    UINT64_C(0xe2897fc4383fd15e), // id=14 kind=3 choice=3 effect=0
-    UINT64_C(0x604047f50d503d93), // id=14 kind=3 choice=4 effect=0
-    UINT64_C(0x4a17223eb7ca2ebe), // id=14 kind=3 choice=5 effect=0
-    UINT64_C(0x624cc9274cdcb83a), // id=14 kind=3 choice=6 effect=0
-    UINT64_C(0x91d261c9e57fb9ba), // id=14 kind=3 choice=7 effect=0
-    UINT64_C(0xcef96a30103cb885), // id=14 kind=3 choice=8 effect=0
+    UINT64_C(0xac8360fca04df32a), // id=14 kind=3 choice=0 effect=0
+    UINT64_C(0x51685b9ba8f0979f), // id=14 kind=3 choice=1 effect=0
+    UINT64_C(0x93e55051f875bbe5), // id=14 kind=3 choice=2 effect=0
+    UINT64_C(0x19ccc28ff53c5e40), // id=14 kind=3 choice=3 effect=0
+    UINT64_C(0x940b17d345265a2a), // id=14 kind=3 choice=4 effect=0
+    UINT64_C(0x8bac93da46916cfd), // id=14 kind=3 choice=5 effect=0
+    UINT64_C(0x16a903791ce37238), // id=14 kind=3 choice=6 effect=0
+
     UINT64_C(0x8061322b569d086e), // id=14 kind=4 choice=0 effect=0
     UINT64_C(0xd793337e27afd7bb), // id=14 kind=4 choice=1 effect=0
     UINT64_C(0x20ecd0f502a6e5db), // id=14 kind=4 choice=2 effect=0
     UINT64_C(0xcada23369030af57), // id=14 kind=5 choice=0 effect=0
     UINT64_C(0xc424c74e8e544507), // id=14 kind=5 choice=1 effect=0
     UINT64_C(0xc1f3757c19b62c1d), // id=15 kind=0 choice=0 effect=0
-    UINT64_C(0x727fdfd8ab266a95), // id=15 kind=1 choice=0 effect=0
-    UINT64_C(0xde751f7a35db13b5), // id=15 kind=1 choice=0 effect=1
-    UINT64_C(0x3a7c140c6a118ece), // id=15 kind=2 choice=15 effect=0
-    UINT64_C(0x106fe5a6a6e31eef), // id=15 kind=6 choice=0 effect=0
-    UINT64_C(0x8dcec1402b135605), // id=15 kind=3 choice=0 effect=0
-    UINT64_C(0xdb0b62677151f4c7), // id=15 kind=3 choice=1 effect=0
-    UINT64_C(0xf6c82202721762fc), // id=15 kind=4 choice=0 effect=0
-    UINT64_C(0x87d5a411283dd6f6), // id=15 kind=4 choice=1 effect=0
-    UINT64_C(0xeb7f31edf90cf526), // id=15 kind=4 choice=2 effect=0
-    UINT64_C(0x2f786d329c7daf12), // id=15 kind=5 choice=0 effect=0
-    UINT64_C(0xf84ea2f85611b096), // id=15 kind=5 choice=1 effect=0
+    UINT64_C(0xadd4ec5dc1cbf9d5), // id=15 kind=1 choice=0 effect=0
+    UINT64_C(0xde85234b8f7f40f5), // id=15 kind=1 choice=0 effect=1
+    UINT64_C(0x50a838e884bbc08e), // id=15 kind=2 choice=15 effect=0
+    UINT64_C(0xb8a4a401539c1aef), // id=15 kind=6 choice=0 effect=0
+    UINT64_C(0x3331643da348ebbc), // id=15 kind=3 choice=0 effect=0
+    UINT64_C(0x4a977c39920e1e42), // id=15 kind=3 choice=1 effect=0
+    UINT64_C(0x453fff079a9f443a), // id=15 kind=3 choice=2 effect=0
+    UINT64_C(0x8e41b006aee44f62), // id=15 kind=3 choice=3 effect=0
+    UINT64_C(0x3fb813e110146344), // id=15 kind=3 choice=4 effect=0
+    UINT64_C(0xec2ba185a95f4405), // id=15 kind=3 choice=5 effect=0
+    UINT64_C(0x1f494ab06d58c3b4), // id=15 kind=3 choice=6 effect=0
+    UINT64_C(0x3863448cb3815f28), // id=15 kind=3 choice=7 effect=0
+    UINT64_C(0x582794b47a6cb7fc), // id=15 kind=4 choice=0 effect=0
+    UINT64_C(0xc9cad7302c236436), // id=15 kind=4 choice=1 effect=0
+    UINT64_C(0xf0c95b87644ee6e6), // id=15 kind=4 choice=2 effect=0
+    UINT64_C(0x59b52d6aad097b12), // id=15 kind=5 choice=0 effect=0
+    UINT64_C(0x228b6330669d7c96), // id=15 kind=5 choice=1 effect=0
     UINT64_C(0x1c2528de9edb0a81), // id=0 kind=2 choice=0 effect=2
     UINT64_C(0x8cf87db58543b36d), // id=7 kind=2 choice=15 effect=2
     UINT64_C(0x209cdf643581e1ff), // id=8 kind=4 choice=2 effect=2
     UINT64_C(0xf8c6221bff0a4c78), // id=14 kind=5 choice=1 effect=2
-    UINT64_C(0x3b428475c55920bb), // id=14 kind=3 choice=0 effect=2
-    UINT64_C(0xe781040baeeb57d0), // id=14 kind=3 choice=4 effect=2
-    UINT64_C(0xbc1d691dd8fb09d5), // id=14 kind=3 choice=8 effect=2
-    UINT64_C(0x6b592d2e3b714341), // id=15 kind=3 choice=1 effect=2
+    UINT64_C(0x56a751c1954eb3f2), // id=14 kind=3 choice=0 effect=2
+    UINT64_C(0x4838fb29dad9fdf2), // id=14 kind=3 choice=4 effect=2
+    UINT64_C(0xc09e5cadfdb11e1b), // id=14 kind=3 choice=6 effect=2
+    UINT64_C(0x20f6aa623befa4c8), // id=15 kind=3 choice=1 effect=2
     UINT64_C(0xb57ff59664dde289), // id=0 kind=1 choice=0 effect=3
     UINT64_C(0xba8246fc5648a6de), // id=6 kind=1 choice=0 effect=3
     UINT64_C(0x0b8fde84ced97dd6), // id=10 kind=1 choice=0 effect=3
     UINT64_C(0xda9983a375f59cc9), // id=12 kind=1 choice=0 effect=3
     UINT64_C(0x578d1d54e7181abb), // id=14 kind=1 choice=0 effect=3
-    UINT64_C(0xa4edb8eb73a065a6), // id=15 kind=1 choice=0 effect=3
+    UINT64_C(0xe98cd1466f71f286), // id=15 kind=1 choice=0 effect=3
     UINT64_C(0x65a5d4b57100d86f), // id=0 kind=1 choice=0 effect=4
     UINT64_C(0xa850f99965988449), // id=6 kind=1 choice=0 effect=4
     UINT64_C(0xbea2dd0f1fd72421), // id=10 kind=1 choice=0 effect=4
     UINT64_C(0xc758a770648e7659), // id=12 kind=1 choice=0 effect=4
     UINT64_C(0x253e8a917aea4b1b), // id=14 kind=1 choice=0 effect=4
-    UINT64_C(0xcf2a96dd6894dc6c), // id=15 kind=1 choice=0 effect=4
+    UINT64_C(0x600b3d3868fdb480), // id=15 kind=1 choice=0 effect=4
     UINT64_C(0x2c1416a774c02d63), // id=0 kind=1 choice=0 effect=5
     UINT64_C(0x5db8294aac3579e9), // id=6 kind=1 choice=0 effect=5
     UINT64_C(0xb5e8687612b0a299), // id=10 kind=1 choice=0 effect=5
     UINT64_C(0x3585c82bb59ce754), // id=12 kind=1 choice=0 effect=5
     UINT64_C(0x0835046b243a2086), // id=14 kind=1 choice=0 effect=5
-    UINT64_C(0x9837a8447dd4105e), // id=15 kind=1 choice=0 effect=5
+    UINT64_C(0x69a441be048b49fe), // id=15 kind=1 choice=0 effect=5
     UINT64_C(0x62b0de5cfd965bc8), // id=0 kind=1 choice=0 effect=6
     UINT64_C(0xa3960a954132db90), // id=6 kind=1 choice=0 effect=6
     UINT64_C(0x87f2321f02c04487), // id=10 kind=1 choice=0 effect=6
     UINT64_C(0x70f02760422bdaad), // id=12 kind=1 choice=0 effect=6
     UINT64_C(0xccadb622ea6d1449), // id=14 kind=1 choice=0 effect=6
-    UINT64_C(0x99dccab5454ba445), // id=15 kind=1 choice=0 effect=6
+    UINT64_C(0x61cf629b5e47f804), // id=15 kind=1 choice=0 effect=6
     UINT64_C(0x07ab351da28c2619), // id=0 kind=1 choice=0 effect=7
     UINT64_C(0x2f4df1355f1e3226), // id=6 kind=1 choice=0 effect=7
     UINT64_C(0x18619a684cc523e1), // id=10 kind=1 choice=0 effect=7
     UINT64_C(0x5c4c0a77f0ffa64f), // id=12 kind=1 choice=0 effect=7
     UINT64_C(0xdb182049acf28490), // id=14 kind=1 choice=0 effect=7
-    UINT64_C(0x7aff4992ccf804b9), // id=15 kind=1 choice=0 effect=7
-    UINT64_C(0x5110d709eb83ed65), // id=15 kind=7 choice=0 effect=0
+    UINT64_C(0xd5e9047ce9532aa8), // id=15 kind=1 choice=0 effect=7
+    UINT64_C(0xdbbceef4a4c524a5), // id=15 kind=7 choice=0 effect=0
 
 };
 
-std::uint64_t draw(const fixtures::Case& c, bool diagnostics = false, bool rally_score_visible = true) {
+std::uint64_t draw(const fixtures::Case& c, bool diagnostics = false, bool rally_score_visible = true, unsigned racing_mode = 0) {
     fixtures::Fixture f(c);
     const bool detail = c.kind != fixtures::select && c.kind != fixtures::launch && c.kind != fixtures::hidden;
     const ctg::RenderState state{
         c.id, c.kind == fixtures::select, detail, c.kind == fixtures::pause,
         c.kind == fixtures::result_menu, c.kind == fixtures::hidden,
         c.choice, c.choice, c.choice, c.choice,
-        true, {true, false}, 21, 30, c.choice % 5, c.choice % 3, (c.choice + 1) % 3,
+        true, {true, false}, 21, 30, c.choice % 5, c.choice % 4, c.choice % 3, c.choice % 3, racing_mode,
         f.modes, f.tennis, f.demo_tennis, f.shooting, f.demo_shooting,
         f.racing, f.demo_racing, c.kind != fixtures::crash,
         {c.effect == fixtures::fixed, 87, 65}, rally_score_visible
@@ -492,6 +493,106 @@ std::uint64_t draw(const fixtures::Case& c, bool diagnostics = false, bool rally
 }
 
 int main() {
+    // Border gaps are six cells high, including when clipped by screen edges.
+    for (unsigned phase : {0u, 15u, 100u, 239u, 269u}) {
+        ctg::Racing game;
+        auto& state = const_cast<ctg::RacingState&>(game.state());
+        state.road_scroll = phase;
+        auto renderer = std::make_unique<ctg::Renderer>();
+        renderer->render_racing(game, false);
+        for (int y = 0; y < 240; ++y) for (int x : {54, 265}) {
+            const int relative = (y - static_cast<int>(phase) + 270) % 270;
+            const unsigned expected = relative < 240 ? 0xc3f5dfu : 0x39b800u;
+            if (renderer->pixels[y * 320 + x] != expected) {
+                std::fprintf(stderr, "Racing border mismatch phase=%u x=%d y=%d\n", phase, x, y);
+                return 1;
+            }
+        }
+    }
+    // Narrow mode uses the same scrolling gaps for borders and the center divider.
+    for (unsigned phase : {0u, 15u, 100u, 239u, 269u}) {
+        ctg::Racing game;
+        auto& state = const_cast<ctg::RacingState&>(game.state());
+        state.narrow = true;
+        state.road_scroll = phase;
+        state.player = {100, 100, ctg::racing_car_width, ctg::racing_car_height};
+        state.traffic[0].rect = {200, 100, ctg::racing_car_width, ctg::racing_car_height};
+        auto renderer = std::make_unique<ctg::Renderer>();
+        renderer->render_racing(game, false);
+        for (int y = 0; y < 240; ++y) {
+            const int relative = (y - static_cast<int>(phase) + 270) % 270;
+            const unsigned color = relative < 240 ? 0xd9b5f5u : 0x6514a4u;
+            for (int x : {54, 57, 158, 159, 160, 161, 262, 265}) {
+                if (renderer->pixels[y * 320 + x] != color) {
+                    std::fprintf(stderr, "Narrow racing line mismatch phase=%u x=%d y=%d\n", phase, x, y);
+                    return 1;
+                }
+            }
+            for (int x : {157, 162}) if (renderer->pixels[y * 320 + x] != 0x6514a4u) return 1;
+            if (renderer->pixels[y * 320 + 53] != 0x66594au || renderer->pixels[y * 320 + 266] != 0x66594au) return 1;
+        }
+        if (renderer->pixels[100 * 320 + 108] != 0xffa0cdu ||
+            renderer->pixels[100 * 320 + 208] != 0xf5ed48u) return 1;
+    }
+    // Two-player lines use the wide-road palette and share the edge scroll phase.
+    for (unsigned phase : {0u, 15u, 100u, 239u, 269u}) {
+        ctg::Racing game;
+        game.set_two_players(true);
+        auto& state = const_cast<ctg::RacingState&>(game.state());
+        state.road_scroll = phase;
+        state.player = {80, 100, ctg::racing_car_width, ctg::racing_car_height};
+        state.player2 = {200, 100, ctg::racing_car_width, ctg::racing_car_height};
+        state.traffic[0].rect = {120, 150, ctg::racing_car_width, ctg::racing_car_height};
+        state.traffic2[0].rect = {220, 150, ctg::racing_car_width, ctg::racing_car_height};
+        auto renderer = std::make_unique<ctg::Renderer>();
+        renderer->render_racing(game, false);
+        for (int y = 0; y < 240; ++y) {
+            const int relative = (y - static_cast<int>(phase) + 270) % 270;
+            const unsigned color = relative < 240 ? 0xc3f5dfu : 0x39b800u;
+            for (int x : {54, 57, 158, 159, 160, 161, 262, 265})
+                if (renderer->pixels[y * 320 + x] != color) return 1;
+        }
+        for (int x : {88, 208}) if (renderer->pixels[100 * 320 + x] != 0x98ff8du) return 1;
+        for (int x : {128, 228}) if (renderer->pixels[150 * 320 + x] != 0xf5ed48u) return 1;
+        state.traffic2[0].collided = true;
+        state.traffic2[0].rect.y = 0;
+        renderer->render_racing(game, true, false);
+        if (renderer->pixels[100 * 320 + 88] != 0x98ff8du ||
+            renderer->pixels[100 * 320 + 208] != 0x98ff8du ||
+            renderer->pixels[8 * 320 + 228] != 0x39b800u ||
+            renderer->pixels[9 * 320 + 228] != 0xffc782u) return 1;
+        state.blink_samples = ctg::racing_blink_total_samples - ctg::racing_blink_segment_samples;
+        renderer->render_racing(game, true, false);
+        if (renderer->pixels[100 * 320 + 88] != 0x39b800u ||
+            renderer->pixels[100 * 320 + 208] != 0x98ff8du) return 1;
+        state.blink_samples = 0;
+        state.blink_samples2 = ctg::racing_blink_total_samples - ctg::racing_blink_segment_samples;
+        renderer->render_racing(game, true, false);
+        if (renderer->pixels[100 * 320 + 88] != 0x98ff8du ||
+            renderer->pixels[100 * 320 + 208] != 0x39b800u) return 1;
+        renderer->render_racing(game, false, false);
+        if (renderer->pixels[100 * 320 + 208] != 0x98ff8du) return 1;
+    }
+    // Each lane has an independent two-digit score and override.
+    {
+        ctg::RacingState state;
+        state.two_players = true;
+        state.score = 12;
+        state.score2 = 34;
+        auto actual = std::make_unique<ctg::Renderer>();
+        auto expected_scores = std::make_unique<ctg::Renderer>();
+        for (bool override_enabled : {false, true}) {
+            actual->pixels.fill(0);
+            expected_scores->pixels.fill(0);
+            actual->render_racing_score(state, {override_enabled, 56, 78});
+            const unsigned values[] = {override_enabled ? 56u : 12u, override_enabled ? 78u : 34u};
+            for (int lane = 0; lane < 2; ++lane) {
+                expected_scores->score_digit(ctg::racing_x(4 + lane * 26), 20, values[lane] / 10, 0xffffff, 4);
+                expected_scores->score_digit(ctg::racing_x(12 + lane * 26), 20, values[lane] % 10, 0xffffff, 4);
+            }
+            if (actual->pixels != expected_scores->pixels) return 1;
+        }
+    }
     // Check every sprite pixel, including the two-pixel wheel bridges, for both colors.
     {
         ctg::Racing game;
@@ -616,9 +717,69 @@ int main() {
             }
         }
     }
+    const fixtures::Case racing_mode_menu{15, fixtures::launch, 2, fixtures::plain};
+    if (draw(racing_mode_menu) == draw(racing_mode_menu, false, true, 1)) {
+        std::fprintf(stderr, "Racing mode menu did not change for narrow mode\n");
+        return 1;
+    }
+    static_assert(ctg::menu::option_count(15) == ctg::menu::racing_row_count);
+    static_assert(ctg::menu::racing_speed_row == 3 && ctg::menu::racing_row_count == 8);
+    static_assert(ctg::menu::launch_layout(ctg::menu::racing_row_count, 7).scroll);
+    static_assert(ctg::menu::launch_layout(ctg::menu::racing_row_count, 7).first == 3);
     static_assert(ctg::menu::option_count(14) == ctg::menu::shooting_row_count);
-    static_assert(ctg::menu::shooting_shots_row == 8);
-    static_assert(ctg::menu::launch_layout(ctg::menu::shooting_row_count, ctg::menu::shooting_shots_row).first == 4);
+    static_assert(ctg::menu::shooting_target_size_row == 4 && ctg::menu::shooting_speed_row == 5 && ctg::menu::shooting_shots_row == 6);
+    static_assert(ctg::menu::shooting_row_count == 7);
+    static_assert(!ctg::menu::launch_layout(ctg::menu::shooting_row_count, ctg::menu::shooting_shots_row).scroll);
+    // Locate the actual glyphs, not just a changed frame hash: all four
+    // unimplemented labels and values remain gray even when selected.
+    for (unsigned choice = 4; choice < 8; ++choice) {
+        fixtures::Case c{15, fixtures::launch, choice, fixtures::plain};
+        fixtures::Fixture f(c);
+        const ctg::RenderState state{15, false, false, false, false, false,
+            choice, choice, choice, choice, true, {true, false}, 21, 30,
+            0, 0, 0, 0, 0, f.modes, f.tennis, f.demo_tennis, f.shooting,
+            f.demo_shooting, f.racing, f.demo_racing, true, {}, true};
+        auto renderer = std::make_unique<ctg::Renderer>();
+        renderer->render(state);
+        const auto layout = ctg::menu::launch_layout(8, choice);
+        const unsigned y = layout.y + (choice - layout.first) * layout.spacing + 3;
+        const auto contains_gray_text = [&](const char* label) {
+            auto mask = std::make_unique<ctg::Graphics>();
+            mask->text(0, 0, label, 0xffffff);
+            const unsigned width = static_cast<unsigned>(std::strlen(label)) * 6 - 1;
+            for (unsigned x = 53; x + width <= 267; ++x) {
+                std::uint32_t color = 0;
+                bool matches = true;
+                for (unsigned py = 0; py < 7 && matches; ++py)
+                    for (unsigned px = 0; px < width; ++px) {
+                        if (mask->pixels[py * ctg::Graphics::width + px] != 0xffffff) continue;
+                        const auto pixel = renderer->pixels[(y + py) * ctg::Graphics::width + x + px];
+                        if (!color) color = pixel;
+                        if (pixel != color) { matches = false; break; }
+                    }
+                if (matches && color && color != 0xffffff &&
+                    ((color >> 16) & 255) == ((color >> 8) & 255) &&
+                    ((color >> 8) & 255) == (color & 255)) return true;
+            }
+            return false;
+        };
+        const char* labels[] = {"BAD ROAD", "WALL CRASH", "OPPONENTS", "CAR PATH"};
+        if (!contains_gray_text(labels[choice - 4]) || !contains_gray_text("IN DEV")) {
+            std::fprintf(stderr, "Racing row %u missing gray label or IN DEV value\n", choice);
+            return 1;
+        }
+    }
+    // Every scroll position has a distinct selection and viewport.
+    for (unsigned row = 0; row < 8; ++row) {
+        const fixtures::Case current{15, fixtures::launch, row, fixtures::plain};
+        for (unsigned previous = 0; previous < row; ++previous) {
+            const fixtures::Case other{15, fixtures::launch, previous, fixtures::plain};
+            if (draw(current) == draw(other)) {
+                std::fprintf(stderr, "Racing menu rows %u and %u rendered identically\n", row, previous);
+                return 1;
+            }
+        }
+    }
     for (unsigned id : {0u, 14u, 15u}) {
         for (auto effect : {fixtures::plain, fixtures::fixed}) {
             const fixtures::Case c{id, fixtures::result_menu, 0, effect};
@@ -638,6 +799,8 @@ int main() {
             }
         }
     }
+    // Equal counts catch missing entries; changing case order still requires
+    // updating the corresponding table entries and reviewing rendered output.
     const auto cases = fixtures::cases();
     if (cases.size() != std::size(expected)) {
         std::fprintf(stderr, "Fixture count changed: %zu cases, %zu original goldens\n", cases.size(), std::size(expected));

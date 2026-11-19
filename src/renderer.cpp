@@ -184,22 +184,30 @@ void Renderer::render_shooting(const ctg::Shooting& shooting, bool show_score, S
     paddle(rally_x(2), shooting.shooter_top() + shooting.paddle_height(0) / 2 - shooter_height / 2, shooter_height);
     if (shooting.target_visible())
         paddle(rally_x(38), shooting.target_top() + shooting.paddle_height(1) / 2 - target_height / 2, target_height);
-    if (s.flying) rect(s.shot_x, s.shot_y - 2, 7, 5, s.hit ? 0xffd5ff : 0x8ddade);
+    if (shooting.shot_visible()) rect(s.shot_x, s.shot_y - 2, 7, 5, s.hit ? 0xffd5ff : 0x8ddade);
 
 }
 void Renderer::render_racing_score(const ctg::RacingState& s, ScoreOverride scores) {
     const unsigned score = scores.enabled ? scores.left : s.score;
     score_digit(racing_x(4), 4 * racing_cell_height, (score / 10) % 10, 0xffffff, racing_cell_width);
     score_digit(racing_x(12), 4 * racing_cell_height, score % 10, 0xffffff, racing_cell_width);
+    if (s.two_players) {
+        const unsigned score2 = scores.enabled ? scores.right : s.score2;
+        score_digit(racing_x(4 + racing_center_column), 4 * racing_cell_height, (score2 / 10) % 10, 0xffffff, racing_cell_width);
+        score_digit(racing_x(12 + racing_center_column), 4 * racing_cell_height, score2 % 10, 0xffffff, racing_cell_width);
+    }
 }
 void Renderer::render_racing(const ctg::Racing& game, bool show_score, bool player_visible, ScoreOverride scores) {
     const auto& s = game.state();
     pixels.fill(0x66594a);
-    rect(s.road.x, s.road.y, s.road.width, s.road.height, 0x39b800);
+    const std::uint32_t road_color = s.narrow && !s.two_players ? 0x6514a4 : 0x39b800;
+    const std::uint32_t border_color = s.narrow && !s.two_players ? 0xd9b5f5 : 0xc3f5df;
+    rect(s.road.x, s.road.y, s.road.width, s.road.height, road_color);
     constexpr int road_period = ctg::racing_road_dash_length + ctg::racing_road_gap_length;
     for (int y = -road_period + static_cast<int>(s.road_scroll); y < static_cast<int>(height); y += road_period) {
-        rect(s.road.x, y, ctg::racing_road_border_width, ctg::racing_road_dash_length, 0xc3f5df);
-        rect(s.road.x + s.road.width - ctg::racing_road_border_width, y, ctg::racing_road_border_width, ctg::racing_road_dash_length, 0xc3f5df);
+        rect(s.road.x, y, ctg::racing_road_border_width, ctg::racing_road_dash_length, border_color);
+        rect(s.road.x + s.road.width - ctg::racing_road_border_width, y, ctg::racing_road_border_width, ctg::racing_road_dash_length, border_color);
+        if (s.narrow || s.two_players) rect(ctg::racing_x(ctg::racing_center_column), y, ctg::racing_cell_width, ctg::racing_road_dash_length, border_color);
     }
     const auto car_shape = [this](const ctg::RacingRect& car, std::uint32_t color, bool opponent) {
         const auto piece = [this, color, opponent](int x, int y, int w, int h) {
@@ -218,8 +226,16 @@ void Renderer::render_racing(const ctg::Racing& game, bool show_score, bool play
     };
     for (const auto& car : s.traffic)
         car_shape(car.rect, car.collided ? 0xffc782 : 0xf5ed48, true);
-    if (!show_score || player_visible)
-        car_shape(s.player, 0xeb65e7, false);
+    if (s.two_players)
+        for (const auto& car : s.traffic2)
+            car_shape(car.rect, car.collided ? 0xffc782 : 0xf5ed48, true);
+    const auto blink_visible = [](unsigned remaining) {
+        return !remaining || ((racing_blink_total_samples - remaining) / racing_blink_segment_samples) % 2 == 0;
+    };
+    if (!show_score || (s.two_players ? blink_visible(s.blink_samples) : player_visible))
+        car_shape(s.player, s.two_players ? 0x98ff8d : s.narrow ? 0xffa0cd : 0xeb65e7, false);
+    if (s.two_players && (!show_score || blink_visible(s.blink_samples2)))
+        car_shape(s.player2, 0x98ff8d, false);
     if (show_score || scores.enabled) render_racing_score(s, scores);
 }
 constexpr unsigned selector_rows = 6;
@@ -297,10 +313,7 @@ void Renderer::render(const RenderState& state) {
     } else {
         centered_text(58, titles[state.content_id].name, 0xffffff);
         centered_text(70, titles[state.content_id].variant, 0xffffff);
-        if (state.content_id == 15) {
-            centered_text(145, "PLAYABLE PROTOTYPE", 0xffffff);
-            centered_text(157, "IN DEVELOPMENT", 0xffffff);
-        }
+
         const unsigned count = option_count(state.content_id);
         const auto layout = launch_layout(count, state.menu_choice);
         const unsigned first = layout.first;
@@ -315,18 +328,33 @@ void Renderer::render(const RenderState& state) {
             } else if (i == 1) {
                 centered_text(y + 3, "START", color);
             } else {
+                if (state.content_id == 15) {
+                    const char* speeds[] = {"LOW", "MEDIUM", "HIGH"};
+                    if (i >= racing_bad_road_row) {
+                        const char* labels[] = {"BAD ROAD", "WALL CRASH", "OPPONENTS", "CAR PATH"};
+                        text(75, y + 3, labels[i - racing_bad_road_row], 0x888888);
+                        text(167, y + 3, "IN DEV", 0x888888);
+                        continue;
+                    }
+                    const bool mode = i == racing_mode_row;
+                    text(75, y + 3, mode ? "MODE" : "SPEED", color);
+                    horizontal_arrow(135, y + 6, true, color);
+                    text(145, y + 3, mode ? (state.racing_mode == 2 ? "2 PLAYERS" : state.racing_mode == 1 ? "1P NARROW" : "1P SPACIOUS") : speeds[state.racing_speed], color);
+                    horizontal_arrow(218, y + 6, false, color);
+                    continue;
+                }
                 if (state.content_id == 14) {
                     const char* targets[] = {"MANUAL", "SLOW", "NORMAL", "FAST", "RANDOM"};
-                    const char* directions[] = {"DOWN", "UP", "RANDOM"};
-                    const char* blinkings[] = {"OFF", "ON", "RANDOM"};
-                    const char* labels[] = {"TARGET", "DIRECTION", "BLINKING", "SPEED", "P1 SIZE", "P2 SIZE", "SHOTS"};
+                    const char* directions[] = {"DOWN", "UP", "RANDOM", "BOUNCE"};
+                    const char* labels[] = {"TARGET MOVE", "DIRECTION", "TARGET SIZE", "SHOTS SPEED", "SHOTS"};
+                    const char* sizes[] = {"LARGE", "SMALL", "RANDOM"};
+                    const char* speeds[] = {"LOW", "HIGH", "RANDOM"};
                     char shots[4];
                     std::snprintf(shots, sizeof shots, "%u", state.shot_limit);
-                    const char* values[] = {targets[state.shooting_target], directions[state.shooting_direction], blinkings[state.shooting_blinking],
-                                            state.high_speed ? "HIGH" : "LOW", state.small_paddle[0] ? "SMALL" : "LARGE",
-                                            state.small_paddle[1] ? "SMALL" : "LARGE", shots};
+                    const char* values[] = {targets[state.shooting_target], directions[state.shooting_direction],
+                                            sizes[state.shooting_size], speeds[state.shooting_speed], shots};
                     const std::uint32_t row_color = i == shooting_direction_row && state.shooting_target == 0 ? 0x888888 : color;
-                    text(87, y + 3, labels[i - shooting_target_row], row_color);
+                    text(75, y + 3, labels[i - shooting_target_row], row_color);
                     horizontal_arrow(151, y + 6, true, row_color);
                     text(167, y + 3, values[i - shooting_target_row], row_color);
                     horizontal_arrow(218, y + 6, false, row_color);

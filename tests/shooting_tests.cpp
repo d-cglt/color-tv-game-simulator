@@ -114,13 +114,94 @@ int main() {
         }
     }
     {
-        for (bool blinking : {false, true}) {
+        // Rerolling other settings after a hit must not reset a bouncing target's direction.
+        ctg::Shooting target;
+        target.set_target_behavior(16, 1, true, true);
+        for (int i = 0; i < 40; ++i) target.step(0, false, 0, true);
+        const int before = target.state().target_y;
+        target.set_target_behavior(16, 1, true, true);
+        target.step(0, false, 0, true);
+        CHECK(target.state().target_y < before);
+    }
+    {
+        for (bool small : {false, true}) for (int initial_direction : {-1, 1})
+            for (unsigned speed : {0u, 6u, 11u, 16u, std::numeric_limits<unsigned>::max()}) {
+                ctg::Shooting target;
+                target.set_options(false, {false, small});
+                target.set_target_behavior(speed, initial_direction, false, true);
+                const int min_position = (small ? 0 : -8) * 4;
+                const int max_position = (small ? 208 : 216) * 4 + 3;
+                const unsigned period = static_cast<unsigned>((max_position - min_position) * 2);
+                int position = 405, direction = initial_direction;
+                for (int frame = 0; frame < 500; ++frame) {
+                    unsigned remaining = speed % period;
+                    while (remaining--) {
+                        position += direction;
+                        if (position == min_position || position == max_position) direction = -direction;
+                    }
+                    target.step(0, false, 0, true);
+                    CHECK(target.state().target_y == position / 4);
+                }
+                target.reset();
+                target.step(0, false, 0, true);
+                position = 405; direction = initial_direction;
+                unsigned remaining = speed % period;
+                while (remaining--) {
+                    position += direction;
+                    if (position == min_position || position == max_position) direction = -direction;
+                }
+                CHECK(target.state().target_y == position / 4);
+            }
+        for (int direction : {-1, 1}) {
             ctg::Shooting target;
-            target.set_target_behavior(6, -1, blinking);
-            for (int i = 0; i < 19; ++i) target.step(0, false);
+            target.set_target_behavior(11, direction, false, true);
+            bool wrapped = false;
+            for (int frame = 0; frame < 100; ++frame) {
+                const int before = target.state().target_y;
+                target.step(0, false, direction);
+                wrapped |= direction > 0 ? target.state().target_y < before : target.state().target_y > before;
+            }
+            CHECK(wrapped);
+        }
+        ctg::Shooting target;
+        target.set_target_behavior(11, 1, false, true);
+        for (int frame = 0; frame < 50; ++frame) target.step(0, false, 0, true);
+        const int before = target.state().target_y;
+        target.step(0, false, 0, false);
+        target.step(0, false, 0, true);
+        CHECK(target.state().target_y < before);
+        target.set_target_behavior(11, 1, false);
+        const int reconfigured = target.state().target_y;
+        target.step(0, false, 0, true);
+        CHECK(target.state().target_y > reconfigured);
+    }
+    {
+        // A hidden projectile still hits; target visibility retains its existing rule.
+        ctg::Shooting shot;
+        shot.set_options(true, {false, false});
+        shot.set_target_behavior(11, 1, false);
+        shot.step(0, true);
+        while (shot.state().flying && !shot.state().hit) shot.step(0, false);
+        CHECK(shot.state().hit && !shot.shot_visible());
+    }
+    {
+        // Target visibility is cosmetic: exercise hits in both blink phases.
+        bool hit_visible = false, hit_hidden = false;
+        for (int delay = 0; delay < 30; ++delay) {
+            ctg::Shooting target;
+            target.set_target_behavior(6, -1, true);
+            for (int i = 0; i < delay; ++i) target.step(0, false);
             target.step(0, true);
-            while (target.state().flying) target.step(0, false);
-            CHECK(target.state().hits == (blinking ? 0u : 1u));
+            while (target.state().flying && !target.state().hit) target.step(0, false);
+            CHECK(target.state().hit && target.state().hits == 1);
+            hit_visible |= target.target_visible();
+            hit_hidden |= !target.target_visible();
+        }
+        CHECK(hit_visible && hit_hidden);
+        ctg::Shooting target;
+        for (unsigned frame = 0; frame < 120; ++frame) {
+            CHECK(target.target_visible() == ((frame % 30) * 2 < 45));
+            target.step(0, false);
         }
     }
     {

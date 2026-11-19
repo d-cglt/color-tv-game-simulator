@@ -57,9 +57,12 @@ int descriptor_tests() {
         {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_START, "Pause / resume"},
         {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_LEFT, "Steer left"},
         {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_RIGHT, "Steer right"},
-        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L2, "Shift down"},
-        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R2, "Shift up"},
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L2, "Low lever"},
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R2, "High lever"},
         {0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_X, "Steering"},
+        {1, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_LEFT, "P2 steer left"},
+        {1, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_RIGHT, "P2 steer right"},
+        {1, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_X, "P2 steering"},
         {0, 0, 0, 0, nullptr}
     };
     const auto* paddle = ctg::Controls::descriptors(0);
@@ -68,7 +71,7 @@ int descriptor_tests() {
     CHECK(paddle != shooting && paddle != racing && shooting != racing);
     for (unsigned id = 0; id <= 17; ++id) {
         const auto* expected = id == 15 ? expected_racing : id == 14 ? expected_shooting : expected_paddle;
-        const unsigned count = id == 15 ? 8 : id == 14 ? 10 : 9;
+        const unsigned count = id == 15 ? 11 : id == 14 ? 10 : 9;
         const auto* actual = ctg::Controls::descriptors(id);
         CHECK(actual == (id == 15 ? racing : id == 14 ? shooting : paddle));
         for (unsigned row = 0; row <= count; ++row) {
@@ -288,11 +291,49 @@ int main() {
     CHECK(controls.racing_input(false).analog); // Disconnect does not reset the latch.
     key(RETROK_a); key(RETROK_d);
     steering = controls.racing_input(false);
-    CHECK(steering.left && steering.right && !steering.analog);
+    CHECK(!steering.left && !steering.right);
     values.clear(); key(RETROK_LEFT); key(RETROK_RIGHT);
     controls.set_enabled(0, false);
     steering = controls.racing_input(true);
-    CHECK(steering.left && steering.right && steering.recovering);
+    CHECK(!steering.left && !steering.right && steering.recovering);
+
+    controls.set_enabled(0, true);
+    controls.reset_racing(); values.clear();
+    axis(1, RETRO_DEVICE_ID_ANALOG_X, 8192);
+    CHECK(!controls.racing_input(false, 1).analog);
+    axis(1, RETRO_DEVICE_ID_ANALOG_X, -8193);
+    pad(1, RETRO_DEVICE_ID_JOYPAD_RIGHT);
+    pad(1, RETRO_DEVICE_ID_JOYPAD_L2); pad(1, RETRO_DEVICE_ID_JOYPAD_R2);
+    steering = controls.racing_input(true, 1);
+    CHECK(steering.analog && steering.steering == -8193 && steering.right && !steering.left && steering.recovering);
+    CHECK(!steering.select_high_speed && !steering.select_low_speed);
+    CHECK(!controls.racing_input(false).analog);
+    axis(1, RETRO_DEVICE_ID_ANALOG_X, 0);
+    pad(1, RETRO_DEVICE_ID_JOYPAD_RIGHT, 0);
+    CHECK(controls.racing_input(false, 1).analog);
+    axis(0, RETRO_DEVICE_ID_ANALOG_X, 9000);
+    CHECK(controls.racing_input(false).analog);
+    pad(1, RETRO_DEVICE_ID_JOYPAD_LEFT);
+    CHECK(controls.racing_input(false, 1).left && !controls.racing_input(false, 1).analog);
+    CHECK(controls.racing_input(false).analog);
+    pad(1, RETRO_DEVICE_ID_JOYPAD_LEFT, 0);
+    key(RETROK_LEFT); key(RETROK_d);
+    steering = controls.racing_input(false, 1);
+    CHECK(!steering.left && !steering.right && !steering.analog);
+    axis(1, RETRO_DEVICE_ID_ANALOG_X, 9000);
+    CHECK(controls.racing_input(false, 1).analog);
+    controls.set_enabled(1, false);
+    steering = controls.racing_input(true, 1);
+    CHECK(!steering.analog && !steering.left && !steering.right && steering.steering == 0 && steering.recovering);
+    controls.set_enabled(1, true); values.clear();
+    CHECK(controls.racing_input(false, 1).analog);
+    CHECK(controls.racing_input(false).analog);
+    controls.reset_racing();
+    CHECK(!controls.racing_input(false).analog && !controls.racing_input(false, 1).analog);
+    const unsigned before_invalid = reads;
+    steering = controls.racing_input(true, 2);
+    CHECK(steering.recovering && !steering.analog && !steering.left && !steering.right && steering.steering == 0);
+    CHECK(reads == before_invalid);
 
     CHECK(controls.menu_navigation(0, down, down, false) == down);
     for (unsigned frame = 1; frame <= 60; ++frame)

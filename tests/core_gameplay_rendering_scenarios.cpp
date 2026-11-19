@@ -41,13 +41,13 @@ int gameplay_rendering_scenarios(ContentContext& context, MenuSnapshot& snapshot
         CHECK(at(initial, 60, 150) == ((0x46a79a & 0xfefefe) >> 1));
     CHECK(at(initial, 60, 200) == ((0x46a79a & 0xfefefe) >> 1));
     CHECK(at(initial, 60, 204) == 0x46a79a);
-    CHECK(at(initial, 75, 114) == 0x295166);
-    CHECK(at(initial, 151, 136) == 0xffffff && at(initial, 222, 136) == 0xffffff);
+    CHECK(at(initial, 75, 103) == 0x295166);
+    CHECK(at(initial, 151, 124) == 0xffffff && at(initial, 222, 124) == 0xffffff);
     keys[RETROK_p] = true; retro_run(); CHECK(same_menu(frame, initial));
     keys[RETROK_p] = false; retro_run();
     press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(same_menu(frame, initial));
     press(RETRO_DEVICE_ID_JOYPAD_DOWN); auto& option = snapshot.option; option = frame; CHECK(!same_menu(option, initial));
-    CHECK(at(option, 75, 130) == 0x295166 && at(option, 151, 136) == 0x70e0ff && at(option, 222, 136) == 0x70e0ff);
+    CHECK(at(option, 75, 118) == 0x295166 && at(option, 151, 124) == 0x70e0ff && at(option, 222, 124) == 0x70e0ff);
     press(RETRO_DEVICE_ID_JOYPAD_A); CHECK(same_menu(frame, option));
     keys[RETROK_p] = true; retro_run(); CHECK(same_menu(frame, option));
     keys[RETROK_p] = false; retro_run();
@@ -56,8 +56,11 @@ int gameplay_rendering_scenarios(ContentContext& context, MenuSnapshot& snapshot
     press(RETRO_DEVICE_ID_JOYPAD_UP); CHECK(same_menu(frame, initial));
     buttons = 0; retro_run(); keys[RETROK_RETURN] = true; retro_run();
     auto detail = frame; CHECK(detail != initial);
-    retro_run(); CHECK(frame == detail); // Held confirmation does not fire a shot.
+    CHECK(at(detail, 49, 109) == 0xf3d66b && at(detail, 49, 124) == 0xf3d66b);
+    CHECK(at(detail, 49, 108) == 0x46a79a && at(detail, 49, 125) == 0x46a79a);
+    retro_run(); CHECK(at(frame, 49, 117) == 0xf3d66b); // Held confirmation does not fire a shot.
     keys[RETROK_RETURN] = false; retro_run();
+    detail = frame; // Capture the moving target immediately before pausing.
     keys[RETROK_p] = true; retro_run(); auto keyboard_pause = frame; CHECK(keyboard_pause != detail);
     CHECK(at(keyboard_pause, 60, 150) == ((at(detail, 60, 150) & 0xfefefe) >> 1));
     CHECK(at(keyboard_pause, 75, 99) == 0x295166);
@@ -76,12 +79,13 @@ int gameplay_rendering_scenarios(ContentContext& context, MenuSnapshot& snapshot
     keys[RETROK_UP] = false; retro_run();
     press(RETRO_DEVICE_ID_JOYPAD_UP); CHECK(at(frame, 75, 131) == 0x295166);
     press(RETRO_DEVICE_ID_JOYPAD_START); CHECK(frame != pause && !same_menu(frame, initial));
-    press(RETRO_DEVICE_ID_JOYPAD_START); CHECK(frame == pause);
+    press(RETRO_DEVICE_ID_JOYPAD_START); CHECK(same_menu(frame, pause));
     press(RETRO_DEVICE_ID_JOYPAD_DOWN); CHECK(at(frame, 75, 115) == 0x295166);
     press(RETRO_DEVICE_ID_JOYPAD_START); CHECK(frame != pause && !same_menu(frame, initial));
-    press(RETRO_DEVICE_ID_JOYPAD_START); CHECK(frame == pause);
-    press(RETRO_DEVICE_ID_JOYPAD_A); CHECK(frame == detail);
-    press(RETRO_DEVICE_ID_JOYPAD_START); CHECK(frame == pause);
+    press(RETRO_DEVICE_ID_JOYPAD_START); CHECK(same_menu(frame, pause));
+    press(RETRO_DEVICE_ID_JOYPAD_A); CHECK(!same_menu(frame, pause) && !same_menu(frame, initial));
+    press(RETRO_DEVICE_ID_JOYPAD_START); CHECK(same_menu(frame, pause));
+    pause = frame;
     press(RETRO_DEVICE_ID_JOYPAD_B); CHECK(frame == pause);
     press(RETRO_DEVICE_ID_JOYPAD_UP); press(RETRO_DEVICE_ID_JOYPAD_A); CHECK(same_menu(frame, initial));
     press(RETRO_DEVICE_ID_JOYPAD_B); CHECK(!same_menu(frame, initial) && shutdowns == 0);
@@ -566,7 +570,12 @@ int gameplay_rendering_scenarios(ContentContext& context, MenuSnapshot& snapshot
     retro_reset(); retro_run(); CHECK(same_menu(frame, ping_doubles_menu));
     retro_unload_game();
     buttons = buttons2 = 0; keys.fill(false); bytes[4] = 14; CHECK(retro_load_game(&game)); retro_run();
+    const auto default_shooting_menu = frame;
+    press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    press(RETRO_DEVICE_ID_JOYPAD_LEFT); press(RETRO_DEVICE_ID_JOYPAD_LEFT);
+    press(RETRO_DEVICE_ID_JOYPAD_UP);
     auto shooting_menu = frame;
+    CHECK(!same_menu(shooting_menu, default_shooting_menu));
     bool p2_up = false, p2_down = false, p2_axis = false;
     for (const auto& d : descriptors) {
         if (d.port != 1) continue;
@@ -587,9 +596,9 @@ int gameplay_rendering_scenarios(ContentContext& context, MenuSnapshot& snapshot
     CHECK(pixel(265, 101) == 0xf3d66b);
     buttons = 0; retro_run(); CHECK(pixel(265, 101) == 0xf3d66b && pixel(265, 132) == 0xf3d66b);
     keys[RETROK_DOWN] = true; buttons2 = 1u << RETRO_DEVICE_ID_JOYPAD_DOWN; retro_run();
-    CHECK(pixel(265, 101) == 0x46a79a && pixel(265, 135) == 0xf3d66b && pixel(49, 101) == 0xf3d66b && pixel(49, 132) == 0xf3d66b);
+    CHECK(pixel(265, 101) == 0x46a79a && pixel(265, 135) == 0xf3d66b && pixel(49, 109) == 0xf3d66b && pixel(49, 124) == 0xf3d66b);
     keys[RETROK_DOWN] = false; keys[RETROK_UP] = true; buttons2 = 1u << RETRO_DEVICE_ID_JOYPAD_UP; retro_run();
-    CHECK(pixel(265, 101) == 0xf3d66b && pixel(265, 135) == 0x46a79a && pixel(49, 101) == 0xf3d66b && pixel(49, 132) == 0xf3d66b);
+    CHECK(pixel(265, 101) == 0xf3d66b && pixel(265, 135) == 0x46a79a && pixel(49, 109) == 0xf3d66b && pixel(49, 124) == 0xf3d66b);
     keys[RETROK_UP] = false; buttons2 = 0; axes[1] = -20000; retro_run(); axes[1] = 0;
     CHECK(pixel(265, 98) == 0xf3d66b && pixel(265, 129) == 0xf3d66b);
     retro_set_controller_port_device(1, RETRO_DEVICE_NONE);
@@ -598,9 +607,9 @@ int gameplay_rendering_scenarios(ContentContext& context, MenuSnapshot& snapshot
     retro_set_controller_port_device(1, RETRO_DEVICE_JOYPAD); buttons2 = 0;
     CHECK(pixel(100, 100) == 0x46a79a && pixel(49, 110) == 0xf3d66b);
     buttons = 0; keys[RETROK_w] = true; retro_run();
-    CHECK(pixel(49, 99) == 0xf3d66b && pixel(49, 132) == 0x46a79a);
+    CHECK(pixel(49, 103) == 0xf3d66b && pixel(49, 124) == 0x46a79a);
     keys[RETROK_w] = false; keys[RETROK_s] = true; retro_run();
-    CHECK(pixel(49, 101) == 0xf3d66b && pixel(49, 132) == 0xf3d66b);
+    CHECK(pixel(49, 109) == 0xf3d66b && pixel(49, 124) == 0xf3d66b);
     keys[RETROK_s] = false;
     unsigned before_sound = nonzero_audio;
     keys[RETROK_x] = true; retro_run();
@@ -643,7 +652,7 @@ int gameplay_rendering_scenarios(ContentContext& context, MenuSnapshot& snapshot
     retro_unload_game(); CHECK(retro_load_game(&game)); retro_run(); CHECK(same_menu(frame, auto_menu));
     // Start the following gameplay checks with defaults and no save directory.
     retro_unload_game(); retro_deinit(); retro_init(); buttons = 0;
-    CHECK(retro_load_game(&game)); retro_run(); CHECK(same_menu(frame, shooting_menu));
+    CHECK(retro_load_game(&game)); retro_run(); CHECK(same_menu(frame, default_shooting_menu));
     // Finish with A held: the scoring input must not confirm the result.
     press(RETRO_DEVICE_ID_JOYPAD_START);
     for (int shot = 0; shot < 15; ++shot) {
@@ -677,7 +686,7 @@ int gameplay_rendering_scenarios(ContentContext& context, MenuSnapshot& snapshot
         buttons = 0; for (int i = 0; i < 100; ++i) retro_run();
     }
     CHECK(pixel(75, 99) == 0x295166);
-    press(RETRO_DEVICE_ID_JOYPAD_DOWN); press(RETRO_DEVICE_ID_JOYPAD_A); CHECK(same_menu(frame, shooting_menu));
+    press(RETRO_DEVICE_ID_JOYPAD_DOWN); press(RETRO_DEVICE_ID_JOYPAD_A); CHECK(same_menu(frame, default_shooting_menu));
     retro_unload_game();
 
     // Tennis B doubles reaches a winner with both paddles held away from play.

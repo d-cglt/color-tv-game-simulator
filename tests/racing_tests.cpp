@@ -7,7 +7,7 @@
 static bool same(const ctg::RacingState& a, const ctg::RacingState& b) {
     if (a.frame != b.frame || a.frames_remaining != b.frames_remaining ||
         a.speed != b.speed || a.selected_speed != b.selected_speed || a.movement_remainder != b.movement_remainder || a.road_scroll != b.road_scroll ||
-        a.score != b.score || a.collisions != b.collisions || a.section_collided != b.section_collided || a.finished != b.finished ||
+        a.score != b.score || a.collisions != b.collisions || a.section_collided != b.section_collided || a.finished != b.finished || a.narrow != b.narrow ||
         a.player.x != b.player.x) return false;
     for (unsigned i = 0; i < a.traffic.size(); ++i)
         if (a.traffic[i].rect.x != b.traffic[i].rect.x ||
@@ -32,6 +32,76 @@ static void avoid_traffic(ctg::Racing& game, ctg::RacingInput input = {}) {
 }
 
 int main() {
+    {
+        ctg::Racing game;
+        game.set_narrow(true);
+        CHECK(game.state().narrow && game.state().road.width == 53 * ctg::racing_cell_width);
+        CHECK(game.state().player.x == 96);
+        game.reset_preview();
+        CHECK(game.state().player.x == 96);
+        CHECK(game.state().narrow);
+        const auto preview = game.state();
+        game.step_preview();
+        CHECK(game.state().narrow && game.state().player.x == preview.player.x);
+        game.reset_from_layout(preview);
+        CHECK(game.state().narrow && game.state().traffic[0].rect.x == preview.traffic[0].rect.x);
+        for (int i = 0; i < 100; ++i) game.step({true, false});
+        CHECK(game.state().player.x == ctg::racing_x(0));
+        for (int i = 0; i < 100; ++i) game.step({false, true});
+        CHECK(game.state().player.x + game.state().player.width == ctg::racing_x(27));
+
+        auto& state = const_cast<ctg::RacingState&>(game.state());
+        game.set_car_collision(false);
+        game.reset();
+
+        auto layout = state;
+        layout.player.x = ctg::racing_x(50);
+        layout.traffic[0].rect.x = ctg::racing_x(50);
+        layout.traffic[0].rect.width = 3 * ctg::racing_cell_width;
+        game.reset_from_layout(layout);
+        CHECK(state.player.x + state.player.width == ctg::racing_x(27));
+        CHECK(state.traffic[0].rect.x + state.traffic[0].rect.width == ctg::racing_x(27));
+        game.set_narrow(false);
+        CHECK(!state.narrow);
+        game.reset();
+        CHECK(!state.narrow && state.player.x == (320 - ctg::racing_car_width) / 2);
+        CHECK(state.traffic[0].rect.x >= 58 && state.traffic[0].rect.x <= 238);
+    }
+    for (bool narrow : {false, true}) for (bool analog : {false, true}) {
+        ctg::Racing countdown;
+        countdown.set_narrow(narrow);
+        countdown.reset();
+        const auto before = countdown.state();
+        ctg::RacingInput steering{};
+        steering.left = true;
+        steering.analog = analog;
+        steering.steering = -32767;
+        steering.select_high_speed = true;
+        countdown.step_preview(steering);
+        CHECK(countdown.state().player.x == before.player.x - 6);
+        CHECK(countdown.state().frames_remaining == before.frames_remaining);
+        CHECK(countdown.state().speed == before.speed && countdown.state().selected_speed == before.selected_speed);
+        CHECK(countdown.state().score == before.score && countdown.state().collisions == before.collisions);
+        countdown.step();
+        CHECK(countdown.state().player.x == before.player.x - 6);
+    }
+    for (bool narrow : {false, true}) for (bool analog : {false, true}) {
+        ctg::Racing game;
+        game.set_narrow(narrow);
+        game.set_car_collision(false);
+        ctg::RacingInput input{};
+        input.analog = analog;
+        input.left = true;
+        input.steering = -32767;
+        for (int i = 0; i < 100; ++i) game.step(input);
+        CHECK(game.state().player.x == game.state().road.x);
+        input.left = false;
+        input.right = true;
+        input.steering = 32767;
+        for (int i = 0; i < 100; ++i) game.step(input);
+        const int boundary = narrow ? ctg::racing_x(27) : game.state().road.x + game.state().road.width;
+        CHECK(game.state().player.x + game.state().player.width == boundary);
+    }
     {
         ctg::Racing game;
         game.set_endless(true);
@@ -67,7 +137,7 @@ int main() {
         CHECK(!(events & ctg::racing_collision) && (events & ctg::racing_pass));
         CHECK(s.collisions == 0 && s.score == 1 && !s.section_collided && !s.traffic[0].collided);
         for (int i = 0; i < 100; ++i) game.step({true, false});
-        CHECK(s.player.x == s.road.x + ctg::racing_road_border_width);
+        CHECK(s.player.x == s.road.x);
         const unsigned score_before_collision = s.score;
         s.traffic[0].rect = s.player;
         game.set_car_collision(true);
@@ -93,31 +163,74 @@ int main() {
         s.traffic[0].rect = {s.player.x, s.player.y + dy, ctg::racing_car_width, ctg::racing_car_height};
         CHECK(!!(game.step() & ctg::racing_collision) == (dy < ctg::racing_car_height));
     }
-    const ctg::RacingRect road{54, 0, 212, 240};
+
     CHECK(ctg::racing_x(26) == 158 && ctg::racing_x(53) == 266);
     CHECK(ctg::racing_car_width == 24 && ctg::racing_car_height == 30);
-    bool seen[181]{};
-    for (unsigned i = 0; i < 181; ++i) {
-        const int x = ctg::racing_opponent_x(road, i);
-        CHECK(x >= 58 && x + ctg::racing_car_width <= 262);
-        CHECK(x <= 238);
-        CHECK(x == ctg::racing_opponent_x(road, i + 181));
-        seen[x - 58] = true;
+    // Compare streams, not particular values or a permutation of legal positions.
+    for (bool narrow : {false, true}) {
+        ctg::Racing a, b, noise;
+        a.set_narrow(narrow); b.set_narrow(narrow); noise.set_narrow(narrow);
+        a.set_random_seed(12345); b.set_random_seed(12345);
+        noise.set_random_seed(98765);
+        a.set_car_collision(false); b.set_car_collision(false); noise.set_car_collision(false);
+        a.set_endless(true); b.set_endless(true); noise.set_endless(true);
+        a.reset(); b.reset();
+        auto& as = const_cast<ctg::RacingState&>(a.state());
+        auto& bs = const_cast<ctg::RacingState&>(b.state());
+        auto& ns = const_cast<ctg::RacingState&>(noise.state());
+        const int left = narrow ? 54 : 58, right = narrow ? 138 : 238;
+        bool seen[181]{};
+        bool repeated = false, varied = false, reset_changed = false;
+        const int initial = as.traffic[0].rect.x;
+        CHECK(initial == bs.traffic[0].rect.x);
+        CHECK(initial >= left && initial <= right);
+        seen[initial - left] = true;
+        for (unsigned i = 0; i < 512; ++i) {
+            // Interleave an unrelated instance, including reseeding and resetting it.
+            if (i % 17 == 0) { noise.set_random_seed(i); noise.reset(); }
+            ns.traffic[0].rect.y = ns.road.height; noise.step();
+            as.traffic[0].rect.y = as.road.height; a.step();
+            bs.traffic[0].rect.y = bs.road.height; b.step();
+            const int x = as.traffic[0].rect.x;
+            CHECK(x == bs.traffic[0].rect.x);
+            CHECK(x >= left && x <= right);
+            repeated |= seen[x - left];
+            varied |= x != initial;
+            seen[x - left] = true;
+        }
+        CHECK(repeated && varied);
+        // A reset consumes the continuing stream rather than replaying its start.
+        for (unsigned i = 0; i < 32; ++i) {
+            a.reset(); b.reset();
+            CHECK(as.traffic[0].rect.x == bs.traffic[0].rect.x);
+            CHECK(as.traffic[0].rect.x >= left && as.traffic[0].rect.x <= right);
+            reset_changed |= as.traffic[0].rect.x != initial;
+        }
+        CHECK(reset_changed);
+        a.set_random_seed(12345); a.reset();
+        CHECK(as.traffic[0].rect.x == initial);
     }
-    for (bool position_seen : seen) CHECK(position_seen);
+    {
+        ctg::Racing a, b;
+        CHECK(same(a.state(), b.state()));
+        for (unsigned i = 0; i < 64; ++i) {
+            auto& as = const_cast<ctg::RacingState&>(a.state());
+            auto& bs = const_cast<ctg::RacingState&>(b.state());
+            as.traffic[0].rect.y = as.road.height;
+            bs.traffic[0].rect.y = bs.road.height;
+            CHECK(a.step() == b.step());
+            CHECK(same(a.state(), b.state()));
+        }
+    }
     ctg::Racing cycle;
     cycle.set_endless(true);
     auto& cycle_state = const_cast<ctg::RacingState&>(cycle.state());
     CHECK(cycle_state.road.x == 54 && cycle_state.road.width == 212 && cycle_state.road.height == 240);
     CHECK(ctg::racing_road_rows == 48 && ctg::racing_cell_height == 5);
     CHECK(cycle_state.player.y == 194 && cycle_state.player.y + cycle_state.player.height == 224);
-    CHECK(cycle_state.traffic[0].rect.height == 30);
-    CHECK(cycle_state.traffic[0].rect.x == ctg::racing_opponent_x(road, 0));
-    for (unsigned i = 1; i <= 182; ++i) {
-        cycle_state.traffic[0].rect.y = cycle_state.road.height;
-        cycle.step();
-        CHECK(cycle_state.traffic[0].rect.x == ctg::racing_opponent_x(road, i));
-    }
+    CHECK(ctg::racing_road_gap_length == 30 && ctg::racing_opponent_gap_offset == 50);
+    CHECK(cycle_state.traffic[0].rect.height == 30 && cycle_state.traffic[0].rect.y == 50);
+
     ctg::Racing preview;
     preview.reset_preview();
     const auto preview_initial = preview.state();
@@ -126,8 +239,19 @@ int main() {
     CHECK(preview.state().traffic[0].rect.y == preview_initial.traffic[0].rect.y - 2);
     CHECK(preview.state().player.x == preview_initial.player.x);
     CHECK(preview.state().frames_remaining == preview_initial.frames_remaining);
-    for (int i = 0; i < 34; ++i) preview.step_preview();
+    for (int i = 0; i < 39; ++i) preview.step_preview();
     CHECK(preview.state().traffic[0].rect.y == 240);
+    // Preserve the relative phase even when preview wrapping has pixel overshoot.
+    auto odd_layout = preview_initial;
+    odd_layout.road_scroll = 1;
+    odd_layout.traffic[0].rect.y = 51;
+    ctg::Racing odd_preview;
+    odd_preview.reset_from_layout(odd_layout);
+    for (int i = 0; i < 300; ++i) {
+        odd_preview.step_preview();
+        const auto& state = odd_preview.state();
+        CHECK((state.traffic[0].rect.y - static_cast<int>(state.road_scroll) + 540) % 270 == 50);
+    }
     ctg::Racing continued;
     continued.reset_from_layout(preview.state());
     CHECK(continued.state().road_scroll == preview.state().road_scroll);
@@ -146,7 +270,7 @@ int main() {
     for (int i = 0; i < 1000; ++i) {
         const auto& state = game.state();
         const int period = ctg::racing_road_dash_length + ctg::racing_road_gap_length;
-        CHECK((state.traffic[0].rect.y - static_cast<int>(state.road_scroll) + period) % period == 40);
+        CHECK((state.traffic[0].rect.y - static_cast<int>(state.road_scroll) + period) % period == ctg::racing_opponent_gap_offset);
         game.step({true, false});
     }
     game.reset();
@@ -158,15 +282,15 @@ int main() {
     game.step({false, true, true, std::numeric_limits<int>::min()});
     CHECK(game.state().player.x == 142);
     for (int i = 0; i < 100; ++i) game.step({false, false, true, std::numeric_limits<int>::min()});
-    CHECK(game.state().player.x == 58);
+    CHECK(game.state().player.x == 54);
     for (int i = 0; i < 30; ++i) game.step({false, false, true, 9000});
-    CHECK(game.state().player.x > 58);
+    CHECK(game.state().player.x > 54);
     for (int i = 0; i < 120; ++i) game.step({true, false, true, std::numeric_limits<int>::max()});
-    CHECK(game.state().player.x == 238);
+    CHECK(game.state().player.x == 242);
     for (int i = 0; i < 100; ++i) game.step({false, true});
-    CHECK(game.state().player.x == 238);
+    CHECK(game.state().player.x == 242);
     for (int i = 0; i < 100; ++i) game.step({true, false});
-    CHECK(game.state().player.x == 58);
+    CHECK(game.state().player.x == 54);
 
     game.reset();
     for (int i = 0; i < 30; ++i) game.step({false, false, true, 8192});
@@ -177,51 +301,47 @@ int main() {
     for (int i = 0; i < 30; ++i) game.step({false, false, true, 0});
     CHECK(game.state().player.x == position);
 
-    game.reset();
-    ctg::RacingInput speed_input{};
-    for (int i = 0; i < 120; ++i) avoid_traffic(game, speed_input);
-    CHECK(game.state().speed == ctg::Racing::low_speed);
-    speed_input.select_high_speed = true;
-    avoid_traffic(game, speed_input);
-    CHECK(game.state().selected_speed == ctg::Racing::medium_speed);
-    speed_input.select_high_speed = false;
-    avoid_traffic(game, speed_input);
-    speed_input.select_high_speed = true;
-    avoid_traffic(game, speed_input);
-    speed_input.select_high_speed = false;
-    for (unsigned i = 0; i < ctg::Racing::max_speed - ctg::Racing::low_speed; ++i) avoid_traffic(game, speed_input);
-    CHECK(game.state().speed == ctg::Racing::max_speed);
-    CHECK(game.state().selected_speed == ctg::Racing::max_speed);
-    speed_input.select_high_speed = true;
-    avoid_traffic(game, speed_input); // Upper gear clamps.
-    CHECK(game.state().selected_speed == ctg::Racing::max_speed);
-    speed_input.select_high_speed = speed_input.select_low_speed = true;
-    avoid_traffic(game, speed_input);
-    CHECK(game.state().selected_speed == ctg::Racing::max_speed);
-    speed_input.select_high_speed = false;
-    avoid_traffic(game, speed_input);
-    CHECK(game.state().selected_speed == ctg::Racing::medium_speed);
-    CHECK(game.state().speed == ctg::Racing::max_speed - 1);
-    speed_input.select_low_speed = false;
-    avoid_traffic(game, speed_input);
-    speed_input.select_low_speed = true;
-    avoid_traffic(game, speed_input);
-    CHECK(game.state().selected_speed == ctg::Racing::low_speed);
-    speed_input.select_low_speed = false;
-    for (unsigned i = 0; i < ctg::Racing::max_speed - ctg::Racing::low_speed; ++i) avoid_traffic(game, speed_input);
-    CHECK(game.state().speed == ctg::Racing::low_speed);
-    speed_input.select_low_speed = true;
-    avoid_traffic(game, speed_input); // Lower gear clamps.
-    CHECK(game.state().speed == ctg::Racing::low_speed && game.state().selected_speed == ctg::Racing::low_speed);
-    speed_input.select_low_speed = false;
-    speed_input.select_high_speed = true;
-    avoid_traffic(game, speed_input);
-    avoid_traffic(game, speed_input);
-    CHECK(game.state().selected_speed == ctg::Racing::max_speed);
-    game.reset();
-    CHECK(game.state().selected_speed == ctg::Racing::low_speed && game.state().speed == ctg::Racing::start_speed);
+    // Default switch is HIGH; a single HIGH input selects the maximum directly.
+    ctg::Racing default_switch;
+    ctg::RacingInput high{}; high.select_high_speed = true;
+    ctg::RacingInput low{}; low.select_low_speed = true;
+    ctg::RacingInput both{}; both.select_high_speed = both.select_low_speed = true;
+    default_switch.step(high);
+    CHECK(default_switch.state().selected_speed == ctg::Racing::max_speed);
+
+    const unsigned caps[] = {ctg::Racing::low_speed, ctg::Racing::medium_speed, ctg::Racing::max_speed};
+    for (unsigned setting = 0; setting < 3; ++setting) {
+        ctg::Racing gears;
+        gears.set_car_collision(false);
+        gears.set_speed_switch(setting);
+        CHECK(gears.state().selected_speed == ctg::Racing::low_speed);
+        gears.step(both); // Simultaneous inputs leave LOW selected.
+        CHECK(gears.state().selected_speed == ctg::Racing::low_speed);
+        gears.step(low); gears.step(low);
+        CHECK(gears.state().selected_speed == ctg::Racing::low_speed);
+        gears.step(high);
+        CHECK(gears.state().selected_speed == caps[setting]);
+        gears.step(high); gears.step(high); // Repeated selection is idempotent.
+        CHECK(gears.state().selected_speed == caps[setting]);
+        gears.step(both); // Simultaneous inputs leave HIGH selected.
+        CHECK(gears.state().selected_speed == caps[setting]);
+        for (unsigned i = 0; i < ctg::Racing::max_speed; ++i) gears.step();
+        CHECK(gears.state().speed == caps[setting]);
+        gears.step(low);
+        CHECK(gears.state().selected_speed == ctg::Racing::low_speed);
+        gears.step(low);
+        CHECK(gears.state().selected_speed == ctg::Racing::low_speed);
+        for (unsigned i = 0; i < ctg::Racing::max_speed; ++i) gears.step();
+        CHECK(gears.state().speed == ctg::Racing::low_speed);
+        gears.step(high);
+        gears.reset();
+        CHECK(gears.state().selected_speed == ctg::Racing::low_speed && gears.state().speed == ctg::Racing::start_speed);
+        gears.step(high); // Reset returns to LOW but preserves the switch setting.
+        CHECK(gears.state().selected_speed == caps[setting]);
+    }
 
     // Score only when the gap's bottom reaches the bottom of the road.
+    game.set_car_collision(false);
     game.reset();
     bool scored = false;
     for (int i = 0; i < 400 && !scored; ++i) {
@@ -237,10 +357,16 @@ int main() {
     CHECK(scored);
 
     // A collision invalidates the current road section.
+    game.set_car_collision(true);
     game.reset();
+    auto& collision_state = const_cast<ctg::RacingState&>(game.state());
+    collision_state.traffic[0].rect.x = collision_state.road.x;
     unsigned collision_events = 0, pass_events = 0;
     for (int i = 0; i < 400 && collision_events == 0; ++i) {
+        const int previous_y = collision_state.traffic[0].rect.y;
         unsigned events = game.step();
+        if (collision_state.traffic[0].rect.y < previous_y)
+            collision_state.traffic[0].rect.x = collision_state.player.x;
         collision_events += !!(events & ctg::racing_collision);
         pass_events += !!(events & ctg::racing_pass);
     }
@@ -266,10 +392,9 @@ int main() {
     CHECK((next_section & ctg::racing_pass) && game.state().score == 2);
 
     game.reset();
+    const_cast<ctg::RacingState&>(game.state()).traffic[0].rect.x = game.state().player.x;
     ctg::RacingInput high_gear{};
     high_gear.select_high_speed = true;
-    game.step(high_gear);
-    game.step();
     game.step(high_gear);
     unsigned event = 0;
     for (int i = 0; i < 400 && !(event & ctg::racing_collision); ++i) event = game.step();
@@ -292,64 +417,50 @@ int main() {
         return distance;
     };
     const unsigned low_distance = measure_distance();
-    CHECK(low_distance == 236 || low_distance == 237);
-    away.select_high_speed = true;
-    avoid_traffic(speed_check, away);
-    away.select_high_speed = false;
-    avoid_traffic(speed_check, away);
+    CHECK(low_distance == 241 || low_distance == 242);
     away.select_high_speed = true;
     avoid_traffic(speed_check, away);
     away.select_high_speed = false;
     for (int i = 0; i < 124; ++i) avoid_traffic(speed_check, away);
     const unsigned high_distance = measure_distance();
-    CHECK(high_distance == 403 || high_distance == 404);
+    CHECK(high_distance == 414 || high_distance == 415);
 
-    // Include acceleration and the entire active timer from different preview phases.
-    // Phase 239 is immediately before the scoring boundary; 240 is just after it.
-    struct PhaseCase { unsigned phase, score, final_phase; };
-    for (const PhaseCase test : {PhaseCase{0, 56, 192}, {47, 56, 239},
-                                 {48, 57, 240}, {100, 57, 28},
-                                 {239, 57, 167}, {240, 56, 168}, {263, 56, 191}}) {
-        ctg::Racing low_perfect_run;
-        auto layout = low_perfect_run.state();
-        layout.road_scroll = test.phase;
-        low_perfect_run.reset_from_layout(layout);
-        for (unsigned i = 0; i < ctg::Racing::duration_frames; ++i)
-            avoid_traffic(low_perfect_run);
-        CHECK(low_perfect_run.state().finished && low_perfect_run.state().frames_remaining == 0);
-        CHECK(low_perfect_run.state().collisions == 0 && low_perfect_run.state().score == test.score);
-        CHECK(low_perfect_run.state().road_scroll == test.final_phase);
-    }
-
-    ctg::Racing perfect_run;
-    ctg::RacingInput full_speed{};
-    for (unsigned i = 0; i < 60 * ctg::Racing::frames_per_second; ++i) {
-        full_speed.select_high_speed = i == 0 || i == 2;
-        avoid_traffic(perfect_run, full_speed);
-    }
-    CHECK(!perfect_run.state().finished && perfect_run.state().frames_remaining == 4 * 60);
-    CHECK(perfect_run.state().collisions == 0 && perfect_run.state().score == 89);
-    while (!perfect_run.state().finished) avoid_traffic(perfect_run, full_speed);
-    CHECK(perfect_run.state().collisions == 0);
-    CHECK(perfect_run.state().score == 95);
-    // The scoring boundary's starting phase can add at most one point.
-    for (unsigned phase = 0; phase < 264; ++phase) {
-        ctg::Racing run;
-        auto layout = run.state();
-        layout.road_scroll = phase;
-        run.reset_from_layout(layout);
-        for (unsigned i = 0; i < ctg::Racing::duration_frames; ++i) {
-            ctg::RacingInput shift{};
-            shift.select_high_speed = i == 0 || i == 2;
-            avoid_traffic(run, shift);
+    // Every possible starting road phase, with the configured HIGH gear selected immediately.
+    constexpr unsigned period = ctg::racing_road_dash_length + ctg::racing_road_gap_length;
+    struct GearCase { unsigned switch_setting, cap, distance, minimum, maximum; };
+    for (const GearCase test : {GearCase{0, 136, 15308, 56, 57},
+                                {1, 166, 18615, 68, 69},
+                                {2, 233, 25902, 95, 96}}) {
+        unsigned min_score = test.maximum, max_score = 0;
+        for (unsigned phase = 0; phase < period; ++phase) {
+            ctg::Racing run;
+            run.set_car_collision(false);
+            run.set_speed_switch(test.switch_setting);
+            auto layout = run.state();
+            layout.road_scroll = phase;
+            run.reset_from_layout(layout);
+            for (unsigned i = 0; i < ctg::Racing::duration_frames; ++i) {
+                ctg::RacingInput shift{};
+                shift.select_high_speed = i == 0;
+                run.step(shift);
+            }
+            const auto& state = run.state();
+            CHECK(state.finished && state.frames_remaining == 0 && state.collisions == 0);
+            CHECK(state.speed == test.cap && state.selected_speed == test.cap);
+            CHECK(state.road_scroll == (phase + test.distance) % period);
+            const unsigned expected = (phase + test.distance + period - 240) / period -
+                                      (phase + period - 240) / period;
+            CHECK(state.score == expected);
+            if (state.score < min_score) min_score = state.score;
+            if (state.score > max_score) max_score = state.score;
         }
-        CHECK(run.state().finished && run.state().collisions == 0);
-        CHECK(run.state().score == (phase >= 65 && phase < 240 ? 96u : 95u));
+        CHECK(min_score == test.minimum && max_score == test.maximum);
     }
 
     CHECK(ctg::Racing::duration_frames == 64 * 60);
     ctg::Racing other;
-    game.reset();
+    game.set_random_seed(2468); other.set_random_seed(2468);
+    game.reset(); other.reset();
     CHECK(same(game.state(), other.state()));
     for (unsigned i = 0; i < ctg::Racing::duration_frames; ++i) {
         ctg::RacingInput input{ i % 100 < 20, i % 100 >= 80, i % 3 == 0, static_cast<int>(i % 65536) - 32768 };
@@ -362,12 +473,153 @@ int main() {
     CHECK(game.state().frames_remaining == 0);
     CHECK(game.step({true, false}) == ctg::racing_none);
     CHECK(same(game.state(), other.state()));
-    game.reset();
     ctg::Racing fresh;
+    game.set_random_seed(1357); fresh.set_random_seed(1357);
+    game.reset(); fresh.reset();
     CHECK(same(game.state(), fresh.state()));
     for (int i = 0; i < 500; ++i) {
         CHECK(game.step() == fresh.step());
         CHECK(same(game.state(), fresh.state()));
+    }
+    for (unsigned setting = 0; setting < 3; ++setting) {
+        ctg::Racing two;
+        two.set_two_players(true);
+        two.set_speed_switch(setting);
+        two.set_car_collision(false);
+        two.reset();
+        const unsigned target = setting == 0 ? ctg::Racing::low_speed : setting == 1 ? ctg::Racing::medium_speed : ctg::Racing::max_speed;
+        CHECK(two.state().speed == ctg::Racing::start_speed && two.state().selected_speed == target);
+        for (int i = 0; i < 100; ++i) two.step_preview();
+        CHECK(two.state().speed == ctg::Racing::start_speed && two.state().frames_remaining == ctg::Racing::duration_frames);
+        for (unsigned speed = ctg::Racing::start_speed + 1; speed <= target; ++speed) {
+            ctg::RacingInput input{}; input.select_low_speed = true;
+            two.step(input);
+            CHECK(two.state().speed == speed && two.state().selected_speed == target);
+        }
+        two.step();
+        CHECK(two.state().speed == target);
+    }
+    {
+        ctg::Racing two;
+        two.set_speed_switch(1);
+        two.set_two_players(true);
+        const int divider = ctg::racing_x(ctg::racing_center_column) + ctg::racing_cell_width;
+        CHECK(two.state().two_players);
+        CHECK(two.state().speed == ctg::Racing::start_speed && two.state().selected_speed == ctg::Racing::medium_speed);
+        CHECK(two.state().player.x == 96);
+        CHECK(two.state().player2.x == 200);
+        two.set_car_collision(false);
+        ctg::RacingInput left{}, right{};
+        left.left = true; right.right = true;
+        left.select_low_speed = true; right.select_high_speed = true;
+        for (int i = 0; i < 140; ++i) two.step(left, right);
+        CHECK(two.state().player.x == ctg::racing_road_x);
+        CHECK(two.state().player2.x == ctg::racing_road_x + ctg::racing_road_columns * ctg::racing_cell_width - ctg::racing_car_width);
+        CHECK(two.state().speed == ctg::Racing::medium_speed);
+        for (int i = 0; i < 100; ++i) two.step(right, left);
+        CHECK(two.state().player.x == divider - ctg::racing_car_width);
+        CHECK(two.state().player2.x == ctg::racing_x(ctg::racing_center_column));
+        two.set_speed_switch(0);
+        CHECK(two.state().selected_speed == ctg::Racing::low_speed);
+        two.step();
+        CHECK(two.state().speed == ctg::Racing::medium_speed - 1);
+        two.reset();
+        CHECK(two.state().speed == ctg::Racing::start_speed && two.state().selected_speed == ctg::Racing::low_speed);
+        two.set_two_players(false);
+        CHECK(!two.state().two_players);
+        CHECK(two.state().speed == ctg::Racing::start_speed);
+    }
+    {
+        ctg::Racing two;
+        two.set_two_players(true);
+        auto& s = const_cast<ctg::RacingState&>(two.state());
+        s.traffic[0].rect = s.player;
+        s.traffic2[0].rect.y = 0;
+        s.speed = ctg::Racing::max_speed;
+        s.road_scroll = ctg::racing_road_rows * ctg::racing_cell_height - 1;
+        const unsigned events = two.step();
+        CHECK(events & ctg::racing_collision);
+        CHECK(events & ctg::racing_pass);
+        CHECK(s.collisions == 1 && s.collisions2 == 0);
+        CHECK(s.blink_samples == ctg::racing_blink_total_samples && s.blink_samples2 == 0);
+        CHECK(s.score == 0 && s.score2 == 1);
+        CHECK(s.speed == ctg::Racing::start_speed && s.selected_speed == ctg::Racing::max_speed);
+        CHECK(!s.section_collided && !s.section_collided2);
+        s.traffic2[0].rect = s.player2;
+        two.step();
+        CHECK(s.collisions2 == 1 && s.collisions == 1);
+        CHECK(s.speed == ctg::Racing::start_speed);
+        ctg::RacingInput recovering{}; recovering.recovering = true;
+        for (int i = 0; i < 10; ++i) two.step(recovering);
+        CHECK(s.speed == ctg::Racing::start_speed && s.selected_speed == ctg::Racing::max_speed);
+        two.step();
+        CHECK(s.speed == ctg::Racing::start_speed + 1);
+        CHECK(s.section_collided2 && !s.section_collided);
+        CHECK(s.blink_samples == ctg::racing_blink_total_samples - 12 * ctg::racing_blink_frame_samples);
+        CHECK(s.blink_samples2 == ctg::racing_blink_total_samples - 11 * ctg::racing_blink_frame_samples);
+        two.step_preview();
+        CHECK(s.blink_samples2 == ctg::racing_blink_total_samples - 11 * ctg::racing_blink_frame_samples);
+        two.set_car_collision(false);
+        for (unsigned i = 0; i < 98; ++i) two.step();
+        CHECK(s.blink_samples == 0 && s.blink_samples2 == 0);
+        s.traffic[0].rect = s.player;
+        s.traffic2[0].rect = s.player2;
+        s.traffic[0].collided = s.traffic2[0].collided = false;
+        two.set_car_collision(true);
+        CHECK(two.step() & ctg::racing_collision);
+        CHECK(s.blink_samples == ctg::racing_blink_total_samples && s.blink_samples2 == s.blink_samples);
+        two.reset();
+        CHECK(s.blink_samples == 0 && s.blink_samples2 == 0);
+    }
+    {
+        ctg::Racing two;
+        two.set_random_seed(456);
+        two.set_two_players(true);
+        two.set_car_collision(false);
+        const int offset = ctg::racing_center_column * ctg::racing_cell_width;
+        auto& s = const_cast<ctg::RacingState&>(two.state());
+        const int initial = s.traffic[0].rect.x;
+        bool varied = false;
+        CHECK(s.traffic2[0].rect.x == initial + offset);
+        for (int i = 0; i < 100; ++i) {
+            s.traffic[0].rect.y = s.traffic2[0].rect.y = s.road.height;
+            two.step();
+            CHECK(s.traffic2[0].rect.x == s.traffic[0].rect.x + offset);
+            varied |= s.traffic[0].rect.x != initial;
+        }
+        CHECK(varied);
+        for (int i = 0; i < 100; ++i) {
+            s.traffic[0].rect.y = s.traffic2[0].rect.y = -ctg::racing_car_height + 1;
+            two.step_preview();
+            CHECK(s.traffic2[0].rect.x == s.traffic[0].rect.x + offset);
+        }
+        auto layout = s;
+        layout.traffic2[0].rect.x = 200;
+        two.reset_from_layout(layout);
+        CHECK(s.traffic2[0].rect.x == s.traffic[0].rect.x + offset);
+    }
+    {
+        ctg::Racing a, b, noise;
+        a.set_random_seed(123); b.set_random_seed(123);
+        a.set_two_players(true); b.set_two_players(true); noise.set_two_players(true);
+        ctg::RacingInput right{}; right.right = true;
+        a.step_preview({}, right); b.step_preview({}, right);
+        CHECK(a.state().player2.x == b.state().player2.x);
+        auto layout = a.state();
+        a.reset_from_layout(layout);
+        CHECK(a.state().player2.x == layout.player2.x);
+        CHECK(a.state().traffic2[0].rect.x == layout.traffic2[0].rect.x);
+        b.reset_from_layout(layout);
+        for (int i = 0; i < 500; ++i) {
+            noise.step();
+            CHECK(a.step({}, right) == b.step({}, right));
+            CHECK(a.state().traffic[0].rect.x == b.state().traffic[0].rect.x);
+            CHECK(a.state().traffic2[0].rect.x == b.state().traffic2[0].rect.x);
+            CHECK(a.state().score2 == b.state().score2);
+        }
+        for (unsigned i = a.state().frame; i < ctg::Racing::duration_frames; ++i) a.step();
+        CHECK(a.state().finished && a.state().frames_remaining == 0);
+        CHECK(a.step({}, right) == ctg::racing_none);
     }
     return 0;
 }

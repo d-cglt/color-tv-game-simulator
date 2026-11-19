@@ -64,8 +64,8 @@ struct Baseline {
                 value = pulse(start_phase, start >= 153600 ? 484 : 164);
             ++start;
         } else {
-            const unsigned hz = speed <= 133 ? 128 + 65 * (speed - 30) / 103 :
-                                speed <= 161 ? 193 + 50 * (speed - 133) / 28 : 243 + 150 * (speed - 161) / 66;
+            const unsigned hz = speed <= 136 ? 128 + 65 * (speed - 30) / 106 :
+                                speed <= 166 ? 193 + 50 * (speed - 136) / 30 : 243 + 150 * (speed - 166) / 67;
             value = pulse(engine_phase, hz);
         }
         if (crash >= 77760 && bonus < 62976) {
@@ -276,15 +276,15 @@ int main() {
             if (f % 7 == 0) {
                 audio.trigger_game(8, false); baseline.trigger(8, false, false);
             }
-            CHECK(frame(audio, baseline, false, false, f == 31 || f == 193, 15, 227));
+            CHECK(frame(audio, baseline, false, false, f == 31 || f == 193, 15, 233));
         }
         CHECK(!audio.racing_starting());
         // Every valid speed, preserving oscillator phase across changes.
-        for (unsigned speed = 30; speed <= 227; ++speed)
+        for (unsigned speed = 30; speed <= 233; ++speed)
             CHECK(frame(audio, baseline, false, false, false, 15, speed));
     }
     // Count oscillator periods over exactly one second at each steady speed.
-    for (const auto test : {std::pair<unsigned, unsigned>{30, 128}, {133, 193}, {161, 243}, {227, 393}}) {
+    for (const auto test : {std::pair<unsigned, unsigned>{30, 128}, {136, 193}, {166, 243}, {233, 393}}) {
         ctg::Audio audio;
         audio.start_racing();
         for (unsigned f = 0; f < 241; ++f) audio.render(false, false, false, 15, test.first);

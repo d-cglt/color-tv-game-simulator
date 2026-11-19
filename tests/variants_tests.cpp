@@ -84,7 +84,7 @@ bool test_variant(unsigned id) {
     auto before = frame;
     press(RETRO_DEVICE_ID_JOYPAD_RIGHT);
     CHECK(frame != before);
-    // Exercise speed, both sizes, and score/shots through the same menu.
+    // Exercise the remaining options, including Shooting target size and shots speed.
     for (unsigned option = 0; option < 4; ++option) {
         press(RETRO_DEVICE_ID_JOYPAD_DOWN);
         before = frame;
@@ -109,7 +109,7 @@ bool test_variant(unsigned id) {
     for (int side = 0; side < 2; ++side) {
         const int x = side ? 265 : 49;
         const auto color = side ? right_color : left_color;
-        const int height = id == 14 ? (side == 0 ? 16 : 32) : (id % 2 == 1 ? 32 : 16);
+        const int height = id == 14 ? (side ? 16 : 32) : (id % 2 == 1 ? 32 : 16);
         int top = 0;
         while (top < 240 && pixel(x, top) != color) ++top;
         CHECK(top > 0 && top + height < 240);
@@ -158,6 +158,17 @@ bool test_variant(unsigned id) {
     return true;
 }
 
+bool same_racing_menu(const std::vector<unsigned char>& a, const std::vector<unsigned char>& b) {
+    for (int y = 48; y < 204; ++y) for (int x = 48; x < 272; ++x) {
+        std::uint32_t p, q;
+        std::memcpy(&p, a.data() + (y * 320 + x) * 4, 4);
+        std::memcpy(&q, b.data() + (y * 320 + x) * 4, 4);
+        const auto ink = [](std::uint32_t c) { return c == 0xffffff || c == 0x70e0ff || c == 0x295166 ? c : 0u; };
+        if (ink(p) != ink(q)) return false;
+    }
+    return true;
+}
+
 bool test_racing() {
     current_id = 15;
     buttons[0] = buttons[1] = 0;
@@ -201,17 +212,17 @@ bool test_racing() {
     buttons[0] = 1u << RETRO_DEVICE_ID_JOYPAD_LEFT;
     for (unsigned n = 0; n < 20; ++n) retro_run();
     CHECK(frame != countdown_frame);
-    CHECK(pixel(160, 210) == 0xeb65e7);
+    CHECK(pixel(66, 210) == 0xeb65e7 && pixel(160, 210) != 0xeb65e7);
     buttons[0] = 0;
     retro_reset(); retro_run();
-    CHECK(frame == menu);
+    CHECK(same_racing_menu(frame, menu) && pixel(0, 100) == 0x66594a);
     press(RETRO_DEVICE_ID_JOYPAD_START);
     for (unsigned n = 0; n < 241; ++n) retro_run();
     buttons[0] = 1u << RETRO_DEVICE_ID_JOYPAD_LEFT;
     for (unsigned n = 0; n < 40; ++n) retro_run();
     unsigned gap_pixels = 0;
     for (unsigned y = 0; y < 240; ++y) gap_pixels += pixel(54, y) == 0x39b800;
-    CHECK(gap_pixels == 24);
+    CHECK(gap_pixels == 30);
     const auto left = frame;
     retro_reset(); buttons[0] = 0; retro_run();
     press(RETRO_DEVICE_ID_JOYPAD_START);
@@ -231,23 +242,26 @@ bool test_racing() {
     retro_run();
     CHECK(video_calls == unloaded_video && audio_calls == unloaded_audio);
     CHECK(retro_load_game(&game)); retro_run();
-    CHECK(frame == menu);
+    CHECK(same_racing_menu(frame, menu) && pixel(200, 230) == 0x39b800);
 
-    // Compare identical timelines so traffic and animation cannot mask steering.
+    // Compare the player's position rather than randomized traffic in the whole frame.
     auto steer = [&](int16_t axis, unsigned digital, bool activate_first, unsigned frames = 10) {
         steering_axis = 0; buttons[0] = 0;
         retro_reset(); retro_run();
         press(RETRO_DEVICE_ID_JOYPAD_START);
-        for (unsigned n = 0; n < 241; ++n) retro_run();
+        // Countdown preview accepts steering without random traffic collisions or blinking.
         if (activate_first) {
             steering_axis = 20000;
             retro_run();
         }
         steering_axis = axis; buttons[0] = digital;
         for (unsigned n = 0; n < frames; ++n) retro_run();
-        return frame;
+        for (int x = 0; x < 320; ++x)
+            for (int y = 194; y < 224; ++y)
+                if (pixel(x, y) == 0xeb65e7) return x;
+        return 320;
     };
-    // A centered player hits traffic; the synthesized effect alternates pitch.
+    // Steer into the approaching traffic; the synthesized effect alternates pitch.
     steering_axis = 0; buttons[0] = 0;
     retro_reset(); retro_run();
     press(RETRO_DEVICE_ID_JOYPAD_START);
@@ -265,12 +279,24 @@ bool test_racing() {
     for (unsigned n = 0; n < 45; ++n) retro_run();
     unsigned frames_until_sound = 0;
     while (frames_until_sound++ < 400) {
+        int traffic_x = -1, player_x = -1;
+        for (int x = 54; x < 266; ++x) {
+            if (player_x < 0 && pixel(x, 209) == 0xeb65e7) player_x = x;
+            for (int y = 9; y < 190 && traffic_x < 0; ++y)
+                if (pixel(x, y) == 0xf5ed48) traffic_x = x;
+        }
+        buttons[0] = traffic_x < 0 || player_x < 0 ? 0 :
+            traffic_x < player_x ? 1u << RETRO_DEVICE_ID_JOYPAD_LEFT :
+            traffic_x > player_x + 6 ? 1u << RETRO_DEVICE_ID_JOYPAD_RIGHT : 0;
         retro_run();
         if (transitions() >= 20 && transitions() <= 22) break;
     }
+    buttons[0] = 0;
     CHECK(frames_until_sound <= 400 && audio_frame[0] != 0);
     CHECK(transitions() >= 20 && transitions() <= 22);
-    CHECK(pixel(160, 210) != 0xeb65e7);
+    bool player_visible = false;
+    for (unsigned x = 54; x < 266; ++x) player_visible |= pixel(x, 210) == 0xeb65e7;
+    CHECK(!player_visible);
     unsigned high_samples = 0;
     for (unsigned i = 0; i < audio_frame.size(); i += 2) {
         CHECK(audio_frame[i] == audio_frame[i + 1]);
@@ -280,22 +306,26 @@ bool test_racing() {
     CHECK(high_samples >= 65 && high_samples <= 95);
     for (unsigned n = 0; n < 17; ++n) retro_run();
     CHECK(transitions() >= 10 && transitions() <= 12);
-    CHECK(pixel(160, 210) == 0xeb65e7);
+    player_visible = false;
+    for (unsigned x = 54; x < 266; ++x) player_visible |= pixel(x, 210) == 0xeb65e7;
+    CHECK(player_visible);
     press(RETRO_DEVICE_ID_JOYPAD_START);
     CHECK(audio_frame[0] == 0);
     press(RETRO_DEVICE_ID_JOYPAD_START);
     CHECK(audio_frame[0] != 0);
     for (unsigned n = 0; n < 100; ++n) retro_run();
-    CHECK(pixel(160, 210) == 0xeb65e7);
+    player_visible = false;
+    for (unsigned x = 54; x < 266; ++x) player_visible |= pixel(x, 210) == 0xeb65e7;
+    CHECK(player_visible);
     CHECK(audio_frame[0] != 0);
     CHECK(transitions() >= 4 && transitions() <= 7);
 
     const unsigned left_button = 1u << RETRO_DEVICE_ID_JOYPAD_LEFT;
     const unsigned right_button = 1u << RETRO_DEVICE_ID_JOYPAD_RIGHT;
     steer(-32768, 0, false, 120);
-    CHECK(pixel(57, 204) != 0xeb65e7 && pixel(58, 204) == 0xeb65e7);
+    CHECK(pixel(53, 204) != 0xeb65e7 && pixel(54, 204) == 0xeb65e7);
     steer(32767, 0, false, 120);
-    CHECK(pixel(262, 204) != 0xeb65e7 && pixel(261, 204) == 0xeb65e7);
+    CHECK(pixel(266, 204) != 0xeb65e7 && pixel(265, 204) == 0xeb65e7);
     const auto neutral = steer(0, 0, false);
     CHECK(steer(-32768, 0, false) == steer(0, left_button, false));
     CHECK(steer(32767, 0, false) == steer(0, right_button, false));
@@ -356,14 +386,14 @@ bool test_racing() {
     const unsigned r2 = 1u << RETRO_DEVICE_ID_JOYPAD_R2;
     const unsigned l2 = 1u << RETRO_DEVICE_ID_JOYPAD_L2;
     for (unsigned n = 0; n < 124; ++n) avoid_traffic(r2);
-    CHECK(transitions() >= 8 && transitions() <= 9); // Holding shifts only to medium.
+    CHECK(transitions() >= 12 && transitions() <= 14); // One press selects the HIGH lever position.
     // Pause with R2 held, release and re-press it while paused; it is not queued.
     buttons[0] = r2 | (1u << RETRO_DEVICE_ID_JOYPAD_START); retro_run();
     buttons[0] = 0; retro_run();
     buttons[0] = r2; retro_run();
     buttons[0] = r2 | (1u << RETRO_DEVICE_ID_JOYPAD_START); retro_run();
     for (unsigned n = 0; n < 100; ++n) avoid_traffic(r2);
-    CHECK(transitions() >= 8 && transitions() <= 9);
+    CHECK(transitions() >= 12 && transitions() <= 14);
     avoid_traffic(); avoid_traffic(r2);
     for (unsigned n = 0; n < 100; ++n) avoid_traffic(r2);
     CHECK(transitions() >= 12 && transitions() <= 14);
@@ -372,7 +402,7 @@ bool test_racing() {
     CHECK(transitions() >= 12 && transitions() <= 14);
     avoid_traffic(); avoid_traffic(l2);
     for (unsigned n = 0; n < 100; ++n) avoid_traffic(l2);
-    CHECK(transitions() >= 8 && transitions() <= 9);
+    CHECK(transitions() >= 6 && transitions() <= 8);
     avoid_traffic(); avoid_traffic(l2);
     for (unsigned n = 0; n < 100; ++n) avoid_traffic(l2);
     CHECK(transitions() >= 6 && transitions() <= 8);
@@ -412,7 +442,8 @@ bool test_racing() {
     buttons[0] = 0;
     retro_reset(); retro_run();
     press(RETRO_DEVICE_ID_JOYPAD_START);
-    for (unsigned n = 0; n < 3850; ++n) retro_run();
+    // Allow both the countdown and the full 64-second match to finish.
+    for (unsigned n = 0; n < 4100; ++n) retro_run();
     const auto game_over = frame;
     std::array<bool, 54 * 33> final_score_pixels{};
     unsigned score_ink = 0;
@@ -448,6 +479,159 @@ bool test_racing() {
     retro_unload_game();
     return true;
 }
+
+bool test_racing_modes() {
+    current_id = 15;
+    buttons[0] = buttons[1] = 0; steering_axis = 0;
+    std::array<unsigned char, 5> content{{'C', 'T', 'G', '1', 15}};
+    retro_game_info game{}; game.data = content.data(); game.size = content.size();
+    CHECK(retro_load_game(&game)); retro_run();
+    // Exercise all eight rows, both wraparound directions, and the scrolled viewport.
+    std::array<std::vector<unsigned char>, 8> rows;
+    rows[1] = frame;
+    for (unsigned row = 2; row < 8; ++row) {
+        press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+        rows[row] = frame;
+        for (unsigned previous = 1; previous < row; ++previous)
+            CHECK(!same_racing_menu(rows[row], rows[previous]));
+        if (row >= 4) {
+            press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(same_racing_menu(frame, rows[row]));
+            press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(same_racing_menu(frame, rows[row]));
+        }
+    }
+    press(RETRO_DEVICE_ID_JOYPAD_DOWN); rows[0] = frame;
+    CHECK(!same_racing_menu(rows[0], rows[7]));
+    press(RETRO_DEVICE_ID_JOYPAD_UP); CHECK(same_racing_menu(frame, rows[7]));
+    press(RETRO_DEVICE_ID_JOYPAD_DOWN); CHECK(same_racing_menu(frame, rows[0]));
+    press(RETRO_DEVICE_ID_JOYPAD_DOWN); CHECK(same_racing_menu(frame, rows[1]));
+    const auto pixel = [](unsigned x, unsigned y) {
+        std::uint32_t value;
+        std::memcpy(&value, frame.data() + (y * 320 + x) * 4, sizeof value);
+        return value;
+    };
+    CHECK(pixel(200, 230) == 0x39b800);
+    press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    const auto spacious = frame;
+    const auto& same_menu = same_racing_menu;
+    press(RETRO_DEVICE_ID_JOYPAD_RIGHT);
+    const auto narrow = frame;
+    CHECK(!same_menu(narrow, spacious));
+    CHECK(pixel(200, 230) == 0x6514a4);
+    // Three modes wrap in both directions.
+    press(RETRO_DEVICE_ID_JOYPAD_RIGHT); const auto two_player = frame;
+    CHECK(!same_menu(two_player, spacious) && !same_menu(two_player, narrow));
+    CHECK(pixel(200, 230) == 0x39b800);
+    press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(same_menu(frame, spacious));
+    press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(same_menu(frame, two_player));
+    press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(same_menu(frame, narrow));
+    CHECK(pixel(200, 230) == 0x6514a4);
+    press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(same_menu(frame, spacious));
+    press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(same_menu(frame, narrow));
+    press(RETRO_DEVICE_ID_JOYPAD_UP);
+    press(RETRO_DEVICE_ID_JOYPAD_A);
+    const auto player_left = [&](std::uint32_t color) {
+        int left = 320;
+        for (int y = 194; y < 224; ++y)
+            for (int x = 0; x < 320; ++x)
+                if (pixel(x, y) == color && x < left) left = x;
+        return left;
+    };
+    CHECK(pixel(200, 230) == 0x6514a4);
+    CHECK(player_left(0xffa0cd) == 96);
+    // Test the steering limits during the collision-free countdown.
+    buttons[0] = 1u << RETRO_DEVICE_ID_JOYPAD_LEFT;
+    for (unsigned n = 0; n < 50; ++n) retro_run();
+    CHECK(player_left(0xffa0cd) == 54);
+    buttons[0] = 1u << RETRO_DEVICE_ID_JOYPAD_RIGHT;
+    for (unsigned n = 0; n < 50; ++n) retro_run();
+    CHECK(player_left(0xffa0cd) == 138);
+    buttons[0] = 0;
+    press(RETRO_DEVICE_ID_JOYPAD_START);
+    press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    press(RETRO_DEVICE_ID_JOYPAD_A); // Restart retains narrow mode and starts a countdown.
+    CHECK(pixel(200, 230) == 0x6514a4);
+    CHECK(player_left(0xffa0cd) == 96);
+    CHECK(!audio_frame.empty() && audio_frame[0] != 0);
+    // Finish a narrow match and check the animated result backdrop and frozen score.
+    for (unsigned n = 0; n < 4000; ++n) retro_run();
+    bool finished = false;
+    for (unsigned n = 0; n < 200 && !finished; ++n) {
+        retro_run();
+        finished = pixel(75, 99) == 0x295166; // Selected RESTART row.
+    }
+    CHECK(finished && pixel(200, 230) == 0x6514a4);
+    // The last gameplay step can award a point; verify the result score freezes below.
+    std::array<bool, 54 * 33> score{};
+    unsigned ink = 0;
+    for (unsigned y = 0; y < 33; ++y) for (unsigned x = 0; x < 54; ++x) {
+        score[y * 54 + x] = pixel(70 + x, 20 + y) == 0xffffff;
+        ink += score[y * 54 + x];
+    }
+    CHECK(ink > 0);
+    const auto result_frame = frame;
+    for (unsigned n = 0; n < 5; ++n) retro_run();
+    CHECK(frame != result_frame && pixel(200, 230) == 0x6514a4);
+    for (unsigned y = 0; y < 33; ++y) for (unsigned x = 0; x < 54; ++x)
+        CHECK((pixel(70 + x, 20 + y) == 0xffffff) == score[y * 54 + x]);
+
+    retro_reset(); retro_run();
+    CHECK(pixel(200, 230) == 0x6514a4);
+    press(RETRO_DEVICE_ID_JOYPAD_DOWN); CHECK(same_menu(frame, narrow));
+    press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(same_menu(frame, two_player));
+    press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(same_menu(frame, spacious));
+    press(RETRO_DEVICE_ID_JOYPAD_UP); press(RETRO_DEVICE_ID_JOYPAD_START);
+    CHECK(pixel(200, 230) == 0x39b800);
+    buttons[0] = 1u << RETRO_DEVICE_ID_JOYPAD_RIGHT;
+    for (unsigned n = 0; n < 50; ++n) retro_run();
+    CHECK(player_left(0xeb65e7) == 242);
+    buttons[0] = 0;
+
+    // Exercise two-player selection, animated menu preview, countdown, gameplay and results
+    // through the libretro callbacks, not just the Racing component directly.
+    retro_reset(); retro_run();
+    press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(same_menu(frame, two_player));
+    CHECK(player_left(0x98ff8d) == 96);
+    const auto preview = frame;
+    for (unsigned n = 0; n < 5; ++n) retro_run();
+    CHECK(frame != preview && player_left(0x98ff8d) == 96);
+    press(RETRO_DEVICE_ID_JOYPAD_UP); press(RETRO_DEVICE_ID_JOYPAD_START);
+    const auto car_left_in_lane = [&](int begin, int end) {
+        for (int x = begin; x < end; ++x)
+            for (int y = 194; y < 224; ++y)
+                if (pixel(x, y) == 0x98ff8d) return x;
+        return end;
+    };
+    CHECK(car_left_in_lane(54, 160) == 96 && car_left_in_lane(160, 266) == 200);
+    const auto zero_scores = frame;
+    buttons[1] = 1u << RETRO_DEVICE_ID_JOYPAD_RIGHT;
+    for (unsigned n = 0; n < 5; ++n) retro_run();
+    CHECK(car_left_in_lane(54, 160) == 96 && car_left_in_lane(160, 266) == 230);
+    buttons[1] = 1u << RETRO_DEVICE_ID_JOYPAD_LEFT;
+    for (unsigned n = 0; n < 5; ++n) retro_run();
+    CHECK(car_left_in_lane(54, 160) == 96 && car_left_in_lane(160, 266) == 200);
+    buttons[1] = 0;
+    for (unsigned n = 0; n < 4000; ++n) retro_run();
+    bool two_finished = false;
+    for (unsigned n = 0; n < 300 && !two_finished; ++n) {
+        retro_run();
+        two_finished = pixel(75, 99) == 0x295166;
+    }
+    CHECK(two_finished);
+    unsigned left_ink = 0, right_ink = 0, changed_score = 0;
+    for (unsigned y = 20; y < 53; ++y) for (unsigned x = 0; x < 54; ++x) {
+        left_ink += pixel(70 + x, y) == 0xffffff;
+        right_ink += pixel(174 + x, y) == 0xffffff;
+        std::uint32_t old_left, old_right;
+        std::memcpy(&old_left, zero_scores.data() + (y * 320 + 70 + x) * 4, 4);
+        std::memcpy(&old_right, zero_scores.data() + (y * 320 + 174 + x) * 4, 4);
+        changed_score += (pixel(70 + x, y) == 0xffffff) != (old_left == 0xffffff);
+        changed_score += (pixel(174 + x, y) == 0xffffff) != (old_right == 0xffffff);
+    }
+    CHECK(left_ink > 0 && right_ink > 0 && changed_score > 0);
+    retro_unload_game();
+    return true;
+}
 }
 
 int main() {
@@ -471,6 +655,11 @@ int main() {
         std::printf("variant %u passed\n", id);
     }
     if (!test_racing()) {
+        retro_unload_game();
+        retro_deinit();
+        return 1;
+    }
+    if (!test_racing_modes()) {
         retro_unload_game();
         retro_deinit();
         return 1;

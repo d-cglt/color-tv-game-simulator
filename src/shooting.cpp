@@ -37,23 +37,38 @@ unsigned Shooting::step(int direction, bool fire, int target_direction, bool aut
         movement = automatic_target ? static_cast<int>(target_speed_ % static_cast<unsigned>(range)) * target_direction_
                                     : std::clamp(target_direction, -1, 1) * 24;
     }
-    target_position_ = (target_position_ - min_position + movement + range) % range + min_position;
+    if (automatic_target && target_bounce_) {
+        const int span = range - 1;
+        const unsigned period = static_cast<unsigned>(span * 2);
+        const int offset = target_position_ - min_position;
+        const unsigned phase = static_cast<unsigned>(target_direction_ > 0 ? offset : 2 * span - offset);
+        const unsigned next = (phase + target_speed_ % period) % period;
+        target_position_ = min_position + (next <= static_cast<unsigned>(span) ? static_cast<int>(next) : static_cast<int>(period - next));
+        if (target_speed_) target_direction_ = next < static_cast<unsigned>(span) ? 1 : -1;
+    } else {
+        target_position_ = (target_position_ - min_position + movement + range) % range + min_position;
+    }
     state_.target_y = target_position_ / 4;
-    // Wrap on a blink-period boundary so visibility continues uninterrupted.
     state_.frame = state_.frame == std::numeric_limits<unsigned>::max() ? 0 : state_.frame + 1;
+    // Half-frame units represent the target's 375 ms on / 125 ms off cycle.
+    target_blink_phase_ = (target_blink_phase_ + 2) % 60;
     unsigned events = sound_none;
     if (fire && !state_.flying) {
         state_.flying = true;
         state_.hit = false;
         state_.shot_y = state_.shooter_y;
+        shot_blink_phase_ = 0;
         shot_position_ = 190;
         state_.shot_x = shot_position_ / 4;
         events |= sound_shot | event_player1_shot;
+    } else if (state_.flying) {
+        // Half-frame units preserve the 19.5-frame (325 ms) cycle at 60 Hz.
+        shot_blink_phase_ = (shot_blink_phase_ + 2) % 39;
     }
     if (state_.flying) {
         shot_position_ += high_speed_ ? 24 : 12;
         state_.shot_x = shot_position_ / 4;
-        if (!state_.hit && target_visible() && state_.shot_x + 7 > 265 && state_.shot_x < 273 &&
+        if (!state_.hit && state_.shot_x + 7 > 265 && state_.shot_x < 273 &&
             state_.shot_y + 2 > target_top() && state_.shot_y - 2 < target_top() + paddle_height(1)) {
             state_.hit = true;
             if (state_.hits < std::numeric_limits<unsigned>::max()) ++state_.hits;

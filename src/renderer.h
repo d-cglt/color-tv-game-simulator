@@ -16,10 +16,12 @@ inline constexpr std::uint32_t volleyball_score = 0xedfd84;
 inline constexpr std::uint32_t hockey_boundary = 0x98ff8d;
 
 namespace menu {
+enum RacingRow : unsigned { racing_return, racing_start, racing_mode_row, racing_speed_row,
+                            racing_bad_road_row, racing_wall_crash_row, racing_opponents_row, racing_car_path_row,
+                            racing_row_count };
 enum ShootingRow : unsigned { shooting_return, shooting_start, shooting_target_row, shooting_direction_row,
-                              shooting_blinking_row, shooting_speed_row, shooting_p1_size_row,
-                              shooting_p2_size_row, shooting_shots_row, shooting_row_count };
-constexpr unsigned option_count(unsigned id) { return id == 15 ? 2u : id == 14 ? static_cast<unsigned>(shooting_row_count) : 7u; }
+                              shooting_target_size_row, shooting_speed_row, shooting_shots_row, shooting_row_count };
+constexpr unsigned option_count(unsigned id) { return id == 15 ? static_cast<unsigned>(racing_row_count) : id == 14 ? static_cast<unsigned>(shooting_row_count) : 7u; }
 struct LaunchLayout {
     unsigned first, rows, y, spacing;
     bool scroll;
@@ -47,7 +49,7 @@ struct RenderState {
     unsigned selector_choice, menu_choice, pause_choice, result_choice;
     bool high_speed;
     std::array<bool, 2> small_paddle;
-    unsigned winning_score, shot_limit, shooting_target, shooting_direction, shooting_blinking;
+    unsigned winning_score, shot_limit, shooting_target, shooting_direction, shooting_size, shooting_speed, racing_mode;
     const std::array<unsigned, 14>& opponent_modes;
     const TennisB& tennis;
     const TennisB& demo_tennis;
@@ -58,6 +60,7 @@ struct RenderState {
     bool racing_player_visible;
     ScoreOverride scores;
     bool rally_score_visible = true;
+    unsigned racing_speed = 2; // HIGH lever selection: 0 low, 1 medium, 2 high.
 };
 
 class Renderer : public Graphics {

@@ -25,10 +25,11 @@ public:
     int shooting_direction(unsigned port) const;
     // Raw active stick deflection; zero inside the deadzone or when disconnected.
     int paddle_axis(unsigned port, bool shooting = false) const;
-    RacingInput racing_input(bool recovering);
+    // Port 0 also supports keyboard steering and gear selection; port 1 is steering only.
+    RacingInput racing_input(bool recovering, unsigned port = 0);
     unsigned menu_navigation(int menu, unsigned buttons, unsigned pressed, bool suppress);
     void reset_repeat();
-    void reset_racing() { racing_analog_active_ = false; }
+    void reset_racing() { racing_analog_active_.fill(false); }
 
     // Rumble remains the caller's responsibility, including stopping it before a device change.
     void set_device(unsigned port, unsigned device);
@@ -41,6 +42,6 @@ private:
     std::array<bool, 2> joypad_{{true, true}};
     int repeat_menu_ = -1, repeat_direction_ = 0;
     unsigned repeat_frames_ = 0;
-    bool racing_analog_active_ = false;
+    std::array<bool, 2> racing_analog_active_{{false, false}};
 };
 }

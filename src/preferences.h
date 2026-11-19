@@ -5,8 +5,10 @@
 #include <random>
 
 namespace ctg::preferences {
-// CTGP, version 1, then eight single-byte settings and one mode per rally game ID.
-using Data = std::array<unsigned char, 27>;
+// CTGP version 5 adds Racing speed (0 low, 1 medium, 2 high); older records default to high.
+// Version 4 adds Racing mode (0 spacious, 1 narrow, 2 two players); older records default to spacious.
+// Versions before 3 retain Shooting shot speed from the rally speed setting.
+using Data = std::array<unsigned char, 31>;
 // CTGD, version 1, grid, fixed score, left score, right score, car collision.
 using DiagnosticData = std::array<unsigned char, 10>;
 

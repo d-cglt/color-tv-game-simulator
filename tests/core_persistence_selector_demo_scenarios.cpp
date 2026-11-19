@@ -34,7 +34,7 @@ int persistence_selector_demo_scenarios(ContentContext& context) {
     };
     auto menu_rows = [&](unsigned id) {
         std::vector<std::vector<unsigned char>> rows{frame};
-        for (unsigned row = 1; row < (id == 14 ? 9u : 7u); ++row) {
+        for (unsigned row = 1; row < 7u; ++row) {
             press(RETRO_DEVICE_ID_JOYPAD_DOWN); rows.push_back(frame);
         }
         return rows;
@@ -66,16 +66,55 @@ int persistence_selector_demo_scenarios(ContentContext& context) {
     CHECK(load_direct(14));
     press(RETRO_DEVICE_ID_JOYPAD_DOWN); press(RETRO_DEVICE_ID_JOYPAD_RIGHT); // target
     press(RETRO_DEVICE_ID_JOYPAD_DOWN); press(RETRO_DEVICE_ID_JOYPAD_RIGHT); // direction
-    press(RETRO_DEVICE_ID_JOYPAD_DOWN); press(RETRO_DEVICE_ID_JOYPAD_RIGHT); // blinking
-    for (int row = 0; row < 4; ++row) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
-    press(RETRO_DEVICE_ID_JOYPAD_LEFT); // shots, independent of score
+    press(RETRO_DEVICE_ID_JOYPAD_DOWN); press(RETRO_DEVICE_ID_JOYPAD_LEFT); // random target size
+    press(RETRO_DEVICE_ID_JOYPAD_DOWN); press(RETRO_DEVICE_ID_JOYPAD_LEFT); // random shots speed, independent of rally speed
+    press(RETRO_DEVICE_ID_JOYPAD_DOWN); press(RETRO_DEVICE_ID_JOYPAD_LEFT); // shots, independent of score
     retro_unload_game();
     for (unsigned id = 0; id < 15; ++id) {
         CHECK(load_direct(id)); saved_rows.push_back(menu_rows(id)); retro_unload_game();
         CHECK(!same_menu(saved_rows[id][0], default_rows[id][0]));
     }
+    // Racing has three modes; save narrow independently of the other games.
+    CHECK(load_direct(15));
+    press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    auto racing_spacious = frame;
+    press(RETRO_DEVICE_ID_JOYPAD_RIGHT);
+    auto racing_narrow = frame;
+    CHECK(!same_menu(racing_spacious, racing_narrow));
+    press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    const auto speed_high = frame;
+    press(RETRO_DEVICE_ID_JOYPAD_RIGHT);
+    const auto speed_low = frame;
+    CHECK(!same_menu(speed_high, speed_low));
+    press(RETRO_DEVICE_ID_JOYPAD_RIGHT);
+    const auto speed_medium = frame;
+    CHECK(!same_menu(speed_low, speed_medium) && !same_menu(speed_high, speed_medium));
+    press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(same_menu(frame, speed_low));
+    press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(same_menu(frame, speed_high));
+    press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(same_menu(frame, speed_medium));
+    // The four upcoming options must not alter either persisted Racing setting.
+    for (unsigned row = 0; row < 4; ++row) {
+        press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+        const auto inert = frame;
+        press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(same_menu(frame, inert));
+        press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(same_menu(frame, inert));
+    }
+    for (unsigned row = 0; row < 4; ++row) press(RETRO_DEVICE_ID_JOYPAD_UP);
+    CHECK(same_menu(frame, speed_medium));
+    press(RETRO_DEVICE_ID_JOYPAD_UP);
+    racing_narrow = frame;
+    press(RETRO_DEVICE_ID_JOYPAD_RIGHT); const auto racing_two_player = frame;
+    CHECK(!same_menu(racing_two_player, racing_narrow) && !same_menu(racing_two_player, racing_spacious));
+    press(RETRO_DEVICE_ID_JOYPAD_RIGHT); racing_spacious = frame;
+    CHECK(!same_menu(racing_spacious, racing_two_player) && !same_menu(racing_spacious, racing_narrow));
+    press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(same_menu(frame, racing_narrow));
+    retro_reset(); buttons = 0; retro_run();
+    press(RETRO_DEVICE_ID_JOYPAD_DOWN); CHECK(same_menu(frame, racing_narrow));
+    retro_unload_game();
+    CHECK(load_direct(15)); press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    CHECK(same_menu(frame, racing_narrow)); retro_unload_game();
     CHECK(fs::exists(settings_file));
-    // Reset and reload must preserve every row, including the scrolled shooting rows.
+    // Reset and reload must preserve every row, including random Shooting size and speed.
     for (unsigned id = 0; id < 15; ++id) {
         CHECK(load_direct(id)); retro_reset(); buttons = 0; retro_run();
         CHECK(check_rows(id, saved_rows[id])); retro_unload_game();
@@ -84,6 +123,15 @@ int persistence_selector_demo_scenarios(ContentContext& context) {
     for (unsigned id = 0; id < 15; ++id) {
         CHECK(load_direct(id)); CHECK(check_rows(id, saved_rows[id])); retro_unload_game();
     }
+    CHECK(load_direct(15)); press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    CHECK(same_menu(frame, racing_narrow));
+    press(RETRO_DEVICE_ID_JOYPAD_DOWN); CHECK(same_menu(frame, speed_medium));
+    press(RETRO_DEVICE_ID_JOYPAD_UP);
+    press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(same_menu(frame, racing_two_player));
+    retro_unload_game(); retro_deinit(); retro_init();
+    CHECK(load_direct(15)); press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    CHECK(same_menu(frame, racing_two_player));
+    press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(same_menu(frame, racing_spacious)); retro_unload_game();
     // Selector launches and direct launches share the same persisted settings.
     CHECK(retro_load_game(nullptr)); buttons = 0; retro_run();
     for (unsigned position = 0; position < 15; ++position) {

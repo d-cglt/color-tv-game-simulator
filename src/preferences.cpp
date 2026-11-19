@@ -61,13 +61,13 @@ bool atomic_write(const std::filesystem::path& path, const unsigned char* data,
 }
 
 bool valid(const Data& data) {
-    if (data[0] != 'C' || data[1] != 'T' || data[2] != 'G' || data[3] != 'P' || data[4] != 1 ||
+    if (data[0] != 'C' || data[1] != 'T' || data[2] != 'G' || data[3] != 'P' || data[4] != 5 ||
         data[5] > 1 || data[6] > 1 || data[7] > 1 ||
         data[8] < 5 || data[8] > 30 || data[8] % 5 ||
         data[9] < 5 || data[9] > 30 || data[9] % 5 ||
-        data[10] > 4 || data[11] > 2 || data[12] > 2) return false;
-    for (std::size_t i = 13; i < data.size(); ++i) if (data[i] > 3) return false;
-    return true;
+        data[10] > 4 || data[11] > 3 || data[12] > 2) return false;
+    for (std::size_t i = 13; i < 27; ++i) if (data[i] > 3) return false;
+    return data[27] <= 2 && data[28] <= 2 && data[29] <= 2 && data[30] <= 2;
 }
 }
 
@@ -76,8 +76,19 @@ bool read(const std::filesystem::path& path, Data& data) noexcept {
         if (path.empty()) return false;
         std::ifstream file(path, std::ios::binary);
         Data record{};
-        if (!file.read(reinterpret_cast<char*>(record.data()), record.size()) ||
-            file.peek() != std::char_traits<char>::eof() || file.bad() || !valid(record)) return false;
+        if (!file.read(reinterpret_cast<char*>(record.data()), 27)) return false;
+        const unsigned version = record[4];
+        if (version < 1 || version > 5) return false;
+        const std::size_t extra = version - 1;
+        if (extra && !file.read(reinterpret_cast<char*>(&record[27]), extra)) return false;
+        if (file.peek() != std::char_traits<char>::eof() || file.bad()) return false;
+        if (version < 3) {
+            if (record[11] > 2) return false;
+            record[28] = record[5];
+        }
+        if (version < 5) record[30] = 2;
+        record[4] = 5;
+        if (!valid(record)) return false;
         data = record;
         return true;
     } catch (...) { return false; }

@@ -47,8 +47,8 @@ int main() {
     CHECK(fs::create_directory(base));
     const Cleanup cleanup{base};
     const auto path = base / "preferences";
-    const pref::Data golden{{'C', 'T', 'G', 'P', 1, 1, 0, 1, 15, 30, 4, 2, 1,
-                            0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1}};
+    const pref::Data golden{{'C', 'T', 'G', 'P', 5, 1, 0, 1, 15, 30, 4, 3, 1,
+                            0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 2, 1, 2}};
     const Bytes golden_bytes(golden.begin(), golden.end());
     pref::Data sentinel;
     sentinel.fill(0xa5);
@@ -64,6 +64,65 @@ int main() {
     CHECK(get(path) == golden_bytes);
     CHECK(pref::read(path, output));
     CHECK(output == golden);
+    auto two_player = golden;
+    two_player[29] = 2;
+    CHECK(pref::write(path, two_player, rng));
+    CHECK(get(path) == Bytes(two_player.begin(), two_player.end()));
+    CHECK(pref::read(path, output) && output == two_player);
+
+    auto legacy = golden_bytes;
+    legacy[4] = 1;
+    legacy.resize(27);
+    legacy[11] = 2;
+    for (unsigned legacy_slot = 0; legacy_slot <= 2; ++legacy_slot) {
+        legacy[12] = static_cast<unsigned char>(legacy_slot);
+        CHECK(put(path, legacy));
+        output = sentinel;
+        CHECK(pref::read(path, output));
+        auto expected = golden;
+        expected[11] = 2;
+        expected[12] = static_cast<unsigned char>(legacy_slot);
+        expected[27] = 0;
+        expected[28] = expected[5];
+        expected[29] = 0;
+        CHECK(output == expected);
+    }
+    legacy.push_back(0);
+    CHECK(put(path, legacy));
+    output = sentinel;
+    CHECK(!pref::read(path, output) && output == sentinel);
+
+    auto v2 = golden_bytes;
+    v2[4] = 2; v2[11] = 2; v2.resize(28);
+    for (unsigned speed = 0; speed < 2; ++speed) {
+        v2[5] = static_cast<unsigned char>(speed);
+        CHECK(put(path, v2));
+        CHECK(pref::read(path, output));
+        auto expected = golden;
+        expected[5] = expected[28] = static_cast<unsigned char>(speed);
+        expected[11] = 2;
+        expected[29] = 0;
+        CHECK(output == expected);
+    }
+    v2[11] = 3;
+    CHECK(put(path, v2));
+    output = sentinel;
+    CHECK(!pref::read(path, output) && output == sentinel);
+
+    auto v3 = golden_bytes;
+    v3[4] = 3; v3.resize(29);
+    CHECK(put(path, v3));
+    CHECK(pref::read(path, output));
+    auto v3_expected = golden; v3_expected[29] = 0;
+    CHECK(output == v3_expected);
+
+    auto v4 = golden_bytes;
+    v4[4] = 4; v4.resize(30);
+    CHECK(put(path, v4));
+    CHECK(pref::read(path, output) && output == golden);
+    v4[29] = 2;
+    CHECK(put(path, v4));
+    CHECK(pref::read(path, output) && output == two_player);
 
     // Exhaust every field independently: this includes both boundaries and holes
     // in the score fields, without relying on write() to validate the fixture.
@@ -76,8 +135,10 @@ int main() {
             else if (field < 8) valid = value <= 1;
             else if (field < 10) valid = value >= 5 && value <= 30 && value % 5 == 0;
             else if (field == 10) valid = value <= 4;
-            else if (field < 13) valid = value <= 2;
-            else valid = value <= 3;
+            else if (field == 11) valid = value <= 3;
+            else if (field == 12) valid = value <= 2;
+            else if (field < 27) valid = value <= 3;
+            else valid = value <= 2;
             CHECK(put(path, bytes));
             output = sentinel;
             CHECK(pref::read(path, output) == valid);
@@ -92,7 +153,7 @@ int main() {
         CHECK(!pref::read(path, output));
         CHECK(output == sentinel);
     }
-    for (const auto size : {28u, 29u, 54u, 4096u}) {
+    for (const auto size : {32u, 54u, 4096u}) {
         auto bytes = golden_bytes;
         bytes.resize(size, 0);
         CHECK(put(path, bytes));

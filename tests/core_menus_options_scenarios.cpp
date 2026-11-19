@@ -133,7 +133,8 @@ int menus_options_scenarios(ContentContext& context, const MenuSnapshot& snapsho
     buttons = buttons2 = 0; keys.fill(false); axes = {{0, 0}};
     bytes[4] = 14; CHECK(retro_load_game(&game)); retro_run();
     const auto shooting_defaults = frame;
-    press(RETRO_DEVICE_ID_JOYPAD_DOWN); // TARGET: Manual, Slow, Normal, Fast, Random.
+    press(RETRO_DEVICE_ID_JOYPAD_DOWN); // TARGET MOVE defaults to Normal.
+    press(RETRO_DEVICE_ID_JOYPAD_LEFT); press(RETRO_DEVICE_ID_JOYPAD_LEFT); // Manual.
     std::vector<std::vector<unsigned char>> targets{frame};
     for (int i = 0; i < 4; ++i) {
         press(RETRO_DEVICE_ID_JOYPAD_RIGHT);
@@ -147,33 +148,24 @@ int menus_options_scenarios(ContentContext& context, const MenuSnapshot& snapsho
     press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(same_menu(frame, disabled_direction));
     press(RETRO_DEVICE_ID_JOYPAD_UP); press(RETRO_DEVICE_ID_JOYPAD_RIGHT); // Slow.
     press(RETRO_DEVICE_ID_JOYPAD_DOWN);
-    std::vector<std::vector<unsigned char>> directions{frame}; // Down, Up, Random.
-    for (int i = 0; i < 2; ++i) {
+    std::vector<std::vector<unsigned char>> directions{frame}; // Down, Up, Random, Bounce.
+    for (int i = 0; i < 3; ++i) {
         press(RETRO_DEVICE_ID_JOYPAD_RIGHT);
         for (const auto& value : directions) CHECK(!same_menu(frame, value));
         directions.push_back(frame);
     }
     press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(same_menu(frame, directions[0]));
-    press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(same_menu(frame, directions[2]));
-    press(RETRO_DEVICE_ID_JOYPAD_DOWN); // BLINKING: On, Random, Off.
-    std::vector<std::vector<unsigned char>> blinkings{frame};
-    for (int i = 0; i < 2; ++i) {
-        press(RETRO_DEVICE_ID_JOYPAD_RIGHT);
-        for (const auto& value : blinkings) CHECK(!same_menu(frame, value));
-        blinkings.push_back(frame);
-    }
-    press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(same_menu(frame, blinkings[0]));
-    press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(same_menu(frame, blinkings[2]));
+    press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(same_menu(frame, directions[3]));
     retro_reset(); buttons = 0; retro_run();
-    for (int i = 0; i < 3; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
-    CHECK(same_menu(frame, blinkings[2]));
+    for (int i = 0; i < 2; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    CHECK(same_menu(frame, directions[3]));
     press(RETRO_DEVICE_ID_JOYPAD_B); press(RETRO_DEVICE_ID_JOYPAD_UP); press(RETRO_DEVICE_ID_JOYPAD_A);
     press(RETRO_DEVICE_ID_JOYPAD_B); press(RETRO_DEVICE_ID_JOYPAD_DOWN); press(RETRO_DEVICE_ID_JOYPAD_A);
-    for (int i = 0; i < 3; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
-    CHECK(same_menu(frame, blinkings[2]));
+    for (int i = 0; i < 2; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    CHECK(same_menu(frame, directions[3]));
     retro_unload_game(); buttons = 0; CHECK(retro_load_game(&game)); retro_run();
-    for (int i = 0; i < 3; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
-    CHECK(same_menu(frame, blinkings[2]));
+    for (int i = 0; i < 2; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    CHECK(same_menu(frame, directions[3]));
     retro_unload_game(); retro_deinit(); retro_init(); buttons = 0;
     CHECK(retro_load_game(&game)); retro_run(); CHECK(same_menu(frame, shooting_defaults));
     retro_unload_game();
@@ -181,12 +173,12 @@ int menus_options_scenarios(ContentContext& context, const MenuSnapshot& snapsho
     // Match the rendered target against every valid once-per-match resolution.
     // Sampling both before and after a shot rules out re-rolling during play, without
     // requiring any particular random draw or assuming consecutive draws differ.
-    struct TargetCandidate { int speed, direction, position; bool blinking, valid; };
+    struct TargetCandidate { int speed, direction, position; bool valid; };
     auto check_random_match = [&](bool manual) {
         std::vector<TargetCandidate> candidates;
-        for (int speed : {6, 11, 16}) for (int direction : {-1, 1}) for (bool blinking : {false, true})
+        for (int speed : {6, 11, 16}) for (int direction : {-1, 1})
             if (!manual || (speed == 6 && direction == -1))
-                candidates.push_back({speed, direction, 405, blinking, true});
+                candidates.push_back({speed, direction, 405, true});
         for (int tick = 1; tick <= 200; ++tick) {
             buttons = tick == 26 ? 1u << RETRO_DEVICE_ID_JOYPAD_Y : 0;
             buttons2 = manual && tick >= 5 && tick < 10 ? 1u << RETRO_DEVICE_ID_JOYPAD_DOWN : 0;
@@ -198,7 +190,7 @@ int menus_options_scenarios(ContentContext& context, const MenuSnapshot& snapsho
                 if (c.position >= 217 * 4) c.position -= 225 * 4;
                 // The shot may cross the target column or flash the screen here.
                 if (tick > 25 && tick < 130) continue;
-                const bool visible = !c.blinking || tick % 32 < 26;
+                const bool visible = (tick % 30) * 2 < 45;
                 const int top = c.position / 4;
                 for (int y = 0; y < 240; ++y) {
                     const bool target_ink = pixel(265, y) == 0xf3d66b;
@@ -214,13 +206,12 @@ int menus_options_scenarios(ContentContext& context, const MenuSnapshot& snapsho
         retro_deinit(); retro_init();
         buttons = buttons2 = 0; keys.fill(false); axes = {{0, 0}};
         bytes[4] = 14; CHECK(retro_load_game(&game)); retro_run();
-        press(RETRO_DEVICE_ID_JOYPAD_DOWN); // TARGET
-        if (!manual) press(RETRO_DEVICE_ID_JOYPAD_LEFT); // Random
+        press(RETRO_DEVICE_ID_JOYPAD_DOWN); // TARGET MOVE
+        if (manual) { press(RETRO_DEVICE_ID_JOYPAD_LEFT); press(RETRO_DEVICE_ID_JOYPAD_LEFT); }
+        else { press(RETRO_DEVICE_ID_JOYPAD_RIGHT); press(RETRO_DEVICE_ID_JOYPAD_RIGHT); } // Random
         press(RETRO_DEVICE_ID_JOYPAD_DOWN); // DIRECTION
-        if (!manual) press(RETRO_DEVICE_ID_JOYPAD_LEFT); // Random
-        press(RETRO_DEVICE_ID_JOYPAD_DOWN); // BLINKING
-        press(RETRO_DEVICE_ID_JOYPAD_RIGHT); // Random
-        for (int i = 0; i < 3; ++i) press(RETRO_DEVICE_ID_JOYPAD_UP);
+        if (!manual) { press(RETRO_DEVICE_ID_JOYPAD_RIGHT); press(RETRO_DEVICE_ID_JOYPAD_RIGHT); } // Random
+        for (int i = 0; i < 2; ++i) press(RETRO_DEVICE_ID_JOYPAD_UP);
         press(RETRO_DEVICE_ID_JOYPAD_START);
         CHECK(check_random_match(manual));
         // One shot was already fired by the trajectory check; fourteen more
@@ -240,67 +231,95 @@ int menus_options_scenarios(ContentContext& context, const MenuSnapshot& snapsho
         retro_unload_game();
     }
 
-    // Each title exposes speed and both sizes; shooting also keeps its target mode.
+    // Rally titles expose two sizes; shooting has an independent target size.
     for (unsigned id = 0; id < 15; ++id) {
         retro_deinit(); retro_init();
         buttons = buttons2 = 0; keys.fill(false); axes = {{0, 0}};
         bytes[4] = static_cast<unsigned char>(id);
         CHECK(retro_load_game(&game)); retro_run();
         auto defaults = frame;
-        // Shooting scrolls through nine rows; other titles show all seven.
-        const unsigned count = id == 14 ? 9 : 7;
+        const unsigned count = 7;
         for (unsigned row = 0; row < count; ++row) {
             const unsigned choice = (row + 1) % count;
-            const unsigned visible = id == 14 ? (choice >= 5 ? 4 : choice) : choice;
-            CHECK(at(frame, 75, (id == 14 ? 98 : 88) + visible * (id == 14 ? 16 : 15)) == 0x295166);
-            if (id != 14) CHECK(at(frame, 160, 87) != 0xffffff && at(frame, 156, 181) != 0xffffff);
+            CHECK(at(frame, 75, 88 + choice * 15) == 0x295166);
+            CHECK(at(frame, 160, 87) != 0xffffff && at(frame, 156, 181) != 0xffffff);
             press(RETRO_DEVICE_ID_JOYPAD_DOWN);
         }
         CHECK(same_menu(frame, defaults));
         press(RETRO_DEVICE_ID_JOYPAD_DOWN); // Mode or target.
-        if (id == 14) { press(RETRO_DEVICE_ID_JOYPAD_DOWN); press(RETRO_DEVICE_ID_JOYPAD_DOWN); }
-        press(RETRO_DEVICE_ID_JOYPAD_DOWN); // Speed.
+        if (id == 14) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+        press(RETRO_DEVICE_ID_JOYPAD_DOWN); // Rally speed or Shooting target size.
         auto low = frame; press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(!same_menu(frame, low));
-        press(RETRO_DEVICE_ID_JOYPAD_DOWN); // Left size.
+        press(RETRO_DEVICE_ID_JOYPAD_DOWN); // P1 size or Shooting shots speed.
         if (id != 14) CHECK(at(frame, 117, 151) == 0x70e0ff); // Z in P1 SIZE.
         auto large_left = frame; press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(!same_menu(frame, large_left));
-        press(RETRO_DEVICE_ID_JOYPAD_DOWN); // Right size.
-        auto large_right = frame; press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(!same_menu(frame, large_right));
+        if (id != 14) {
+            press(RETRO_DEVICE_ID_JOYPAD_DOWN); // P2 size.
+            auto large_right = frame; press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(!same_menu(frame, large_right));
+        } else {
+            auto small = frame; press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(!same_menu(frame, small));
+            press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(same_menu(frame, large_left));
+            press(RETRO_DEVICE_ID_JOYPAD_RIGHT); // High shots speed.
+        }
 
         retro_reset(); retro_run();
-        if (id == 14) {
-            // The changed speed and sizes are below the initial viewport.
-            for (int i = 0; i < 4; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
-            CHECK(at(frame, 75, 162) == 0x295166);
-            for (int i = 0; i < 4; ++i) press(RETRO_DEVICE_ID_JOYPAD_UP);
-        } else CHECK(!same_menu(frame, defaults)); // Switches survive reset.
+        CHECK(!same_menu(frame, defaults)); // Switches survive reset.
         press(RETRO_DEVICE_ID_JOYPAD_START);
         const std::uint32_t paddle_color = id == 14 ? 0xf3d66b : id >= 12 ? 0x9b8cff : id >= 8 ? 0xa6e6ff : id >= 4 ? 0xff9fff : 0xd0ecb2;
         CHECK(at(frame, 49, 117) == paddle_color);
         CHECK(at(frame, 49, 109) == paddle_color);
-        CHECK(at(frame, 49, 103) != paddle_color);
+        CHECK((at(frame, 49, 103) == paddle_color) == (id == 14));
         press(RETRO_DEVICE_ID_JOYPAD_START); // Pause, then restart.
         press(RETRO_DEVICE_ID_JOYPAD_DOWN); press(RETRO_DEVICE_ID_JOYPAD_A);
         CHECK(at(frame, 49, 109) == paddle_color);
-        CHECK(at(frame, 49, 103) != paddle_color);
+        CHECK((at(frame, 49, 103) == paddle_color) == (id == 14));
         retro_unload_game(); buttons = 0;
         CHECK(retro_load_game(&game)); retro_run();
-        for (int i = 0; i < (id == 14 ? 4 : 2); ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+        for (int i = 0; i < (id == 14 ? 3 : 2); ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
         CHECK(!same_menu(frame, low));
         retro_unload_game();
     }
-    // Both size switches independently control the complete paddle rectangles.
-    for (unsigned id = 0; id < 15; ++id) {
+    // Rally paddle preferences do not affect the independent Shooting sizes.
+    for (unsigned settings = 0; settings < 4; ++settings) {
+        const bool target_small = (settings & 1) != 0;
+        const bool shots_high = (settings & 2) != 0;
+        retro_deinit(); retro_init();
+        buttons = buttons2 = 0; keys.fill(false); axes = {{0, 0}};
+        bytes[4] = 0; CHECK(retro_load_game(&game)); retro_run();
+        for (int i = 0; i < 3; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+        press(RETRO_DEVICE_ID_JOYPAD_RIGHT);
+        press(RETRO_DEVICE_ID_JOYPAD_DOWN); press(RETRO_DEVICE_ID_JOYPAD_RIGHT);
+        retro_unload_game();
+        bytes[4] = 14; CHECK(retro_load_game(&game)); retro_run();
+        for (int i = 0; i < 3; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN); // TARGET SIZE
+        if (target_small) press(RETRO_DEVICE_ID_JOYPAD_RIGHT);
+        press(RETRO_DEVICE_ID_JOYPAD_DOWN); // SHOTS SPEED
+        if (shots_high) press(RETRO_DEVICE_ID_JOYPAD_RIGHT);
+        for (int i = 0; i < 4; ++i) press(RETRO_DEVICE_ID_JOYPAD_UP);
+        press(RETRO_DEVICE_ID_JOYPAD_START);
+        for (int side = 0; side < 2; ++side) {
+            const int x = side ? 265 : 49;
+            const int height = (side ? target_small : !shots_high) ? 16 : 32;
+            int top = 0;
+            while (top < 240 && at(frame, x, top) != 0xf3d66b) ++top;
+            CHECK(top > 0 && top + height < 240);
+            for (int y = top - 1; y <= top + height; ++y)
+                CHECK((at(frame, x, y) == 0xf3d66b) == (y >= top && y < top + height));
+        }
+        retro_unload_game();
+    }
+    // Both rally size switches independently control the complete paddle rectangles.
+    for (unsigned id = 0; id < 14; ++id) {
         for (unsigned sizes = 0; sizes < 4; ++sizes) {
             retro_deinit(); retro_init();
             buttons = buttons2 = 0; keys.fill(false); axes = {{0, 0}};
             bytes[4] = static_cast<unsigned char>(id);
             CHECK(retro_load_game(&game)); retro_run();
-            for (int i = 0; i < (id == 14 ? 5 : 3); ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+            for (int i = 0; i < (id == 14 ? 4 : 3); ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
             if (sizes & 1) press(RETRO_DEVICE_ID_JOYPAD_RIGHT);
             press(RETRO_DEVICE_ID_JOYPAD_DOWN);
             if (sizes & 2) press(RETRO_DEVICE_ID_JOYPAD_RIGHT);
-            for (int i = 0; i < (id == 14 ? 6 : 4); ++i) press(RETRO_DEVICE_ID_JOYPAD_UP);
+            for (int i = 0; i < (id == 14 ? 5 : 4); ++i) press(RETRO_DEVICE_ID_JOYPAD_UP);
             press(RETRO_DEVICE_ID_JOYPAD_START);
             for (int side = 0; side < 2; ++side) {
                 const int x = side ? 265 : 49;
@@ -395,7 +414,7 @@ int menus_options_scenarios(ContentContext& context, const MenuSnapshot& snapsho
     // SHOTS cycles independently of SCORE and survives switches, reset, and both restarts.
     retro_deinit(); retro_init();
     buttons = buttons2 = 0; bytes[4] = 14; CHECK(retro_load_game(&game)); retro_run();
-    for (int i = 0; i < 7; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    for (int i = 0; i < 5; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
     std::vector<std::vector<unsigned char>> shots{frame};
     for (int i = 0; i < 5; ++i) {
         press(RETRO_DEVICE_ID_JOYPAD_RIGHT);
@@ -406,16 +425,16 @@ int menus_options_scenarios(ContentContext& context, const MenuSnapshot& snapsho
     press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(same_menu(frame, shots[5]));
     press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(same_menu(frame, shots[4])); // 5
     retro_reset(); buttons = 0; retro_run();
-    for (int i = 0; i < 7; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    for (int i = 0; i < 5; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
     CHECK(same_menu(frame, shots[4]));
     press(RETRO_DEVICE_ID_JOYPAD_B); press(RETRO_DEVICE_ID_JOYPAD_UP); press(RETRO_DEVICE_ID_JOYPAD_A);
     for (int i = 0; i < 5; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
     auto competitive_default = frame;
     press(RETRO_DEVICE_ID_JOYPAD_RIGHT); auto competitive_changed = frame;
     press(RETRO_DEVICE_ID_JOYPAD_B); press(RETRO_DEVICE_ID_JOYPAD_DOWN); press(RETRO_DEVICE_ID_JOYPAD_A);
-    for (int i = 0; i < 7; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    for (int i = 0; i < 5; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
     CHECK(same_menu(frame, shots[4]));
-    for (int i = 0; i < 7; ++i) press(RETRO_DEVICE_ID_JOYPAD_UP);
+    for (int i = 0; i < 5; ++i) press(RETRO_DEVICE_ID_JOYPAD_UP);
     press(RETRO_DEVICE_ID_JOYPAD_START);
     press(RETRO_DEVICE_ID_JOYPAD_START); press(RETRO_DEVICE_ID_JOYPAD_DOWN); press(RETRO_DEVICE_ID_JOYPAD_A);
     for (int round = 0; round < 2; ++round) {
@@ -427,10 +446,10 @@ int menus_options_scenarios(ContentContext& context, const MenuSnapshot& snapsho
         if (round == 0) press(RETRO_DEVICE_ID_JOYPAD_A);
     }
     press(RETRO_DEVICE_ID_JOYPAD_DOWN); press(RETRO_DEVICE_ID_JOYPAD_A);
-    for (int i = 0; i < 7; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    for (int i = 0; i < 5; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
     CHECK(same_menu(frame, shots[4]));
     press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(same_menu(frame, shots[3])); // 30
-    for (int i = 0; i < 7; ++i) press(RETRO_DEVICE_ID_JOYPAD_UP);
+    for (int i = 0; i < 5; ++i) press(RETRO_DEVICE_ID_JOYPAD_UP);
     press(RETRO_DEVICE_ID_JOYPAD_START);
     for (int shot = 0; shot < 30; ++shot) {
         press(RETRO_DEVICE_ID_JOYPAD_Y);
@@ -443,7 +462,7 @@ int menus_options_scenarios(ContentContext& context, const MenuSnapshot& snapsho
     for (int i = 0; i < 5; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
     CHECK(same_menu(frame, competitive_changed) && !same_menu(frame, competitive_default));
     retro_unload_game(); buttons = 0; CHECK(retro_load_game(&game)); retro_run();
-    for (int i = 0; i < 7; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    for (int i = 0; i < 5; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
     CHECK(same_menu(frame, shots[3]));
     retro_unload_game();
 

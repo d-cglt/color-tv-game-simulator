@@ -39,7 +39,7 @@ struct RacingTraffic {
 struct RacingState {
     RacingRect road{racing_road_x, 0, racing_road_columns * racing_cell_width, racing_road_rows * racing_cell_height};
     RacingRect player{(320 - racing_car_width) / 2, 224 - racing_car_height, racing_car_width, racing_car_height};
-    std::array<RacingTraffic, 1> traffic{};
+    std::array<RacingTraffic, 2> traffic{};
     unsigned frame = 0;
     // Prototype speed units; road movement uses an additional 16/9 scale.
     unsigned speed = racing_start_speed, selected_speed = racing_low_speed, movement_remainder = 0, road_scroll = 0;
@@ -50,8 +50,15 @@ struct RacingState {
     bool finished = false;
     bool narrow = false; // Left-hand road, with a boundary at racing_x(26).
     bool two_players = false;
+    bool wall_crash = false;
+    bool zigzag = false;
+    int path_position = 0; // Fixed-point pixels, denominator 60.
+    int path_direction = 1;
+    int extra_path_position = 0;
+    int extra_path_direction = 1;
+    bool more_cars = false; // Two active entries per participating player when enabled.
     RacingRect player2{(320 - racing_car_width) / 2, 224 - racing_car_height, racing_car_width, racing_car_height};
-    std::array<RacingTraffic, 1> traffic2{};
+    std::array<RacingTraffic, 2> traffic2{};
     unsigned score2 = 0, collisions2 = 0;
     bool section_collided2 = false;
     unsigned blink_samples = 0, blink_samples2 = 0;
@@ -93,6 +100,8 @@ public:
     // Configuration persists across reset; enabling does not reopen a finished game.
     void set_endless(bool enabled) { endless_ = enabled; }
     void set_car_collision(bool enabled) { car_collision_ = enabled; }
+    // Wall crashes are optional and the setting persists across resets.
+    void set_wall_crash(bool enabled) { state_.wall_crash = enabled; }
     // HIGH lever speed: 0 low, 1 medium, 2 high; LOW is always low.
     // In two-player mode both lanes accelerate to the switch-selected speed;
     // either player's collision slows the shared speed during recovery.
@@ -103,6 +112,9 @@ public:
     // Changing mode resets the game. Two players use separate halves of the road;
     // narrow geometry is ignored until returning to single-player mode.
     void set_two_players(bool enabled);
+    // Changing traffic density resets the game; configuration persists across resets.
+    void set_more_cars(bool enabled);
+    void set_zigzag(bool enabled);
     void reset_preview();
     // Restores both players' positions in two-player mode, clamped to their lanes.
     void reset_from_layout(const RacingState& layout);
@@ -115,12 +127,19 @@ public:
 
 private:
     void steer(RacingInput input, bool second = false);
-    int opponent_x(bool second = false);
+    int opponent_x();
+    void arrange_extra_traffic();
+    void advance_path();
+    void randomize_path(unsigned index);
+    void randomize_paths();
+    void apply_path();
     RacingState state_{};
     bool endless_ = false;
     bool car_collision_ = true;
     bool narrow_ = false;
     bool two_players_ = false;
+    bool more_cars_ = false;
+    bool zigzag_ = false;
     unsigned high_gear_speed_ = max_speed;
     std::mt19937 random_{1};
     int steering_remainder_ = 0, steering_remainder2_ = 0;

@@ -61,6 +61,9 @@ struct RenderState {
     ScoreOverride scores;
     bool rally_score_visible = true;
     unsigned racing_speed = 2; // HIGH lever selection: 0 low, 1 medium, 2 high.
+    bool racing_more_cars = false;
+    bool racing_wall_crash = false;
+    bool racing_zigzag = false;
 };
 
 class Renderer : public Graphics {

@@ -32,6 +32,16 @@ int persistence_selector_demo_scenarios(ContentContext& context) {
         if (!retro_load_game(&direct)) return false;
         retro_run(); return true;
     };
+    auto saved_opponents = [&]() {
+        std::ifstream in(settings_file, std::ios::binary);
+        std::vector<unsigned char> record((std::istreambuf_iterator<char>(in)), {});
+        return record.size() >= 150 && record[4] == 9 ? record[5 + (31 - 5) * 5 + 4] : -1;
+    };
+    auto saved_wall_crash = [&]() {
+        std::ifstream in(settings_file, std::ios::binary);
+        std::vector<unsigned char> record((std::istreambuf_iterator<char>(in)), {});
+        return record.size() >= 150 && record[4] == 9 ? record[5 + (32 - 5) * 5 + 4] : -1;
+    };
     auto menu_rows = [&](unsigned id) {
         std::vector<std::vector<unsigned char>> rows{frame};
         for (unsigned row = 1; row < 7u; ++row) {
@@ -92,13 +102,33 @@ int persistence_selector_demo_scenarios(ContentContext& context) {
     press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(same_menu(frame, speed_low));
     press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(same_menu(frame, speed_high));
     press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(same_menu(frame, speed_medium));
-    // The four upcoming options must not alter either persisted Racing setting.
-    for (unsigned row = 0; row < 4; ++row) {
-        press(RETRO_DEVICE_ID_JOYPAD_DOWN);
-        const auto inert = frame;
-        press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(same_menu(frame, inert));
-        press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(same_menu(frame, inert));
+    // BAD ROAD is inert; WALL CRASH toggles in both directions.
+    press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    const auto bad_road = frame;
+    press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(same_menu(frame, bad_road));
+    press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(same_menu(frame, bad_road));
+    press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    CHECK(saved_wall_crash() == 0);
+    press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(saved_wall_crash() == 1);
+    press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(saved_wall_crash() == 0);
+    press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(saved_wall_crash() == 1);
+    press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    const auto opponents_off = frame;
+    press(RETRO_DEVICE_ID_JOYPAD_LEFT);
+    const auto opponents_on = frame;
+    CHECK(saved_opponents() == 1);
+    CHECK(!same_menu(opponents_off, opponents_on));
+    press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(saved_opponents() == 0); CHECK(same_menu(frame, opponents_off));
+    press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(saved_opponents() == 1); CHECK(same_menu(frame, opponents_on));
+    press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    const auto straight = frame;
+    press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(!same_menu(frame, straight));
+    {
+        std::ifstream in(settings_file, std::ios::binary);
+        std::vector<unsigned char> record((std::istreambuf_iterator<char>(in)), {});
+        CHECK(record.size() >= 150 && record[4] == 9 && record[149] == 1);
     }
+    press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(same_menu(frame, straight));
     for (unsigned row = 0; row < 4; ++row) press(RETRO_DEVICE_ID_JOYPAD_UP);
     CHECK(same_menu(frame, speed_medium));
     press(RETRO_DEVICE_ID_JOYPAD_UP);
@@ -114,6 +144,12 @@ int persistence_selector_demo_scenarios(ContentContext& context) {
     CHECK(load_direct(15)); press(RETRO_DEVICE_ID_JOYPAD_DOWN);
     CHECK(same_menu(frame, racing_narrow)); retro_unload_game();
     CHECK(fs::exists(settings_file));
+    const std::vector<unsigned char> future_entry{0x34, 0x12, 3, 0, 0, 0xff, 42};
+    {
+        std::ofstream out(settings_file, std::ios::binary | std::ios::app);
+        out.write(reinterpret_cast<const char*>(future_entry.data()), future_entry.size());
+        CHECK(out.good());
+    }
     // Reset and reload must preserve every row, including random Shooting size and speed.
     for (unsigned id = 0; id < 15; ++id) {
         CHECK(load_direct(id)); retro_reset(); buttons = 0; retro_run();
@@ -125,13 +161,32 @@ int persistence_selector_demo_scenarios(ContentContext& context) {
     }
     CHECK(load_direct(15)); press(RETRO_DEVICE_ID_JOYPAD_DOWN);
     CHECK(same_menu(frame, racing_narrow));
+    CHECK(saved_wall_crash() == 1);
     press(RETRO_DEVICE_ID_JOYPAD_DOWN); CHECK(same_menu(frame, speed_medium));
+    for (unsigned row = 0; row < 2; ++row) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    // A failed save is retried on unload without dropping unknown entries.
+    save_available = false;
+    press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(saved_wall_crash() == 1);
+    save_available = true;
+    retro_unload_game(); CHECK(saved_wall_crash() == 0);
+    CHECK(load_direct(15));
+    for (unsigned row = 0; row < 4; ++row) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(saved_wall_crash() == 1);
+    press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    CHECK(same_menu(frame, opponents_on));
+    for (unsigned row = 0; row < 3; ++row) press(RETRO_DEVICE_ID_JOYPAD_UP);
     press(RETRO_DEVICE_ID_JOYPAD_UP);
     press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(same_menu(frame, racing_two_player));
     retro_unload_game(); retro_deinit(); retro_init();
     CHECK(load_direct(15)); press(RETRO_DEVICE_ID_JOYPAD_DOWN);
     CHECK(same_menu(frame, racing_two_player));
     press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(same_menu(frame, racing_spacious)); retro_unload_game();
+    {
+        std::ifstream in(settings_file, std::ios::binary);
+        std::vector<unsigned char> record((std::istreambuf_iterator<char>(in)), {});
+        CHECK(record.size() >= future_entry.size());
+        CHECK(std::equal(future_entry.begin(), future_entry.end(), record.end() - future_entry.size()));
+    }
     // Selector launches and direct launches share the same persisted settings.
     CHECK(retro_load_game(nullptr)); buttons = 0; retro_run();
     for (unsigned position = 0; position < 15; ++position) {

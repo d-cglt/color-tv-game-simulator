@@ -494,9 +494,15 @@ bool test_racing_modes() {
         rows[row] = frame;
         for (unsigned previous = 1; previous < row; ++previous)
             CHECK(!same_racing_menu(rows[row], rows[previous]));
-        if (row >= 4) {
+        if (row == 4) {
             press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(same_racing_menu(frame, rows[row]));
             press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(same_racing_menu(frame, rows[row]));
+        } else if (row == 5 || row == 6 || row == 7) {
+            press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(!same_racing_menu(frame, rows[row]));
+            const auto enabled = frame;
+            press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(same_racing_menu(frame, rows[row]));
+            press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(same_racing_menu(frame, enabled));
+            press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(same_racing_menu(frame, rows[row]));
         }
     }
     press(RETRO_DEVICE_ID_JOYPAD_DOWN); rows[0] = frame;
@@ -520,7 +526,7 @@ bool test_racing_modes() {
     // Three modes wrap in both directions.
     press(RETRO_DEVICE_ID_JOYPAD_RIGHT); const auto two_player = frame;
     CHECK(!same_menu(two_player, spacious) && !same_menu(two_player, narrow));
-    CHECK(pixel(200, 230) == 0x39b800);
+    CHECK(pixel(200, 230) == 0x287b53);
     press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(same_menu(frame, spacious));
     press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(same_menu(frame, two_player));
     press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(same_menu(frame, narrow));
@@ -629,6 +635,26 @@ bool test_racing_modes() {
         changed_score += (pixel(174 + x, y) == 0xffffff) != (old_right == 0xffffff);
     }
     CHECK(left_ink > 0 && right_ink > 0 && changed_score > 0);
+
+    // Enable MORE CARS in spacious mode and verify paired traffic reaches gameplay.
+    retro_reset(); retro_run();
+    press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    press(RETRO_DEVICE_ID_JOYPAD_RIGHT); // Two players -> spacious.
+    for (unsigned n = 0; n < 4; ++n) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    press(RETRO_DEVICE_ID_JOYPAD_RIGHT);
+    for (unsigned n = 0; n < 5; ++n) press(RETRO_DEVICE_ID_JOYPAD_UP);
+    press(RETRO_DEVICE_ID_JOYPAD_START);
+    bool paired_traffic = false;
+    for (unsigned n = 0; n < 180 && !paired_traffic; ++n) {
+        retro_run();
+        for (unsigned y = 9; y < 194 && !paired_traffic; ++y)
+            for (unsigned x = 54; x < 162; ++x)
+                if (pixel(x, y) == 0xf5ed48 && pixel(x + 104, y) == 0xf5ed48) {
+                    paired_traffic = true;
+                    break;
+                }
+    }
+    CHECK(paired_traffic);
     retro_unload_game();
     return true;
 }

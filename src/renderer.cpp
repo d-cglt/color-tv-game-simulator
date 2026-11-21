@@ -200,7 +200,7 @@ void Renderer::render_racing_score(const ctg::RacingState& s, ScoreOverride scor
 void Renderer::render_racing(const ctg::Racing& game, bool show_score, bool player_visible, ScoreOverride scores) {
     const auto& s = game.state();
     pixels.fill(0x66594a);
-    const std::uint32_t road_color = s.narrow && !s.two_players ? 0x6514a4 : 0x39b800;
+    const std::uint32_t road_color = s.two_players ? 0x287b53 : s.narrow ? 0x6514a4 : 0x39b800;
     const std::uint32_t border_color = s.narrow && !s.two_players ? 0xd9b5f5 : 0xc3f5df;
     rect(s.road.x, s.road.y, s.road.width, s.road.height, road_color);
     constexpr int road_period = ctg::racing_road_dash_length + ctg::racing_road_gap_length;
@@ -224,11 +224,16 @@ void Renderer::render_racing(const ctg::Racing& game, bool show_score, bool play
             piece(car.x + 4 * cw, car.y + (row + 1) * ch - 1, cw, 2);
         }
     };
-    for (const auto& car : s.traffic)
+    const unsigned traffic_count = s.more_cars ? 2 : 1;
+    for (unsigned i = 0; i < traffic_count; ++i) {
+        const auto& car = s.traffic[i];
         car_shape(car.rect, car.collided ? 0xffc782 : 0xf5ed48, true);
+    }
     if (s.two_players)
-        for (const auto& car : s.traffic2)
+        for (unsigned i = 0; i < traffic_count; ++i) {
+            const auto& car = s.traffic2[i];
             car_shape(car.rect, car.collided ? 0xffc782 : 0xf5ed48, true);
+        }
     const auto blink_visible = [](unsigned remaining) {
         return !remaining || ((racing_blink_total_samples - remaining) / racing_blink_segment_samples) % 2 == 0;
     };
@@ -330,8 +335,23 @@ void Renderer::render(const RenderState& state) {
             } else {
                 if (state.content_id == 15) {
                     const char* speeds[] = {"LOW", "MEDIUM", "HIGH"};
+                    if (i == racing_car_path_row) {
+                        text(75, y + 3, "CAR PATH", color);
+                        horizontal_arrow(151, y + 6, true, color);
+                        text(167, y + 3, state.racing_zigzag ? "ZIGZAG" : "STRAIGHT", color);
+                        horizontal_arrow(218, y + 6, false, color);
+                        continue;
+                    }
+                    if (i == racing_opponents_row || i == racing_wall_crash_row) {
+                        const bool wall_crash = i == racing_wall_crash_row;
+                        text(75, y + 3, wall_crash ? "WALL CRASH" : "MORE CARS", color);
+                        horizontal_arrow(151, y + 6, true, color);
+                        text(167, y + 3, (wall_crash ? state.racing_wall_crash : state.racing_more_cars) ? "ON" : "OFF", color);
+                        horizontal_arrow(218, y + 6, false, color);
+                        continue;
+                    }
                     if (i >= racing_bad_road_row) {
-                        const char* labels[] = {"BAD ROAD", "WALL CRASH", "OPPONENTS", "CAR PATH"};
+                        const char* labels[] = {"BAD ROAD", "WALL CRASH", "MORE CARS", "CAR PATH"};
                         text(75, y + 3, labels[i - racing_bad_road_row], 0x888888);
                         text(167, y + 3, "IN DEV", 0x888888);
                         continue;
@@ -384,6 +404,7 @@ void Renderer::render(const RenderState& state) {
             }
         }
         if (layout.scroll && first + layout.rows < count) arrow(181, false);
+
     }
 }
 void Renderer::diagnostic_menu(bool grid, ScoreOverride scores, bool car_collision, unsigned choice) {

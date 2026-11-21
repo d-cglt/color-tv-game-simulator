@@ -252,6 +252,7 @@ Latest development check: a clean Linux Debug build with `-Wall -Wextra -Wpedant
 
 - [x] Make demo previews follow applicable selected game options, with independent demo randomness. Score and shot limits and opponent mode do not govern previews; Racing carries its preview road and traffic layout into the race, with the player centered in the selected lane.
 - [x] User confirmed option-aware previews and the narrow Racing result background in RetroArch.
+- [x] Improve fast rally demos by allowing human-rate paddle motion; add fast Ping-Pong rally regressions for both paddle sizes. Seek frontend feedback and continue assessing other variants.
 - [ ] Organize core options by topic, such as gameplay, video and audio; check category support and fallback behavior in Libretro frontends.
 - [ ] Explore a core option to hide and deactivate features not present on the original hardware, such as vibration, single-player AI and custom options. Define the affected features using available evidence, and design how previous settings are restored when the mode is disabled; hiding options may depend on frontend support.
 - [ ] Add an option to prevent switching to another game when the core was launched with a specific content selector, while preserving normal selection for no-content launches.
@@ -348,7 +349,10 @@ The current scope includes **one player on a spacious or narrow road and newly i
 - [x] Following the user's original-console observation, slow both lanes when either player collides, then accelerate them together after recovery; seek frontend confirmation.
 - [x] Use the same randomly selected lane-relative opponent position in both two-player lanes, following the user's reference; seek frontend confirmation.
 - [x] User confirmed two-player score and behavior in RetroArch; original-hardware fidelity and exact colors remain unverified.
+- [x] Implement MORE CARS: side-by-side opponents in spacious 1P per user observation, and provisional half-section spacing in narrow 1P and 2P pending evidence. User confirmed the implementation in RetroArch; document the unverified spacing.
 - [x] Show the four future Racing switches as disabled IN DEV menu rows; no unimplemented behavior is enabled.
+- [x] Add provisional WALL CRASH behavior with automatic wall clearance and temporary invulnerability during recovery. Treat road-edge dash gaps as solid pending evidence; the user confirmed WALL CRASH in RetroArch.
+- [x] Add provisional zigzag traffic and version 9 settings migration; the user confirmed the latest zigzag changes and settings migration in RetroArch. Packaged binaries remain unvalidated in a real frontend.
 - [ ] In later increments, recreate the seven reported configurations and all 16 combinations of four binary difficulty switches, exposing all 112 advertised combinations with intuitive settings and original numbering where verified. Further research wide/narrow roads, speed combinations, two-player track and speed fidelity, straight/zigzag traffic, optional roadside collisions, bad-road steering hazards, one/two opponents, road scrolling and markers, crashes, scoring, timers, game-over, restart, graphics and sound. Investigate optional AI assistance only as a clearly labeled modern addition; do not assume any details verified.
 - [ ] Test every base game and its 16 combinations or document evidence-backed exceptions; cover steering limits, digital and analog input, multiplayer, collision boundaries, scoring, timing, configuration, restart and transitions with deterministic tests. Compare visuals, sound and play with recordings and hardware where available, then record representative real-frontend playthroughs and limitations.
 

@@ -147,6 +147,69 @@ int main() {
             CHECK(same(demo, original));
         }
     }
+    // Fast Ping-Pong previews must develop rallies rather than repeatedly miss the serve.
+    for (unsigned id : {12u, 13u}) for (bool small : {false, true}) {
+        ctg::Demo d;
+        ctg::DemoOptions options;
+        options.high_speed = true;
+        options.small_paddle = {{small, small}};
+        unsigned hits = 0, points = 0, rally_hits = 0, longest_rally = 0;
+        for (unsigned frame = 0; frame < 12000; ++frame) {
+            const unsigned events = d.step(id, false, true, options);
+            if (events & ctg::sound_paddle) {
+                ++hits;
+                ++rally_hits;
+                if (rally_hits > longest_rally) longest_rally = rally_hits;
+            }
+            if (events & ctg::sound_point) { ++points; rally_hits = 0; }
+        }
+        CHECK(hits >= 50 && longest_rally >= 5 && points > 0);
+    }
+    // Fast paddle tracking pauses before reversing, on either side.
+    for (unsigned id = 0; id < 14; ++id) for (bool small : {false, true}) {
+        ctg::Demo d;
+        ctg::DemoOptions options;
+        options.high_speed = true;
+        options.small_paddle = {{small, small}};
+        d.step(id, false, true, options);
+        std::array<int, 2> previous{};
+        std::array<unsigned, 2> moves{}, stopped{};
+        for (unsigned frame = 0; frame < 4000; ++frame) {
+            const auto before = d.tennis.state().paddle_y;
+            const unsigned events = d.step(id, false, true, options);
+            for (unsigned side = 0; side < 2; ++side) {
+                const int delta = d.tennis.state().paddle_y[side] - before[side];
+                const int direction = (delta > 0) - (delta < 0);
+                if (!(events & ctg::sound_point)) {
+                    if (direction) {
+                        CHECK(previous[side] != -direction || stopped[side] >= 2);
+                        ++moves[side];
+                        previous[side] = direction;
+                        stopped[side] = 0;
+                    } else ++stopped[side];
+                } else { previous[side] = 0; stopped[side] = 0; }
+            }
+        }
+        CHECK(moves[0] > 10 && moves[1] > 10);
+    }
+    // Reset and slot changes discard the fast tracking history.
+    {
+        ctg::Demo reused, fresh;
+        ctg::DemoOptions options;
+        options.high_speed = true;
+        for (unsigned i = 0; i < 1000; ++i) reused.step(12, false, true, options);
+        reused.reset();
+        for (unsigned i = 0; i < 1000; ++i) {
+            CHECK(reused.step(12, false, true, options) == fresh.step(12, false, true, options));
+            CHECK(same(reused.tennis.state(), fresh.tennis.state()));
+        }
+        reused.step(15, false, true, options);
+        fresh.reset();
+        for (unsigned i = 0; i < 1000; ++i) {
+            CHECK(reused.step(13, false, true, options) == fresh.step(13, false, true, options));
+            CHECK(same(reused.tennis.state(), fresh.tennis.state()));
+        }
+    }
     // Rally options apply immediately, survive scoring resets, and follow slot changes.
     for (unsigned id = 0; id < 14; ++id) {
         ctg::Demo d;
@@ -191,6 +254,81 @@ int main() {
         options.racing_mode = 0;
         d.step(0, false, true, options); d.step(15, false, true, options);
         CHECK(!d.racing.state().narrow);
+    }
+    // Traffic density applies on entry and live changes without disrupting the visible layout.
+    for (unsigned mode : {0u, 1u, 2u}) for (bool initial : {false, true}) {
+        ctg::Demo d;
+        ctg::DemoOptions options;
+        options.racing_mode = mode;
+        options.racing_more_cars = initial;
+        d.step(0, false, true, options);
+        d.step(15, false, true, options);
+        CHECK(d.racing.state().more_cars == initial);
+        CHECK(d.racing.state().narrow == (mode == 1));
+        CHECK(d.racing.state().two_players == (mode == 2));
+        for (unsigned i = 0; i < 11; ++i) d.step(15, false, true, options);
+        for (unsigned toggle = 0; toggle < 2; ++toggle) {
+            const auto before = d.racing.state();
+
+            options.racing_more_cars = !options.racing_more_cars;
+            d.step(15, false, true, options);
+            const auto& after = d.racing.state();
+            CHECK(after.more_cars == options.racing_more_cars);
+            CHECK(after.narrow == (mode == 1));
+            CHECK(after.two_players == (mode == 2));
+            CHECK(same(before.player, after.player));
+            CHECK(after.road_scroll == (before.road_scroll + ctg::racing_road_dash_length + ctg::racing_road_gap_length - ctg::Racing::low_speed / ctg::Racing::frames_per_second) % (ctg::racing_road_dash_length + ctg::racing_road_gap_length));
+            CHECK(after.traffic[0].rect.y == before.traffic[0].rect.y - static_cast<int>(ctg::Racing::low_speed / ctg::Racing::frames_per_second));
+            if (options.racing_more_cars && mode == 0) {
+                CHECK(after.traffic[1].rect.x == after.traffic[0].rect.x + ctg::racing_center_column * ctg::racing_cell_width);
+                CHECK(after.traffic[1].rect.y == after.traffic[0].rect.y);
+            }
+            if (options.racing_more_cars && mode == 2) {
+                CHECK(after.traffic2[1].rect.x == after.traffic[1].rect.x + ctg::racing_center_column * ctg::racing_cell_width);
+                CHECK(after.traffic2[1].rect.y == after.traffic[1].rect.y);
+            }
+        }
+        d.reset();
+        d.step(15, false, true, options);
+        CHECK(d.racing.state().more_cars == initial);
+    }
+    // Enabling extra traffic after movement retains its intended phase through wraps.
+    for (unsigned mode : {0u, 1u, 2u}) for (unsigned frames : {11u, 70u, 150u, 275u}) {
+        ctg::Demo d;
+        ctg::DemoOptions options;
+        options.racing_mode = mode;
+        for (unsigned i = 0; i < frames; ++i) d.step(15, false, true, options);
+        options.racing_more_cars = true;
+        for (unsigned i = 0; i < 300; ++i) {
+            d.step(15, false, true, options);
+            const auto& state = d.racing.state();
+            constexpr int period = ctg::racing_road_dash_length + ctg::racing_road_gap_length;
+            static_assert(period == 270, "Unexpected racing preview period");
+            const int difference = state.traffic[0].rect.y - state.traffic[1].rect.y;
+            const int phase = (difference % period + period) % period;
+            CHECK(phase == (mode == 0 ? 0 : 135));
+            if (mode == 0) {
+                CHECK(state.traffic[1].rect.x == state.traffic[0].rect.x + ctg::racing_center_column * ctg::racing_cell_width);
+            } else if (mode == 2) {
+                for (unsigned car = 0; car < 2; ++car) {
+                    CHECK(state.traffic2[car].rect.y == state.traffic[car].rect.y);
+                    CHECK(state.traffic2[car].rect.x == state.traffic[car].rect.x + ctg::racing_center_column * ctg::racing_cell_width);
+                }
+            }
+        }
+    }
+    // Preview random choices must not affect an independent gameplay instance.
+    {
+        ctg::Racing game, control;
+        ctg::Demo preview;
+        ctg::DemoOptions options;
+        for (unsigned i = 0; i < 3000; ++i) {
+            options.racing_mode = (i / 200) % 3;
+            options.racing_more_cars = (i / 100) % 2;
+            preview.step(15, false, true, options);
+            CHECK(game.step() == control.step());
+            CHECK(same(game.state(), control.state()));
+        }
     }
     // Racing preview chooses a new legal position on each wrap in either mode.
     for (unsigned mode : {0u, 1u}) {

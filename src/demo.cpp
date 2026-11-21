@@ -3,6 +3,24 @@
 #include <utility>
 
 namespace ctg {
+void Demo::reset_paddle_smoothing() {
+    paddle_direction_.fill(0);
+    reversal_frames_.fill(0);
+}
+
+int Demo::smooth_paddle(unsigned side, int direction) {
+    if (!direction) {
+        reversal_frames_[side] = 0;
+        return 0;
+    }
+    if (paddle_direction_[side] && direction != paddle_direction_[side]) {
+        if (++reversal_frames_[side] < 3) return 0;
+    }
+    reversal_frames_[side] = 0;
+    paddle_direction_[side] = direction;
+    return direction;
+}
+
 void Demo::resolve_shooting_settings(const DemoOptions& options) {
     const unsigned target = options.shooting_target == 4
         ? std::uniform_int_distribution<unsigned>(1, 3)(shooting_random_)
@@ -28,15 +46,34 @@ unsigned Demo::step(unsigned id, bool rebound, bool anti, const DemoOptions& opt
         tennis.set_anti_stalemate(anti);
         racing.set_two_players(options.racing_mode == 2);
         racing.set_narrow(options.racing_mode == 1);
+        racing.set_more_cars(options.racing_more_cars);
+        racing.set_zigzag(options.racing_zigzag);
         racing.reset_preview();
         shooting = ctg::Shooting{};
         shooting_random_.seed(1);
         for (auto& ai : opponents_) ai.reset();
+        reset_paddle_smoothing();
     }
+    if (!changed_game && options.high_speed != options_.high_speed) reset_paddle_smoothing();
     if (id == 15) {
+        if (!changed_game && options.racing_zigzag != options_.racing_zigzag)
+            racing.set_zigzag(options.racing_zigzag);
         if (!changed_game && options.racing_mode != options_.racing_mode) {
             racing.set_two_players(options.racing_mode == 2);
             racing.set_narrow(options.racing_mode == 1);
+        }
+        if (!changed_game && options.racing_more_cars != options_.racing_more_cars) {
+            auto layout = racing.state();
+            racing.set_more_cars(options.racing_more_cars);
+            if (options.racing_more_cars) {
+                layout.traffic[1] = racing.state().traffic[1];
+                layout.traffic2[1] = racing.state().traffic2[1];
+                if (options.racing_mode != 0) {
+                    constexpr int half_period = (racing_road_dash_length + racing_road_gap_length) / 2;
+                    layout.traffic[1].rect.y = layout.traffic[0].rect.y - half_period;
+                }
+            }
+            racing.reset_from_layout(layout);
         }
     } else if (id == 14) {
         if (changed_game || options.shooting_target != options_.shooting_target ||
@@ -69,12 +106,18 @@ unsigned Demo::step(unsigned id, bool rebound, bool anti, const DemoOptions& opt
         std::swap(mirrored.paddle_y[0], mirrored.paddle_y[1]);
         std::swap(mirrored.small_paddle[0], mirrored.small_paddle[1]);
         const unsigned difficulty = (frame_ / 180) % 2 == 0 ? 3 : 1;
-        const int left = opponents_[0].step(mirrored, difficulty);
-        const int right = opponents_[1].step(tennis.state(), difficulty);
-        events = tennis.step({left, right, {false, false}});
+        int left = opponents_[0].step(mirrored, difficulty);
+        int right = opponents_[1].step(tennis.state(), difficulty);
+        if (options.high_speed) {
+            left = smooth_paddle(0, left);
+            right = smooth_paddle(1, right);
+        }
+        // Fast previews need human-rate paddle motion to keep up with the ball.
+        events = tennis.step({left, right, {options.high_speed, options.high_speed}});
         if (events & ctg::sound_point) {
             tennis.reset();
             for (auto& ai : opponents_) ai.reset();
+            reset_paddle_smoothing();
         }
     }
     events &= sound_mask;

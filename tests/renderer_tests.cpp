@@ -376,9 +376,9 @@ constexpr std::uint64_t expected[] = {
     UINT64_C(0x453fff079a9f443a), // id=15 kind=3 choice=2 effect=0
     UINT64_C(0x8e41b006aee44f62), // id=15 kind=3 choice=3 effect=0
     UINT64_C(0x3fb813e110146344), // id=15 kind=3 choice=4 effect=0
-    UINT64_C(0xec2ba185a95f4405), // id=15 kind=3 choice=5 effect=0
-    UINT64_C(0x1f494ab06d58c3b4), // id=15 kind=3 choice=6 effect=0
-    UINT64_C(0x3863448cb3815f28), // id=15 kind=3 choice=7 effect=0
+    UINT64_C(0x412cd48c1b021a02), // id=15 kind=3 choice=5 effect=0
+    UINT64_C(0x7e9942fcde235935), // id=15 kind=3 choice=6 effect=0
+    UINT64_C(0xccccbf57690e6f8a), // id=15 kind=3 choice=7 effect=0
     UINT64_C(0x582794b47a6cb7fc), // id=15 kind=4 choice=0 effect=0
     UINT64_C(0xc9cad7302c236436), // id=15 kind=4 choice=1 effect=0
     UINT64_C(0xf0c95b87644ee6e6), // id=15 kind=4 choice=2 effect=0
@@ -534,7 +534,7 @@ int main() {
         if (renderer->pixels[100 * 320 + 108] != 0xffa0cdu ||
             renderer->pixels[100 * 320 + 208] != 0xf5ed48u) return 1;
     }
-    // Two-player lines use the wide-road palette and share the edge scroll phase.
+    // Two-player lines share the edge scroll phase.
     for (unsigned phase : {0u, 15u, 100u, 239u, 269u}) {
         ctg::Racing game;
         game.set_two_players(true);
@@ -548,7 +548,7 @@ int main() {
         renderer->render_racing(game, false);
         for (int y = 0; y < 240; ++y) {
             const int relative = (y - static_cast<int>(phase) + 270) % 270;
-            const unsigned color = relative < 240 ? 0xc3f5dfu : 0x39b800u;
+            const unsigned color = relative < 240 ? 0xc3f5dfu : 0x287b53u;
             for (int x : {54, 57, 158, 159, 160, 161, 262, 265})
                 if (renderer->pixels[y * 320 + x] != color) return 1;
         }
@@ -559,19 +559,68 @@ int main() {
         renderer->render_racing(game, true, false);
         if (renderer->pixels[100 * 320 + 88] != 0x98ff8du ||
             renderer->pixels[100 * 320 + 208] != 0x98ff8du ||
-            renderer->pixels[8 * 320 + 228] != 0x39b800u ||
+            renderer->pixels[8 * 320 + 228] != 0x287b53u ||
             renderer->pixels[9 * 320 + 228] != 0xffc782u) return 1;
         state.blink_samples = ctg::racing_blink_total_samples - ctg::racing_blink_segment_samples;
         renderer->render_racing(game, true, false);
-        if (renderer->pixels[100 * 320 + 88] != 0x39b800u ||
+        if (renderer->pixels[100 * 320 + 88] != 0x287b53u ||
             renderer->pixels[100 * 320 + 208] != 0x98ff8du) return 1;
         state.blink_samples = 0;
         state.blink_samples2 = ctg::racing_blink_total_samples - ctg::racing_blink_segment_samples;
         renderer->render_racing(game, true, false);
         if (renderer->pixels[100 * 320 + 88] != 0x98ff8du ||
-            renderer->pixels[100 * 320 + 208] != 0x39b800u) return 1;
+            renderer->pixels[100 * 320 + 208] != 0x287b53u) return 1;
         renderer->render_racing(game, false, false);
         if (renderer->pixels[100 * 320 + 208] != 0x98ff8du) return 1;
+    }
+    // Extra traffic is active only when enabled, and the second lane only in two-player mode.
+    for (int mode = 0; mode < 3; ++mode) for (bool more : {false, true}) {
+        ctg::Racing game;
+        auto& state = const_cast<ctg::RacingState&>(game.state());
+        state.narrow = mode == 1;
+        state.two_players = mode == 2;
+        state.more_cars = more;
+        state.player = {70, 180, ctg::racing_car_width, ctg::racing_car_height};
+        state.player2 = {200, 180, ctg::racing_car_width, ctg::racing_car_height};
+        state.traffic[0].rect = {80, 60, ctg::racing_car_width, ctg::racing_car_height};
+        state.traffic[1].rect = {110, 60, ctg::racing_car_width, ctg::racing_car_height};
+        state.traffic[1].collided = true;
+        state.traffic2[0].rect = {180, 60, ctg::racing_car_width, ctg::racing_car_height};
+        state.traffic2[1].rect = {210, 60, ctg::racing_car_width, ctg::racing_car_height};
+        auto renderer = std::make_unique<ctg::Renderer>();
+        renderer->render_racing(game, false);
+        const auto pixel = [&](int x) { return renderer->pixels[60 * 320 + x + 8]; };
+        const unsigned road = mode == 1 ? 0x6514a4u : mode == 2 ? 0x287b53u : 0x39b800u;
+        if (pixel(80) != 0xf5ed48u || pixel(110) != (more ? 0xffc782u : road) ||
+            pixel(180) != (mode == 2 ? 0xf5ed48u : road) ||
+            pixel(210) != (mode == 2 && more ? 0xf5ed48u : road)) {
+            std::fprintf(stderr, "Racing extra traffic mismatch mode=%d more=%d\n", mode, more);
+            return 1;
+        }
+    }
+    // Extra opponents use the same top and bottom clipping as the first opponent.
+    for (int top : {-30, -7, 8, 9, 194, 213, 223, 224, 240}) {
+        ctg::Racing game;
+        auto& state = const_cast<ctg::RacingState&>(game.state());
+        state.two_players = true;
+        state.more_cars = true;
+        state.player.x = 70;
+        state.player2.x = 180;
+        state.traffic[0].rect.x = 80;
+        state.traffic2[0].rect.x = 180;
+        state.traffic[1].rect = {110, top, ctg::racing_car_width, ctg::racing_car_height};
+        state.traffic2[1].rect = {210, top, ctg::racing_car_width, ctg::racing_car_height};
+        state.traffic2[1].collided = true;
+        auto renderer = std::make_unique<ctg::Renderer>();
+        renderer->render_racing(game, false);
+        for (int y = 0; y < 240; ++y) {
+            const bool visible = y >= 9 && y < 224 && y >= top && y < top + ctg::racing_car_height;
+            if ((renderer->pixels[y * 320 + 118] == 0xf5ed48u) != visible ||
+                (renderer->pixels[y * 320 + 218] == 0xffc782u) != visible) {
+                std::fprintf(stderr, "Racing extra opponent clipping mismatch top=%d y=%d\n", top, y);
+                return 1;
+            }
+        }
     }
     // Each lane has an independent two-digit score and override.
     {
@@ -730,9 +779,70 @@ int main() {
     static_assert(ctg::menu::shooting_target_size_row == 4 && ctg::menu::shooting_speed_row == 5 && ctg::menu::shooting_shots_row == 6);
     static_assert(ctg::menu::shooting_row_count == 7);
     static_assert(!ctg::menu::launch_layout(ctg::menu::shooting_row_count, ctg::menu::shooting_shots_row).scroll);
-    // Locate the actual glyphs, not just a changed frame hash: all four
-    // unimplemented labels and values remain gray even when selected.
-    for (unsigned choice = 4; choice < 8; ++choice) {
+    // The active MORE CARS row displays the selected OFF/ON value and arrows.
+    {
+        constexpr unsigned choice = ctg::menu::racing_opponents_row;
+        fixtures::Case c{15, fixtures::launch, choice, fixtures::plain};
+        fixtures::Fixture f(c);
+        ctg::RenderState state{15, false, false, false, false, false,
+            choice, choice, choice, choice, true, {true, false}, 21, 30,
+            0, 0, 0, 0, 0, f.modes, f.tennis, f.demo_tennis, f.shooting,
+            f.demo_shooting, f.racing, f.demo_racing, true, {}, true};
+        const auto layout = ctg::menu::launch_layout(8, choice);
+        const unsigned y = layout.y + (choice - layout.first) * layout.spacing;
+        auto renderer = std::make_unique<ctg::Renderer>();
+        auto expected_row = std::make_unique<ctg::Graphics>();
+        for (bool enabled : {false, true}) {
+            state.racing_more_cars = enabled;
+            renderer->render(state);
+            expected_row->pixels.fill(0x295166);
+            expected_row->text(75, y + 3, "MORE CARS", 0x70e0ff);
+            expected_row->horizontal_arrow(151, y + 6, true, 0x70e0ff);
+            expected_row->text(167, y + 3, enabled ? "ON" : "OFF", 0x70e0ff);
+            expected_row->horizontal_arrow(218, y + 6, false, 0x70e0ff);
+            for (unsigned py = y + 3; py < y + 10; ++py)
+                for (unsigned px = 75; px < 225; ++px)
+                    if (renderer->pixels[py * ctg::Graphics::width + px] !=
+                        expected_row->pixels[py * ctg::Graphics::width + px]) {
+                        std::fprintf(stderr, "MORE CARS row mismatch enabled=%d x=%u y=%u\n", enabled, px, py);
+                        return 1;
+                    }
+        }
+    }
+
+    // WALL CRASH shows its value and arrows in both selected and unselected colors.
+    for (bool selected : {false, true}) for (bool enabled : {false, true}) {
+        const unsigned choice = selected ? ctg::menu::racing_wall_crash_row : ctg::menu::racing_opponents_row;
+        fixtures::Case c{15, fixtures::launch, choice, fixtures::plain};
+        fixtures::Fixture f(c);
+        ctg::RenderState state{15, false, false, false, false, false,
+            choice, choice, choice, choice, true, {true, false}, 21, 30,
+            0, 0, 0, 0, 0, f.modes, f.tennis, f.demo_tennis, f.shooting,
+            f.demo_shooting, f.racing, f.demo_racing, true, {}, true};
+        state.racing_wall_crash = enabled;
+        const auto layout = ctg::menu::launch_layout(8, choice);
+        const unsigned y = layout.y + (ctg::menu::racing_wall_crash_row - layout.first) * layout.spacing;
+        const std::uint32_t color = selected ? 0x70e0ff : 0xffffff;
+        auto renderer = std::make_unique<ctg::Renderer>();
+        auto expected_row = std::make_unique<ctg::Graphics>();
+        renderer->render(state);
+        // Compare glyph and arrow pixels against an independently drawn mask.
+        expected_row->pixels.fill(0);
+        expected_row->text(75, y + 3, "WALL CRASH", color);
+        expected_row->horizontal_arrow(151, y + 6, true, color);
+        expected_row->text(167, y + 3, enabled ? "ON" : "OFF", color);
+        expected_row->horizontal_arrow(218, y + 6, false, color);
+        for (unsigned py = y + 3; py < y + 10; ++py)
+            for (unsigned px = 75; px < 225; ++px)
+                if (expected_row->pixels[py * ctg::Graphics::width + px] == color &&
+                    renderer->pixels[py * ctg::Graphics::width + px] != color) {
+                    std::fprintf(stderr, "WALL CRASH row mismatch selected=%d enabled=%d x=%u y=%u\n", selected, enabled, px, py);
+                    return 1;
+                }
+    }
+
+    // Unimplemented labels and values remain gray even when selected.
+    for (unsigned choice : {4u}) {
         fixtures::Case c{15, fixtures::launch, choice, fixtures::plain};
         fixtures::Fixture f(c);
         const ctg::RenderState state{15, false, false, false, false, false,

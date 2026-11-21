@@ -47,28 +47,58 @@ int main() {
     CHECK(fs::create_directory(base));
     const Cleanup cleanup{base};
     const auto path = base / "preferences";
-    const pref::Data golden{{'C', 'T', 'G', 'P', 5, 1, 0, 1, 15, 30, 4, 3, 1,
-                            0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 2, 1, 2}};
+    const pref::Data golden{{'C', 'T', 'G', 'P', 8, 1, 0, 1, 15, 30, 4, 3, 1,
+                            0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 2, 1, 2, 0, 0}};
     const Bytes golden_bytes(golden.begin(), golden.end());
     pref::Data sentinel;
     sentinel.fill(0xa5);
     auto output = sentinel;
     std::mt19937 rng(12345);
-    CHECK(!pref::read({}, output));
+    pref::Unknown unknown;
+    auto read = [&](const fs::path& p, pref::Data& d) { return pref::read(p, d, unknown); };
+    auto write = [&](const fs::path& p, const pref::Data& d, std::mt19937& r) { return pref::write(p, d, unknown, r); };
+    CHECK(!read({}, output));
     CHECK(output == sentinel);
-    CHECK(!pref::read(path, output));
+    CHECK(!read(path, output));
     CHECK(output == sentinel);
-    CHECK(!pref::read(base, output));
+    CHECK(!read(base, output));
     CHECK(output == sentinel);
-    CHECK(pref::write(path, golden, rng));
-    CHECK(get(path) == golden_bytes);
-    CHECK(pref::read(path, output));
+    CHECK(write(path, golden, rng));
+    const Bytes v9_bytes = get(path);
+    CHECK(v9_bytes.size() == 150 && v9_bytes[4] == 9);
+    CHECK(read(path, output));
     CHECK(output == golden);
+    // Unknown IDs and arbitrary binary payloads survive a read-modify-write.
+    const Bytes opaque{0x34, 0x12, 3, 0, 0, 0xff, 42, 0, 0, 0, 0};
+    auto extended = v9_bytes;
+    extended.insert(extended.end(), opaque.begin(), opaque.end());
+    CHECK(put(path, extended));
+    CHECK(read(path, output) && output == golden && unknown == opaque);
+    output[33] = 1;
+    CHECK(write(path, output, rng));
+    CHECK(read(path, output) && output[33] == 1 && unknown == opaque);
+    auto malformed = extended;
+    malformed.push_back(1); // incomplete header
+    CHECK(put(path, malformed));
+    output = sentinel;
+    CHECK(!read(path, output) && output == sentinel && unknown == opaque);
+    malformed = extended; malformed.insert(malformed.end(), {5, 0, 1, 0, 0});
+    CHECK(put(path, malformed));
+    CHECK(!read(path, output)); // duplicate ID
+    malformed = {'C','T','G','P',9, 100,0, 2,0, 1};
+    CHECK(put(path, malformed)); CHECK(!read(path, output));
+    malformed.resize(65537, 0);
+    CHECK(put(path, malformed)); CHECK(!read(path, output));
+    // Missing and invalid known entries use independent factory defaults.
+    CHECK(put(path, {'C','T','G','P',9, 8,0,1,0,7, 33,0,1,0,1, 30,0,2,0,0,0}));
+    CHECK(read(path, output));
+    CHECK(output[8] == 15 && output[9] == 15 && output[10] == 2 && output[30] == 2 && output[33] == 1);
+    CHECK(unknown.empty());
     auto two_player = golden;
     two_player[29] = 2;
-    CHECK(pref::write(path, two_player, rng));
-    CHECK(get(path) == Bytes(two_player.begin(), two_player.end()));
-    CHECK(pref::read(path, output) && output == two_player);
+    CHECK(write(path, two_player, rng));
+
+    CHECK(read(path, output) && output == two_player);
 
     auto legacy = golden_bytes;
     legacy[4] = 1;
@@ -78,7 +108,7 @@ int main() {
         legacy[12] = static_cast<unsigned char>(legacy_slot);
         CHECK(put(path, legacy));
         output = sentinel;
-        CHECK(pref::read(path, output));
+        CHECK(read(path, output));
         auto expected = golden;
         expected[11] = 2;
         expected[12] = static_cast<unsigned char>(legacy_slot);
@@ -90,14 +120,14 @@ int main() {
     legacy.push_back(0);
     CHECK(put(path, legacy));
     output = sentinel;
-    CHECK(!pref::read(path, output) && output == sentinel);
+    CHECK(!read(path, output) && output == sentinel);
 
     auto v2 = golden_bytes;
     v2[4] = 2; v2[11] = 2; v2.resize(28);
     for (unsigned speed = 0; speed < 2; ++speed) {
         v2[5] = static_cast<unsigned char>(speed);
         CHECK(put(path, v2));
-        CHECK(pref::read(path, output));
+        CHECK(read(path, output));
         auto expected = golden;
         expected[5] = expected[28] = static_cast<unsigned char>(speed);
         expected[11] = 2;
@@ -107,22 +137,47 @@ int main() {
     v2[11] = 3;
     CHECK(put(path, v2));
     output = sentinel;
-    CHECK(!pref::read(path, output) && output == sentinel);
+    CHECK(!read(path, output) && output == sentinel);
 
     auto v3 = golden_bytes;
     v3[4] = 3; v3.resize(29);
     CHECK(put(path, v3));
-    CHECK(pref::read(path, output));
+    CHECK(read(path, output));
     auto v3_expected = golden; v3_expected[29] = 0;
     CHECK(output == v3_expected);
 
     auto v4 = golden_bytes;
     v4[4] = 4; v4.resize(30);
     CHECK(put(path, v4));
-    CHECK(pref::read(path, output) && output == golden);
+    CHECK(read(path, output) && output == golden);
     v4[29] = 2;
     CHECK(put(path, v4));
-    CHECK(pref::read(path, output) && output == two_player);
+    CHECK(read(path, output) && output == two_player);
+
+    auto v5 = golden_bytes;
+    v5[4] = 5; v5.resize(31); v5[30] = 0;
+    CHECK(put(path, v5));
+    auto v5_expected = golden; v5_expected[30] = 0;
+    CHECK(read(path, output) && output == v5_expected);
+    auto opponents_on = golden; opponents_on[31] = 1;
+    CHECK(write(path, opponents_on, rng));
+    CHECK(read(path, output) && output == opponents_on);
+
+    auto v6 = golden_bytes;
+    v6[4] = 6; v6.resize(32); v6[31] = 1;
+    CHECK(put(path, v6));
+    CHECK(read(path, output) && output == opponents_on);
+    auto wall_on = golden; wall_on[32] = 1;
+    CHECK(write(path, wall_on, rng));
+    CHECK(read(path, output) && output == wall_on);
+
+    auto v7 = golden_bytes;
+    v7[4] = 7; v7.resize(33);
+    CHECK(put(path, v7));
+    CHECK(read(path, output) && output == golden);
+    auto zigzag_on = golden; zigzag_on[33] = 1;
+    CHECK(write(path, zigzag_on, rng));
+    CHECK(read(path, output) && output == zigzag_on);
 
     // Exhaust every field independently: this includes both boundaries and holes
     // in the score fields, without relying on write() to validate the fixture.
@@ -138,10 +193,11 @@ int main() {
             else if (field == 11) valid = value <= 3;
             else if (field == 12) valid = value <= 2;
             else if (field < 27) valid = value <= 3;
+            else if (field >= 31) valid = value <= 1;
             else valid = value <= 2;
             CHECK(put(path, bytes));
             output = sentinel;
-            CHECK(pref::read(path, output) == valid);
+            CHECK(read(path, output) == valid);
             auto expected = golden;
             expected[field] = static_cast<unsigned char>(value);
             CHECK(output == (valid ? expected : sentinel));
@@ -150,23 +206,19 @@ int main() {
     for (std::size_t size = 0; size < golden.size(); ++size) {
         CHECK(put(path, Bytes(golden_bytes.begin(), golden_bytes.begin() + size)));
         output = sentinel;
-        CHECK(!pref::read(path, output));
+        CHECK(!read(path, output));
         CHECK(output == sentinel);
     }
-    for (const auto size : {32u, 54u, 4096u}) {
+    for (const auto size : {35u, 54u, 4096u}) {
         auto bytes = golden_bytes;
         bytes.resize(size, 0);
         CHECK(put(path, bytes));
         output = sentinel;
-        CHECK(!pref::read(path, output));
+        CHECK(!read(path, output));
         CHECK(output == sentinel);
     }
     auto arbitrary = sentinel;
-    CHECK(pref::write(path, arbitrary, rng));
-    CHECK(get(path) == Bytes(arbitrary.begin(), arbitrary.end()));
-    output = golden;
-    CHECK(!pref::read(path, output));
-    CHECK(output == golden);
+    CHECK(!write(path, arbitrary, rng));
 
     const auto diagnostic = base / "diagnostic";
     const pref::DiagnosticData diag{{'C', 'T', 'G', 'D', 1, 1, 0, 0, 30, 1}};
@@ -221,9 +273,9 @@ int main() {
     const auto unicode_dir = base / fs::u8path(u8"préférences-日本語");
     CHECK(fs::create_directory(unicode_dir));
     const auto unicode_path = unicode_dir / fs::u8path(u8"réglages-遊戯");
-    CHECK(pref::write(unicode_path, golden, rng));
-    CHECK(get(unicode_path) == golden_bytes);
-    CHECK(pref::read(unicode_path, output));
+    CHECK(write(unicode_path, golden, rng));
+    CHECK(get(unicode_path) == v9_bytes);
+    CHECK(read(unicode_path, output));
     CHECK(output == golden);
     CHECK(pref::write_last_game(unicode_path, 15, rng));
     CHECK(get(unicode_path) == Bytes{15});
@@ -234,16 +286,16 @@ int main() {
         const auto dir = base / ("atomic-" + std::to_string(kind));
         CHECK(fs::create_directory(dir));
         const auto target = dir / "target";
-        const Bytes expected = kind == 1 ? Bytes{7} : kind == 2 ? Bytes(diag.begin(), diag.end()) : golden_bytes;
+        const Bytes expected = kind == 1 ? Bytes{7} : kind == 2 ? Bytes(diag.begin(), diag.end()) : v9_bytes;
         const Bytes original{9, 8, 7};
-        auto write = [&](const fs::path& destination, std::mt19937& engine) {
+        auto atomic = [&](const fs::path& destination, std::mt19937& engine) {
             return kind == 1 ? pref::write_last_game(destination, 7, engine)
                  : kind == 2 ? pref::write_diagnostic(destination, diag, engine)
-                             : pref::write(destination, golden, engine);
+                             : write(destination, golden, engine);
         };
-        CHECK(!write({}, rng));
+        CHECK(!atomic({}, rng));
         CHECK(put(target, original));
-        CHECK(write(target, rng));
+        CHECK(atomic(target, rng));
         CHECK(get(target) == expected);
         CHECK(std::distance(fs::directory_iterator(dir), fs::directory_iterator{}) == 1);
 #ifndef _WIN32
@@ -261,10 +313,10 @@ int main() {
         const auto directory_target = dir / "directory";
         CHECK(fs::create_directory(directory_target));
         CHECK(put(directory_target / "keep", original));
-        CHECK(!write(directory_target, rng));
+        CHECK(!atomic(directory_target, rng));
         CHECK(get(directory_target / "keep") == original);
         CHECK(std::distance(fs::directory_iterator(dir), fs::directory_iterator{}) == 2);
-        CHECK(!write(dir / "missing" / "target", rng));
+        CHECK(!atomic(dir / "missing" / "target", rng));
         CHECK(!fs::exists(dir / "missing"));
         CHECK(std::distance(fs::directory_iterator(dir), fs::directory_iterator{}) == 2);
 
@@ -272,7 +324,7 @@ int main() {
         auto prediction = collision_rng;
         const auto collision = temporary(target, prediction);
         CHECK(put(collision, original));
-        CHECK(write(target, collision_rng));
+        CHECK(atomic(target, collision_rng));
         CHECK(get(target) == expected);
         CHECK(get(collision) == original);
         CHECK(std::distance(fs::directory_iterator(dir), fs::directory_iterator{}) == 3);
@@ -286,7 +338,7 @@ int main() {
             collisions.push_back(temporary(target, prediction));
             CHECK(put(collisions.back(), original));
         }
-        CHECK(!write(target, exhausted_rng));
+        CHECK(!atomic(target, exhausted_rng));
         CHECK(get(target) == original);
         for (const auto& entry : collisions) CHECK(get(entry) == original);
         CHECK(std::distance(fs::directory_iterator(dir), fs::directory_iterator{}) == 18);

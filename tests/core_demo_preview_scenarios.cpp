@@ -2,6 +2,7 @@
 
 
 #include <cstring>
+#include <set>
 
 namespace core_test {
 int demo_preview_scenarios(ContentContext& context) {
@@ -128,6 +129,55 @@ int demo_preview_scenarios(ContentContext& context) {
     keys[RETROK_RETURN] = false; retro_run();
     keys[RETROK_RETURN] = true; retro_run(); CHECK(demo_pixel(frame, 75, 103) == 0x295166);
     keys.fill(false); retro_unload_game();
+
+    // Exercise the actual frontend path: select zigzag, launch, then restart
+    // from the pause menu. Inspect the rendered opponent, not engine state.
+    retro_deinit(); retro_init();
+    bytes[4] = 15; buttons = buttons2 = 0; keys.fill(false);
+    CHECK(retro_load_game(&game)); retro_run();
+    for (int i = 0; i < 6; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    press(RETRO_DEVICE_ID_JOYPAD_RIGHT);
+    for (int i = 0; i < 6; ++i) press(RETRO_DEVICE_ID_JOYPAD_UP);
+    auto opponent_x = [] {
+        for (int x = 54; x < 266; ++x)
+            for (int y = 9; y < 180; ++y)
+                if (pixel(x, y) == 0xf5ed48) return x;
+        return -1;
+    };
+    press(RETRO_DEVICE_ID_JOYPAD_START);
+    CHECK(opponent_x() >= 0);
+    bool rerolled = false;
+    for (int i = 0; i < 10; ++i) {
+        const int before = opponent_x();
+        press(RETRO_DEVICE_ID_JOYPAD_START); // pause
+        press(RETRO_DEVICE_ID_JOYPAD_DOWN);  // restart
+        press(RETRO_DEVICE_ID_JOYPAD_A);
+        const int after = opponent_x();
+
+        CHECK(before >= 0 && after >= 0);
+        rerolled |= after < before - 10 || after > before + 10;
+    }
+    CHECK(rerolled);
+    std::set<int> launches;
+    for (int i = 0; i < 16; ++i) {
+        retro_reset(); buttons = 0; retro_run();
+        press(RETRO_DEVICE_ID_JOYPAD_START);
+        const int x = opponent_x(); CHECK(x >= 0); launches.insert(x);
+    }
+    CHECK(launches.size() > 1);
+    buttons = 0; retro_unload_game();
+    launches.clear();
+    for (int i = 0; i < 12; ++i) {
+        retro_deinit(); retro_init(); buttons = 0;
+        CHECK(retro_load_game(&game)); retro_run();
+        for (int row = 0; row < 6; ++row) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+        press(RETRO_DEVICE_ID_JOYPAD_RIGHT);
+        for (int row = 0; row < 6; ++row) press(RETRO_DEVICE_ID_JOYPAD_UP);
+        press(RETRO_DEVICE_ID_JOYPAD_START);
+        const int x = opponent_x(); CHECK(x >= 0); launches.insert(x);
+        buttons = 0; retro_unload_game();
+    }
+    CHECK(launches.size() > 1);
     return 0;
 }
 } // namespace core_test

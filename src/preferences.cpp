@@ -61,24 +61,61 @@ bool atomic_write(const std::filesystem::path& path, const unsigned char* data,
 }
 
 bool valid(const Data& data) {
-    if (data[0] != 'C' || data[1] != 'T' || data[2] != 'G' || data[3] != 'P' || data[4] != 5 ||
+    if (data[0] != 'C' || data[1] != 'T' || data[2] != 'G' || data[3] != 'P' || data[4] != 8 ||
         data[5] > 1 || data[6] > 1 || data[7] > 1 ||
         data[8] < 5 || data[8] > 30 || data[8] % 5 ||
         data[9] < 5 || data[9] > 30 || data[9] % 5 ||
         data[10] > 4 || data[11] > 3 || data[12] > 2) return false;
     for (std::size_t i = 13; i < 27; ++i) if (data[i] > 3) return false;
-    return data[27] <= 2 && data[28] <= 2 && data[29] <= 2 && data[30] <= 2;
+    return data[27] <= 2 && data[28] <= 2 && data[29] <= 2 && data[30] <= 2 && data[31] <= 1 && data[32] <= 1 && data[33] <= 1;
 }
 }
 
-bool read(const std::filesystem::path& path, Data& data) noexcept {
+bool read(const std::filesystem::path& path, Data& data, Unknown& unknown) noexcept {
     try {
         if (path.empty()) return false;
         std::ifstream file(path, std::ios::binary);
         Data record{};
-        if (!file.read(reinterpret_cast<char*>(record.data()), 27)) return false;
+        if (!file.read(reinterpret_cast<char*>(record.data()), 5)) return false;
+        if (record[0] != 'C' || record[1] != 'T' || record[2] != 'G' || record[3] != 'P') return false;
+        if (record[4] == 9) {
+            // Limit input before allocating or parsing; reject truncated or ambiguous records.
+            std::vector<unsigned char> bytes;
+            char c;
+            while (file.get(c)) {
+                if (bytes.size() == 65531) return false;
+                bytes.push_back(static_cast<unsigned char>(c));
+            }
+            if (file.bad()) return false;
+            Data defaults{{'C', 'T', 'G', 'P', 8, 0, 0, 0, 15, 15, 2, 0, 1}};
+            defaults[30] = 2;
+            record = defaults;
+            Unknown extra;
+            std::array<bool, 65536> seen{};
+            for (std::size_t pos = 0; pos < bytes.size();) {
+                if (bytes.size() - pos < 4) return false;
+                const unsigned id = bytes[pos] | (unsigned(bytes[pos + 1]) << 8);
+                const unsigned length = bytes[pos + 2] | (unsigned(bytes[pos + 3]) << 8);
+                if (seen[id] || length > bytes.size() - pos - 4) return false;
+                seen[id] = true;
+                if (id >= 5 && id < record.size()) {
+                    if (length == 1) {
+                        Data candidate = record;
+                        candidate[id] = bytes[pos + 4];
+                        if (valid(candidate)) record = candidate;
+                    }
+                } else {
+                    extra.insert(extra.end(), bytes.begin() + pos, bytes.begin() + pos + 4 + length);
+                }
+                pos += 4 + length;
+            }
+            data = record;
+            unknown = std::move(extra);
+            return true;
+        }
+        if (!file.read(reinterpret_cast<char*>(record.data() + 5), 22)) return false;
         const unsigned version = record[4];
-        if (version < 1 || version > 5) return false;
+        if (version < 1 || version > 8) return false;
         const std::size_t extra = version - 1;
         if (extra && !file.read(reinterpret_cast<char*>(&record[27]), extra)) return false;
         if (file.peek() != std::char_traits<char>::eof() || file.bad()) return false;
@@ -87,15 +124,24 @@ bool read(const std::filesystem::path& path, Data& data) noexcept {
             record[28] = record[5];
         }
         if (version < 5) record[30] = 2;
-        record[4] = 5;
+        record[4] = 8;
         if (!valid(record)) return false;
         data = record;
+        unknown.clear();
         return true;
     } catch (...) { return false; }
 }
 
-bool write(const std::filesystem::path& path, const Data& data, std::mt19937& random) noexcept {
-    return atomic_write(path, data.data(), data.size(), random);
+bool write(const std::filesystem::path& path, const Data& data, const Unknown& unknown, std::mt19937& random) noexcept {
+    try {
+        if (!valid(data) || unknown.size() > 65536 - 5 - 29 * 5) return false;
+        std::vector<unsigned char> bytes{'C', 'T', 'G', 'P', 9};
+        for (unsigned id = 5; id < data.size(); ++id) {
+            bytes.insert(bytes.end(), {static_cast<unsigned char>(id), 0, 1, 0, data[id]});
+        }
+        bytes.insert(bytes.end(), unknown.begin(), unknown.end());
+        return atomic_write(path, bytes.data(), bytes.size(), random);
+    } catch (...) { return false; }
 }
 
 bool read_diagnostic(const std::filesystem::path& path, DiagnosticData& data) noexcept {

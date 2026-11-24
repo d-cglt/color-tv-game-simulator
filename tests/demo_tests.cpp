@@ -1,6 +1,7 @@
 #include "demo.h"
 #include "game_catalog.h"
 #include <cstdio>
+#include <string_view>
 #include <tuple>
 #include <utility>
 
@@ -90,6 +91,8 @@ bool same(const ctg::Demo& demo, const Original& original) {
 }
 
 int main() {
+    CHECK(std::string_view(ctg::titles[15].name) == "RACING 112");
+    CHECK(std::string_view(ctg::titles[15].variant).empty());
     {
         ctg::Demo shooting_demo;
         bool saw_shot = false, saw_hit = false, saw_miss = false, saw_final = false;
@@ -291,6 +294,28 @@ int main() {
         d.reset();
         d.step(15, false, true, options);
         CHECK(d.racing.state().more_cars == initial);
+    }
+    // Changing preview settings during a wiggle must not bake the offset into steering.
+    for (unsigned mode : {0u, 1u, 2u}) for (bool change_mode : {false, true}) {
+        ctg::Demo d;
+        ctg::DemoOptions options;
+        options.racing_mode = mode;
+        options.racing_bad_road = true;
+        d.step(15, false, true, options);
+        auto& state = const_cast<ctg::RacingState&>(d.racing.state());
+        while (!ctg::racing_dirt_at(state, state.player.y + state.player.height / 2) ||
+               !ctg::racing_dirt_at(state, state.player.y + state.player.height / 2 + 40)) state.road_position += 270;
+        const int base1 = d.racing.unwiggled_state().player.x;
+        const int base2 = d.racing.unwiggled_state().player2.x;
+        for (int i = 0; i < 9; ++i) d.step(15, false, true, options);
+        CHECK(state.player.x == base1 - 8);
+        if (mode == 2) CHECK(state.player2.x == base2 - 8);
+        if (change_mode) options.racing_mode = mode == 1 ? 0 : 1;
+        else options.racing_more_cars = true;
+        d.step(15, false, true, options);
+        const auto layout = d.racing.unwiggled_state();
+        CHECK(layout.player.x == (change_mode ? (options.racing_mode == 1 ? 96 : 148) : base1));
+        if (!change_mode && mode == 2) CHECK(layout.player2.x == base2);
     }
     // Enabling extra traffic after movement retains its intended phase through wraps.
     for (unsigned mode : {0u, 1u, 2u}) for (unsigned frames : {11u, 70u, 150u, 275u}) {

@@ -64,6 +64,7 @@ struct RenderState {
     bool racing_more_cars = false;
     bool racing_wall_crash = false;
     bool racing_zigzag = false;
+    bool racing_bad_road = false;
 };
 
 class Renderer : public Graphics {

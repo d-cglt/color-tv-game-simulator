@@ -1,6 +1,7 @@
 #include "racing.h"
 #include <algorithm>
 #include <limits>
+#include <vector>
 
 namespace ctg {
 namespace {
@@ -71,6 +72,49 @@ void Racing::arrange_extra_traffic() {
     }
 }
 
+bool racing_dirt_at(const RacingState& state, int y) {
+    if (!state.bad_road) return false;
+    constexpr std::int64_t period = racing_road_dash_length + racing_road_gap_length;
+    const auto floor_div = [](std::int64_t a, std::int64_t b) {
+        return a / b - (a % b < 0 ? 1 : 0);
+    };
+    const auto section = floor_div(static_cast<std::int64_t>(y) - state.road_position - (racing_road_dash_length - 3 * racing_cell_height), period);
+    // Cache a deterministic renewal schedule in both directions from an origin
+    // stretch. Indexing by stretch keeps queries independent of rendering order.
+    struct Stretch { std::int64_t start, end; };
+    struct Schedule { unsigned seed = 0; bool initialized = false; std::vector<Stretch> forward, backward; };
+    static thread_local Schedule schedule;
+    const auto hash = [&](std::int64_t index) {
+        std::uint32_t h = static_cast<std::uint32_t>(index) ^ state.road_seed;
+        h ^= h >> 16; h *= 0x7feb352dU; h ^= h >> 15; h *= 0x846ca68bU; h ^= h >> 16;
+        return h;
+    };
+    if (!schedule.initialized || schedule.seed != state.road_seed) {
+        schedule = {}; schedule.initialized = true; schedule.seed = state.road_seed;
+        schedule.forward.push_back({0, 5 + (hash(0) & 1)});
+    }
+    if (section >= 0) {
+        auto& runs = schedule.forward;
+        while (section >= runs.back().end) {
+            const auto h = hash(static_cast<std::int64_t>(runs.size()));
+            const auto start = runs.back().end + 5 + h % 8;
+            runs.push_back({start, start + 5 + ((h >> 8) & 1)});
+        }
+        const auto it = std::upper_bound(runs.begin(), runs.end(), section,
+            [](std::int64_t value, const Stretch& run) { return value < run.start; });
+        return it != runs.begin() && section < (it - 1)->end;
+    }
+    auto& runs = schedule.backward;
+    while (runs.empty() || section < runs.back().start) {
+        const auto h = hash(-1 - static_cast<std::int64_t>(runs.size()));
+        const auto end = (runs.empty() ? 0 : runs.back().start) - 5 - h % 8;
+        runs.push_back({end - 5 - ((h >> 8) & 1), end});
+    }
+    const auto it = std::lower_bound(runs.begin(), runs.end(), section,
+        [](const Stretch& run, std::int64_t value) { return run.start > value; });
+    return it != runs.end() && section < it->end;
+}
+
 void Racing::reset() {
     const bool wall_crash = state_.wall_crash;
     state_ = {};
@@ -78,6 +122,10 @@ void Racing::reset() {
     state_.two_players = two_players_;
     state_.more_cars = more_cars_;
     state_.zigzag = zigzag_;
+    state_.bad_road = bad_road_;
+    if (bad_road_) state_.road_seed = road_random_();
+    wiggle_offset_ = wiggle_offset2_ = 0;
+    wiggle_frame_ = wiggle_frame2_ = 0;
     state_.narrow = narrow_ && !two_players_;
     if (state_.narrow) clamp_narrow_layout(state_);
     state_.player.x = two_players_ ? state_.road.x + (racing_x(racing_center_column) + racing_cell_width - state_.road.x - state_.player.width) / 2 : player_center(state_);
@@ -108,6 +156,7 @@ void Racing::set_narrow(bool enabled) {
     const bool changed = narrow_ != enabled;
     narrow_ = enabled;
     if (two_players_) return;
+    if (changed) remove_wiggle();
     state_.narrow = enabled;
     if (enabled) clamp_narrow_layout(state_);
     if (changed) {
@@ -136,6 +185,17 @@ void Racing::set_zigzag(bool enabled) {
     if (zigzag_ == enabled) return;
     zigzag_ = enabled;
     reset();
+}
+
+void Racing::set_bad_road(bool enabled) {
+    if (bad_road_ == enabled) return;
+    remove_wiggle();
+    bad_road_ = state_.bad_road = enabled;
+    wiggle_frame_ = wiggle_frame2_ = 0;
+    if (enabled) {
+        state_.road_position = state_.road_scroll;
+        state_.road_seed = road_random_();
+    }
 }
 
 void Racing::randomize_path(unsigned index) {
@@ -208,6 +268,11 @@ void Racing::reset_from_layout(const RacingState& layout) {
     const auto traffic2 = layout.traffic2;
     reset();
     state_.road_scroll = road_scroll;
+    if (bad_road_) state_.road_position = road_scroll;
+    if (bad_road_ && layout.bad_road) {
+        state_.road_position = layout.road_position;
+        state_.road_seed = layout.road_seed;
+    }
     state_.player = player;
     for (unsigned i = 0; i < state_.traffic.size(); ++i)
         state_.traffic[i].rect = traffic[i].rect;
@@ -245,11 +310,14 @@ void Racing::reset_from_layout(const RacingState& layout) {
 }
 
 void Racing::step_preview(RacingInput input, RacingInput player2) {
+    remove_wiggle();
     steer(input);
     if (two_players_) steer(player2, true);
     constexpr unsigned period = racing_road_dash_length + racing_road_gap_length;
     constexpr int distance = low_speed / frames_per_second;
     state_.road_scroll = (state_.road_scroll + period - distance) % period;
+    if (bad_road_) state_.road_position -= distance;
+    apply_wiggle();
     const unsigned count = more_cars_ ? 2 : 1;
     for (unsigned i = 0; i < count; ++i) {
         auto& car = state_.traffic[i];
@@ -296,11 +364,46 @@ void Racing::steer(RacingInput input, bool second) {
     }
 }
 
+RacingState Racing::unwiggled_state() const {
+    auto layout = state_;
+    layout.player.x -= wiggle_offset_;
+    layout.player2.x -= wiggle_offset2_;
+    return layout;
+}
+
+void Racing::remove_wiggle() {
+    state_.player.x -= wiggle_offset_;
+    state_.player2.x -= wiggle_offset2_;
+    wiggle_offset_ = wiggle_offset2_ = 0;
+}
+
+unsigned Racing::apply_wiggle() {
+    unsigned events = racing_none;
+    const auto apply = [&](RacingRect& player, bool second, unsigned& frame, int& offset) {
+        if (!racing_dirt_at(state_, player.y + player.height / 2)) { frame = 0; return; }
+        const int left = second ? racing_x(racing_center_column) : state_.road.x;
+        if (frame != 0 && frame % 8 == 0 && player.x > left)
+            events |= second ? racing_wiggle_player2 : racing_wiggle_player1;
+        if ((frame / 8) % 2 != 0) {
+            offset = std::max(left - player.x, -2 * racing_cell_width);
+            player.x += offset;
+        }
+        frame = frame == 16 ? 1 : frame + 1;
+    };
+    apply(state_.player, false, wiggle_frame_, wiggle_offset_);
+    if (two_players_) apply(state_.player2, true, wiggle_frame2_, wiggle_offset2_);
+    return events;
+}
+
 unsigned Racing::step(RacingInput input, RacingInput player2) {
     if (state_.finished) return racing_none;
     const bool starting_grace = state_.frames_remaining > duration_frames - frames_per_second;
-    if (starting_grace || !state_.wall_crash || !wall_overlap(state_, state_.player, false)) steer(input);
-    if (two_players_ && (starting_grace || !state_.wall_crash || !wall_overlap(state_, state_.player2, true))) steer(player2, true);
+    const bool wall1 = state_.wall_crash && wall_overlap(state_, state_.player, false);
+    const bool wall2 = two_players_ && state_.wall_crash && wall_overlap(state_, state_.player2, true);
+    const int previous_offset = wiggle_offset_, previous_offset2 = wiggle_offset2_;
+    remove_wiggle();
+    if (starting_grace || !wall1) steer(input);
+    if (two_players_ && (starting_grace || !wall2)) steer(player2, true);
 
     if (!two_players_ && input.select_high_speed != input.select_low_speed) {
         state_.selected_speed = input.select_high_speed ? high_gear_speed_ : low_speed;
@@ -315,13 +418,18 @@ unsigned Racing::step(RacingInput input, RacingInput player2) {
     const bool section_complete = state_.road_scroll < static_cast<unsigned>(state_.road.height) &&
                                   state_.road_scroll + distance >= static_cast<unsigned>(state_.road.height);
     state_.road_scroll = (state_.road_scroll + distance) % (racing_road_dash_length + racing_road_gap_length);
+    if (bad_road_) state_.road_position += distance;
+    unsigned events = apply_wiggle();
+    if (previous_offset && !racing_dirt_at(state_, state_.player.y + state_.player.height / 2))
+        events |= racing_wiggle_player1;
+    if (two_players_ && previous_offset2 && !racing_dirt_at(state_, state_.player2.y + state_.player2.height / 2))
+        events |= racing_wiggle_player2;
 
     const auto advance_blink = [](unsigned& remaining) {
         remaining = remaining > racing_blink_frame_samples ? remaining - racing_blink_frame_samples : 0;
     };
     advance_blink(state_.blink_samples);
     if (two_players_) advance_blink(state_.blink_samples2);
-    unsigned events = racing_none;
     const auto crash = [&](bool second, unsigned& collisions, bool& section_collided) {
         section_collided = true;
         if (collisions < std::numeric_limits<unsigned>::max()) ++collisions;

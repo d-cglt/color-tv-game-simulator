@@ -48,6 +48,7 @@ unsigned Demo::step(unsigned id, bool rebound, bool anti, const DemoOptions& opt
         racing.set_narrow(options.racing_mode == 1);
         racing.set_more_cars(options.racing_more_cars);
         racing.set_zigzag(options.racing_zigzag);
+        racing.set_bad_road(options.racing_bad_road);
         racing.reset_preview();
         shooting = ctg::Shooting{};
         shooting_random_.seed(1);
@@ -56,6 +57,8 @@ unsigned Demo::step(unsigned id, bool rebound, bool anti, const DemoOptions& opt
     }
     if (!changed_game && options.high_speed != options_.high_speed) reset_paddle_smoothing();
     if (id == 15) {
+        if (!changed_game && options.racing_bad_road != options_.racing_bad_road)
+            racing.set_bad_road(options.racing_bad_road);
         if (!changed_game && options.racing_zigzag != options_.racing_zigzag)
             racing.set_zigzag(options.racing_zigzag);
         if (!changed_game && options.racing_mode != options_.racing_mode) {
@@ -63,7 +66,7 @@ unsigned Demo::step(unsigned id, bool rebound, bool anti, const DemoOptions& opt
             racing.set_narrow(options.racing_mode == 1);
         }
         if (!changed_game && options.racing_more_cars != options_.racing_more_cars) {
-            auto layout = racing.state();
+            auto layout = racing.unwiggled_state();
             racing.set_more_cars(options.racing_more_cars);
             if (options.racing_more_cars) {
                 layout.traffic[1] = racing.state().traffic[1];

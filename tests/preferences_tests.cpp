@@ -49,7 +49,7 @@ int main() {
     const auto path = base / "preferences";
     const pref::Data golden{{'C', 'T', 'G', 'P', 8, 1, 0, 1, 15, 30, 4, 3, 1,
                             0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 2, 1, 2, 0, 0}};
-    const Bytes golden_bytes(golden.begin(), golden.end());
+    const Bytes golden_bytes(golden.begin(), golden.begin() + 34);
     pref::Data sentinel;
     sentinel.fill(0xa5);
     auto output = sentinel;
@@ -65,7 +65,7 @@ int main() {
     CHECK(output == sentinel);
     CHECK(write(path, golden, rng));
     const Bytes v9_bytes = get(path);
-    CHECK(v9_bytes.size() == 150 && v9_bytes[4] == 9);
+    CHECK(v9_bytes.size() == 155 && v9_bytes[4] == 9);
     CHECK(read(path, output));
     CHECK(output == golden);
     // Unknown IDs and arbitrary binary payloads survive a read-modify-write.
@@ -179,9 +179,15 @@ int main() {
     CHECK(write(path, zigzag_on, rng));
     CHECK(read(path, output) && output == zigzag_on);
 
+    auto dirt_on = golden; dirt_on[34] = 1;
+    CHECK(write(path, dirt_on, rng));
+    CHECK(read(path, output) && output == dirt_on);
+    CHECK(put(path, {'C','T','G','P',9, 34,0,1,0,2}));
+    CHECK(read(path, output) && output[34] == 0);
+
     // Exhaust every field independently: this includes both boundaries and holes
     // in the score fields, without relying on write() to validate the fixture.
-    for (std::size_t field = 0; field < golden.size(); ++field) {
+    for (std::size_t field = 0; field < golden_bytes.size(); ++field) {
         for (unsigned value = 0; value < 256; ++value) {
             auto bytes = golden_bytes;
             bytes[field] = static_cast<unsigned char>(value);
@@ -203,7 +209,7 @@ int main() {
             CHECK(output == (valid ? expected : sentinel));
         }
     }
-    for (std::size_t size = 0; size < golden.size(); ++size) {
+    for (std::size_t size = 0; size < golden_bytes.size(); ++size) {
         CHECK(put(path, Bytes(golden_bytes.begin(), golden_bytes.begin() + size)));
         output = sentinel;
         CHECK(!read(path, output));

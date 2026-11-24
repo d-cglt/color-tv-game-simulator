@@ -40,8 +40,8 @@ class CoreInfoTests(unittest.TestCase):
             with self.subTest(field=key):
                 self.assertEqual(fields.get(key), value)
         description = fields.get("description", "")
-        for phrase in ("15 playable Color TV-Game 6/15 variants", "Racing 112 prototype",
-                       "not all 112 combinations", "not verified original hardware"):
+        for phrase in ("15 playable Color TV-Game 6/15 variants", "Racing 112 with seven reported configuration groups",
+                       "four selectable switches (112 combinations)", "Additional one-player low gearing", "not verified original hardware"):
             with self.subTest(description=phrase):
                 self.assertIn(phrase, description)
         notes = fields.get("notes", "")

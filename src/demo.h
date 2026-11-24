@@ -15,6 +15,7 @@ struct DemoOptions {
     unsigned racing_mode = 0;
     bool racing_more_cars = false;
     bool racing_zigzag = false;
+    bool racing_bad_road = false;
 };
 
 class Demo {

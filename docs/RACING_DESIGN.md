@@ -1,30 +1,30 @@
-# Racing 112 — first implementation and future design
+# Racing 112 — implementation and future research
 
-The current scope includes **one player on a spacious or narrow road and newly implemented two-player Racing**, with approximate steering and traffic. A separate Racing engine is integrated into the core's selector, direct launch and lifecycle; the user confirmed Racing play and steering in a frontend. Scoring, collisions, timing and presentation are approximations, not verified hardware behavior; see [research notes](RESEARCH.md). The intended selector has **one Racing 112 entry**, not 112 games. The current menu selects spacious, narrow or two-player mode, speed, MORE CARS, WALL CRASH and CAR PATH; BAD ROAD remains disabled. Earlier one-player play and steering and two-player scoring and behavior were confirmed in RetroArch, as was the MORE CARS implementation. The user also confirmed WALL CRASH and the latest zigzag changes in RetroArch; none of these checks establishes historical fidelity or validates a packaged 0.1.9 binary.
+The current scope includes **one player on a spacious or narrow road and two-player Racing**, with approximate steering and traffic. A separate Racing engine is integrated into the core's selector, direct launch and lifecycle; the user confirmed Racing play and steering in a frontend. Scoring, collisions, timing and presentation are approximations, not verified hardware behavior; see [research notes](RESEARCH.md). The selector has **one Racing 112 entry**, not 112 games. The current menu selects spacious, narrow or two-player mode, speed, MORE CARS, WALL CRASH, CAR PATH and BAD ROAD. Earlier one-player play and steering and two-player scoring and behavior were confirmed in RetroArch, as was the MORE CARS implementation. The user also confirmed WALL CRASH and the latest zigzag changes in RetroArch; none of these checks establishes historical fidelity or validates the final 0.2.0 release packages.
 
 ## Launch menu and proposals
 
-The table combines implemented options with proposals; `RETURN` and `START` remain available as in other games. BAD ROAD and a derived game-number label are not implemented. Any future numbering would be provisional, not a claim of verified historical numbering.
+The table describes implemented options; `RETURN` and `START` remain available as in other games. A derived game-number label is not implemented. Any future numbering would be provisional, not a claim of verified historical numbering.
 
 | Setting | Choices | Notes |
 | --- | --- | --- |
 | PLAYERS | 1 PLAYER, 2 PLAYERS | Selects the configuration group. |
 | ROAD | WIDE, NARROW | In two-player mode show WIDE fixed; preserve the one-player selection for later. |
 | SPEED | LOW, MEDIUM, HIGH | In one-player mode the LOW lever is always low and HIGH uses this switch; the user reports fixed switch-selected speed in two-player mode. |
-| BAD ROAD | OFF, ON | Reported hazard; effect requires verification. |
+| BAD ROAD | OFF, ON | Dirt stretches cause steering wiggle; the user confirmed spacing, dirt border color, preview, and vibration on exiting dirt in RetroArch, as well as rumble on dirt; historical behavior remains unverified. Boundary markers on dirt use an approximate warm yellow-orange based on reference imagery; normal-road colors are unchanged. |
 | WALL CRASHES | OFF, ON | Provisional boundary collision switch; default Off. A car moves clear automatically, including over visual road-edge gaps. After any crash, that player is protected against further vehicle and wall collisions during recovery, regardless of this switch; two-player protection is independent even though slowdown is shared. |
 | MORE CARS | OFF, ON | Adds a second opponent. Spacious 1P uses a side-by-side pair; narrow 1P and 2P use provisional half-section spacing. |
 | CAR PATH | STRAIGHT, ZIGZAG | Persistent switch; default Straight. |
 
-Suggested default: one player, wide road, low/medium gears, no bad road, wall crashes off, one opponent and straight traffic. The translated chart labels this provisional game 1. Left/right changes options; up/down navigates; Start begins the chosen configuration. Disable the fixed two-player road setting visibly. Show the selected game's number as a derived label only if it fits the interface; do not imply that unimplemented combinations are playable.
+Left/right changes options; up/down navigates; Start begins the chosen configuration. The two-player road setting is fixed. Historical game numbers are not displayed.
 
-The seven reported configuration groups and four binary switches give 112 combinations. Derive numbering from an **explicit lookup table**, not binary mask order: the translated chart uses a different ordering. See [RESEARCH.md](RESEARCH.md) for the transcription and its limitations. An example from that secondary transcription: two players, medium speed and zigzag only gives provisional game 85. Validate labels, constraints and numbering against original material before calling them historically accurate.
+The seven reported configuration groups and four binary switches give 112 selectable combinations. The SPEED switch also permits one-player low/low gearing, beyond the reported seven groups. Derive numbering from an **explicit lookup table**, not binary mask order: the translated chart uses a different ordering. See [RESEARCH.md](RESEARCH.md) for the transcription and its limitations. An example from that secondary transcription: two players, medium speed and zigzag only gives provisional game 85. Validate labels, constraints and numbering against original material before calling them historically accurate.
 
 ## Content and preferences
 
 - Integrate Racing as an additional selector entry; preserve all current entries, relative order and first-selection behavior.
 - ID 15 (`0F`) is assigned to Racing as one five-byte CTG1 console descriptor, `content/Racing 112 (Color TV Game Racing 112).ctg`. The updated generator includes one corresponding named file, for 16 descriptors in total. IDs 0–14 and existing files retain their meanings. Released older cores reject ID 15; the new descriptor requires an updated core with Racing integration. A descriptor identifies Racing, not a particular configuration.
-- Preserve existing game preferences and saved selections. Racing mode, speed, MORE CARS, WALL CRASH and CAR PATH preferences are saved with the game-menu preferences for no-content and direct launches. Consider separately versioned storage for additional future choices if needed.
+- Preserve existing game preferences and saved selections. Racing mode, speed, MORE CARS, WALL CRASH, CAR PATH and BAD ROAD preferences are saved with the game-menu preferences for no-content and direct launches. Consider separately versioned storage for additional future choices if needed.
 - Separate Racing game state and rules from the Libretro interface; explicitly dispatch gameplay, preview, rendering, input, pause, reset and result paths. Existing rally-specific arrays and logic must never be indexed with the new game ID. Reuse shared facilities only where appropriate.
 - Provide analog steering with a digital alternative, gear and two-player controls, but treat steering response and mappings as provisional until researched. Keep preview state separate from actual games.
 

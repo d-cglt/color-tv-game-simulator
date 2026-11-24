@@ -12,7 +12,8 @@ namespace ctg::preferences {
 // CTGP version 5 adds Racing speed (0 low, 1 medium, 2 high); older records default to high.
 // Version 4 adds Racing mode (0 spacious, 1 narrow, 2 two players); older records default to spacious.
 // Versions before 3 retain Shooting shot speed from the rally speed setting.
-using Data = std::array<unsigned char, 34>;
+// Extensible version 9 entry 34 adds Racing BAD ROAD, default off.
+using Data = std::array<unsigned char, 35>;
 // CTGD, version 1, grid, fixed score, left score, right score, car collision.
 using DiagnosticData = std::array<unsigned char, 10>;
 

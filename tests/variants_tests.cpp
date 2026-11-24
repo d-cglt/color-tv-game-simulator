@@ -494,10 +494,7 @@ bool test_racing_modes() {
         rows[row] = frame;
         for (unsigned previous = 1; previous < row; ++previous)
             CHECK(!same_racing_menu(rows[row], rows[previous]));
-        if (row == 4) {
-            press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(same_racing_menu(frame, rows[row]));
-            press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(same_racing_menu(frame, rows[row]));
-        } else if (row == 5 || row == 6 || row == 7) {
+        if (row == 4 || row == 5 || row == 6 || row == 7) {
             press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(!same_racing_menu(frame, rows[row]));
             const auto enabled = frame;
             press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(same_racing_menu(frame, rows[row]));
@@ -658,6 +655,55 @@ bool test_racing_modes() {
     retro_unload_game();
     return true;
 }
+
+bool test_racing_configuration_matrix() {
+    struct Configuration { unsigned mode, speed; };
+    // Seven chart groups followed by the two extra one-player low/low settings.
+    const Configuration configurations[] = {
+        {0, 1}, {0, 2}, {1, 1}, {1, 2}, {2, 0}, {2, 1}, {2, 2}, {0, 0}, {1, 0}
+    };
+    std::array<unsigned char, 5> content{{'C', 'T', 'G', '1', 15}};
+    retro_game_info game{}; game.data = content.data(); game.size = content.size();
+    for (unsigned group = 0; group < 9; ++group) for (unsigned switches = 0; switches < 16; ++switches) {
+        std::printf("Racing configuration group %u switches %u\n", group, switches);
+        // No save directory is supplied by this frontend, so each initialization
+        // starts with spacious mode, HIGH speed and all four switches off.
+        retro_deinit(); retro_init();
+        buttons[0] = buttons[1] = 0; steering_axis = 0;
+        CHECK(retro_load_game(&game)); retro_run();
+        press(RETRO_DEVICE_ID_JOYPAD_DOWN); // mode
+        for (unsigned i = 0; i < configurations[group].mode; ++i) press(RETRO_DEVICE_ID_JOYPAD_RIGHT);
+        press(RETRO_DEVICE_ID_JOYPAD_DOWN); // speed, initially HIGH
+        for (unsigned speed = 2; speed != configurations[group].speed; speed = (speed + 1) % 3)
+            press(RETRO_DEVICE_ID_JOYPAD_RIGHT);
+        for (unsigned bit = 0; bit < 4; ++bit) {
+            press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+            if (switches & (1u << bit)) {
+                const auto off = frame;
+                press(RETRO_DEVICE_ID_JOYPAD_RIGHT);
+                CHECK(!same_racing_menu(off, frame));
+            }
+        }
+        for (unsigned i = 0; i < 6; ++i) press(RETRO_DEVICE_ID_JOYPAD_UP);
+        press(RETRO_DEVICE_ID_JOYPAD_A); // start from the configured menu
+        const auto pixel = [](int x, int y) {
+            std::uint32_t value;
+            std::memcpy(&value, frame.data() + (y * 320 + x) * 4, sizeof value);
+            return value;
+        };
+        const unsigned mode = configurations[group].mode;
+        const std::uint32_t player_color = mode == 2 ? 0x98ff8d : mode == 1 ? 0xffa0cd : 0xeb65e7;
+        bool left = false, right = false;
+        for (int y = 194; y < 224; ++y) for (int x = 54; x < 266; ++x) {
+            if (pixel(x, y) == player_color) (x < 160 ? left : right) = true;
+        }
+        CHECK(mode == 0 ? left && right : mode == 1 ? left && !right : left && right);
+        CHECK(!audio_frame.empty() && audio_frame[0] != 0);
+        CHECK(!bad_video && !bad_audio);
+        retro_unload_game();
+    }
+    return true;
+}
 }
 
 int main() {
@@ -686,6 +732,11 @@ int main() {
         return 1;
     }
     if (!test_racing_modes()) {
+        retro_unload_game();
+        retro_deinit();
+        return 1;
+    }
+    if (!test_racing_configuration_matrix()) {
         retro_unload_game();
         retro_deinit();
         return 1;

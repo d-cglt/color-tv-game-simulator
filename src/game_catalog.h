@@ -24,7 +24,7 @@ inline constexpr std::array<Title, ctg::slot_count> titles{{
     {"VOLLEYBALL VARIANT", "SINGLES"}, {"VOLLEYBALL VARIANT", "DOUBLES"},
     {"VOLLEYBALL ORIGINAL", "SINGLES"}, {"VOLLEYBALL ORIGINAL", "DOUBLES"},
     {"PING PONG", "SINGLES"}, {"PING PONG", "DOUBLES"},
-    {"SHOOTING GAME", ""}, {"RACING 112 (PROTO)", ""}
+    {"SHOOTING GAME", ""}, {"RACING 112", ""}
 }};
 constexpr unsigned title_length(const char* s) {
     unsigned length = 0;

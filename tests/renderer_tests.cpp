@@ -317,7 +317,7 @@ constexpr std::uint64_t expected[] = {
     UINT64_C(0x3adefa7197222205), // id=12 kind=0 choice=0 effect=0
     UINT64_C(0xf5f3c96d1d3cd7bc), // id=12 kind=1 choice=0 effect=0
     UINT64_C(0x92b3f1b39487442c), // id=12 kind=1 choice=0 effect=1
-    UINT64_C(0x500a5ac2a3f6b6be), // id=12 kind=2 choice=12 effect=0
+    UINT64_C(0xcfa0a0e6d74163b9), // id=12 kind=2 choice=12 effect=0
     UINT64_C(0xb7c590bc3c54c5b8), // id=12 kind=6 choice=0 effect=0
     UINT64_C(0x5b5e145396051142), // id=12 kind=3 choice=0 effect=0
     UINT64_C(0xf6bd36dd47b06bf2), // id=12 kind=3 choice=1 effect=0
@@ -334,7 +334,7 @@ constexpr std::uint64_t expected[] = {
     UINT64_C(0x78ac1018ad338d25), // id=13 kind=0 choice=0 effect=0
     UINT64_C(0xf6b935e52d339fbc), // id=13 kind=1 choice=0 effect=0
     UINT64_C(0x70b3cf25714e1eec), // id=13 kind=1 choice=0 effect=1
-    UINT64_C(0xf0dd9bdf4ca14aa7), // id=13 kind=2 choice=13 effect=0
+    UINT64_C(0x05a48a94d671da54), // id=13 kind=2 choice=13 effect=0
     UINT64_C(0xd8830f562da9af14), // id=13 kind=6 choice=0 effect=0
     UINT64_C(0x0288671a49bb1bb9), // id=13 kind=3 choice=0 effect=0
     UINT64_C(0xd0135e3239f3b835), // id=13 kind=3 choice=1 effect=0
@@ -351,7 +351,7 @@ constexpr std::uint64_t expected[] = {
     UINT64_C(0xfe0bd81cdb27abe5), // id=14 kind=0 choice=0 effect=0
     UINT64_C(0x577ae7e1f856f7e1), // id=14 kind=1 choice=0 effect=0
     UINT64_C(0xf07708fb422eb571), // id=14 kind=1 choice=0 effect=1
-    UINT64_C(0xd8bd37c640f9e893), // id=14 kind=2 choice=14 effect=0
+    UINT64_C(0x040c029a50b5c3bf), // id=14 kind=2 choice=14 effect=0
     UINT64_C(0xa1b31116b3cf593d), // id=14 kind=6 choice=0 effect=0
     UINT64_C(0xac8360fca04df32a), // id=14 kind=3 choice=0 effect=0
     UINT64_C(0x51685b9ba8f0979f), // id=14 kind=3 choice=1 effect=0
@@ -369,29 +369,29 @@ constexpr std::uint64_t expected[] = {
     UINT64_C(0xc1f3757c19b62c1d), // id=15 kind=0 choice=0 effect=0
     UINT64_C(0xadd4ec5dc1cbf9d5), // id=15 kind=1 choice=0 effect=0
     UINT64_C(0xde85234b8f7f40f5), // id=15 kind=1 choice=0 effect=1
-    UINT64_C(0x50a838e884bbc08e), // id=15 kind=2 choice=15 effect=0
-    UINT64_C(0xb8a4a401539c1aef), // id=15 kind=6 choice=0 effect=0
-    UINT64_C(0x3331643da348ebbc), // id=15 kind=3 choice=0 effect=0
-    UINT64_C(0x4a977c39920e1e42), // id=15 kind=3 choice=1 effect=0
-    UINT64_C(0x453fff079a9f443a), // id=15 kind=3 choice=2 effect=0
-    UINT64_C(0x8e41b006aee44f62), // id=15 kind=3 choice=3 effect=0
-    UINT64_C(0x3fb813e110146344), // id=15 kind=3 choice=4 effect=0
-    UINT64_C(0x412cd48c1b021a02), // id=15 kind=3 choice=5 effect=0
-    UINT64_C(0x7e9942fcde235935), // id=15 kind=3 choice=6 effect=0
-    UINT64_C(0xccccbf57690e6f8a), // id=15 kind=3 choice=7 effect=0
+    UINT64_C(0xe330fabd45fa461e), // id=15 kind=2 choice=15 effect=0
+    UINT64_C(0x64d7345123cd7e1f), // id=15 kind=6 choice=0 effect=0
+    UINT64_C(0x44b9d40bf7461f6c), // id=15 kind=3 choice=0 effect=0
+    UINT64_C(0x7d7a50b844f58522), // id=15 kind=3 choice=1 effect=0
+    UINT64_C(0xb5ed3dfee07a806a), // id=15 kind=3 choice=2 effect=0
+    UINT64_C(0x0f207b6acb15d642), // id=15 kind=3 choice=3 effect=0
+    UINT64_C(0x44c20d1c1528197c), // id=15 kind=3 choice=4 effect=0
+    UINT64_C(0x1b7613f93ed01592), // id=15 kind=3 choice=5 effect=0
+    UINT64_C(0xd82ba62eb7bf09c5), // id=15 kind=3 choice=6 effect=0
+    UINT64_C(0xfad8da1bd5e4ab9a), // id=15 kind=3 choice=7 effect=0
     UINT64_C(0x582794b47a6cb7fc), // id=15 kind=4 choice=0 effect=0
     UINT64_C(0xc9cad7302c236436), // id=15 kind=4 choice=1 effect=0
     UINT64_C(0xf0c95b87644ee6e6), // id=15 kind=4 choice=2 effect=0
     UINT64_C(0x59b52d6aad097b12), // id=15 kind=5 choice=0 effect=0
     UINT64_C(0x228b6330669d7c96), // id=15 kind=5 choice=1 effect=0
     UINT64_C(0x1c2528de9edb0a81), // id=0 kind=2 choice=0 effect=2
-    UINT64_C(0x8cf87db58543b36d), // id=7 kind=2 choice=15 effect=2
+    UINT64_C(0xa8dc2ea4f11cca6d), // id=7 kind=2 choice=15 effect=2
     UINT64_C(0x209cdf643581e1ff), // id=8 kind=4 choice=2 effect=2
     UINT64_C(0xf8c6221bff0a4c78), // id=14 kind=5 choice=1 effect=2
     UINT64_C(0x56a751c1954eb3f2), // id=14 kind=3 choice=0 effect=2
     UINT64_C(0x4838fb29dad9fdf2), // id=14 kind=3 choice=4 effect=2
     UINT64_C(0xc09e5cadfdb11e1b), // id=14 kind=3 choice=6 effect=2
-    UINT64_C(0x20f6aa623befa4c8), // id=15 kind=3 choice=1 effect=2
+    UINT64_C(0x66c2e91328139e42), // id=15 kind=3 choice=1 effect=2
     UINT64_C(0xb57ff59664dde289), // id=0 kind=1 choice=0 effect=3
     UINT64_C(0xba8246fc5648a6de), // id=6 kind=1 choice=0 effect=3
     UINT64_C(0x0b8fde84ced97dd6), // id=10 kind=1 choice=0 effect=3
@@ -493,6 +493,39 @@ std::uint64_t draw(const fixtures::Case& c, bool diagnostics = false, bool rally
 }
 
 int main() {
+    // Mixed surfaces split visible dashes at the exact dirt transition in every layout.
+    for (int mode = 0; mode < 3; ++mode) for (int position : {-125, -1475})
+        for (unsigned phase : {0u, 100u, 239u}) for (bool show_score : {false, true}) {
+            ctg::Racing game;
+            auto& state = const_cast<ctg::RacingState&>(game.state());
+            state.narrow = mode == 1;
+            state.two_players = mode == 2;
+            state.bad_road = true;
+            state.road_seed = 0;
+            state.road_position = position;
+            state.road_scroll = phase;
+            state.player.y = state.player2.y = -100;
+            state.traffic[0].rect.y = state.traffic2[0].rect.y = -100;
+            auto renderer = std::make_unique<ctg::Renderer>();
+            renderer->render_racing(game, show_score);
+            bool saw_dirt = false, saw_normal = false;
+            for (int y = 0; y < 240; ++y) {
+                const bool dirt = ctg::racing_dirt_at(state, y);
+                saw_dirt |= dirt; saw_normal |= !dirt;
+                const bool dash = (y - static_cast<int>(phase) + 270) % 270 < 240;
+                const unsigned road = dirt ? 0x965b2cu : mode == 1 ? 0x6514a4u : mode == 2 ? 0x287b53u : 0x39b800u;
+                const unsigned border = dirt ? 0xf5b84bu : mode == 1 ? 0xd9b5f5u : 0xc3f5dfu;
+                for (int x : {54, 57, 158, 161, 262, 265}) {
+                    const bool line = x < 58 || x >= 262 || mode != 0;
+                    const unsigned expected = line && dash ? border : road;
+                    if (renderer->pixels[y * 320 + x] != expected) {
+                        std::fprintf(stderr, "Racing dirt line mismatch mode=%d position=%d phase=%u score=%d x=%d y=%d\n", mode, position, phase, show_score, x, y);
+                        return 1;
+                    }
+                }
+            }
+            if (!saw_dirt || !saw_normal) return 1;
+        }
     // Border gaps are six cells high, including when clipped by screen edges.
     for (unsigned phase : {0u, 15u, 100u, 239u, 269u}) {
         ctg::Racing game;
@@ -766,6 +799,30 @@ int main() {
             }
         }
     }
+    // Check the actual title pixels, including the area where an old suffix
+    // would appear, in all three Racing title presentation paths.
+    for (auto kind : {fixtures::select, fixtures::launch, fixtures::hidden}) {
+        fixtures::Case c{15, kind, kind == fixtures::select ? 15u : 1u, fixtures::plain};
+        fixtures::Fixture f(c);
+        ctg::RenderState state{15, kind == fixtures::select, false, false, false,
+            kind == fixtures::hidden, 15, 1, 0, 0, true, {true, false},
+            21, 30, 0, 0, 0, 0, 0, f.modes, f.tennis, f.demo_tennis,
+            f.shooting, f.demo_shooting, f.racing, f.demo_racing, true, {}, true};
+        auto actual = std::make_unique<ctg::Renderer>();
+        auto expected_title = std::make_unique<ctg::Renderer>();
+        actual->render(state);
+        expected_title->render_racing(f.demo_racing, false, true, {});
+        if (kind != fixtures::hidden) expected_title->darken_panel();
+        const unsigned y = kind == fixtures::select ? 171 : kind == fixtures::launch ? 58 : 226;
+        if (kind == fixtures::select) expected_title->rect(55, 168, 210, 13, 0x295166);
+        expected_title->centered_text(y, "RACING 112", kind == fixtures::select ? 0x70e0ff : 0xffffff);
+        for (unsigned py = y; py < y + 7; ++py)
+            for (unsigned x = 0; x < ctg::Graphics::width; ++x)
+                if (actual->pixels[py * ctg::Graphics::width + x] != expected_title->pixels[py * ctg::Graphics::width + x]) {
+                    std::fprintf(stderr, "Racing title pixels differ in path %u at %u,%u\n", kind, x, py);
+                    return 1;
+                }
+    }
     const fixtures::Case racing_mode_menu{15, fixtures::launch, 2, fixtures::plain};
     if (draw(racing_mode_menu) == draw(racing_mode_menu, false, true, 1)) {
         std::fprintf(stderr, "Racing mode menu did not change for narrow mode\n");
@@ -841,7 +898,21 @@ int main() {
                 }
     }
 
-    // Unimplemented labels and values remain gray even when selected.
+    // Road pixels and simulation use the same world-space dirt boundary.
+    {
+        fixtures::Case c{15, fixtures::launch, 1, fixtures::plain};
+        fixtures::Fixture f(c);
+        f.racing.set_bad_road(true);
+        auto& road = const_cast<ctg::RacingState&>(f.racing.state());
+        while (!(ctg::racing_dirt_at(road, 100) && !ctg::racing_dirt_at(road, 120))) ++road.road_position;
+        auto renderer = std::make_unique<ctg::Renderer>();
+        renderer->render_racing(f.racing);
+        if (renderer->pixels[100 * 320 + 70] != 0x965b2c || renderer->pixels[120 * 320 + 70] != 0x39b800) {
+            std::fprintf(stderr, "BAD ROAD pixels disagree with dirt geometry: %06x %06x\n", renderer->pixels[100 * 320 + 70], renderer->pixels[120 * 320 + 70]);
+            return 1;
+        }
+    }
+    // BAD ROAD is an active switch, including its selected value and arrows.
     for (unsigned choice : {4u}) {
         fixtures::Case c{15, fixtures::launch, choice, fixtures::plain};
         fixtures::Fixture f(c);
@@ -867,15 +938,12 @@ int main() {
                         if (!color) color = pixel;
                         if (pixel != color) { matches = false; break; }
                     }
-                if (matches && color && color != 0xffffff &&
-                    ((color >> 16) & 255) == ((color >> 8) & 255) &&
-                    ((color >> 8) & 255) == (color & 255)) return true;
+                if (matches && color == 0x70e0ff) return true;
             }
             return false;
         };
-        const char* labels[] = {"BAD ROAD", "WALL CRASH", "OPPONENTS", "CAR PATH"};
-        if (!contains_gray_text(labels[choice - 4]) || !contains_gray_text("IN DEV")) {
-            std::fprintf(stderr, "Racing row %u missing gray label or IN DEV value\n", choice);
+        if (!contains_gray_text("BAD ROAD") || !contains_gray_text("OFF")) {
+            std::fprintf(stderr, "Racing row %u missing selected BAD ROAD or OFF value\n", choice);
             return 1;
         }
     }

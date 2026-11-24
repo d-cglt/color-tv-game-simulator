@@ -203,11 +203,18 @@ void Renderer::render_racing(const ctg::Racing& game, bool show_score, bool play
     const std::uint32_t road_color = s.two_players ? 0x287b53 : s.narrow ? 0x6514a4 : 0x39b800;
     const std::uint32_t border_color = s.narrow && !s.two_players ? 0xd9b5f5 : 0xc3f5df;
     rect(s.road.x, s.road.y, s.road.width, s.road.height, road_color);
+    if (s.bad_road) {
+        for (int y = 0; y < s.road.height; ++y)
+            if (racing_dirt_at(s, y)) rect(s.road.x, y, s.road.width, 1, 0x965b2c);
+    }
     constexpr int road_period = ctg::racing_road_dash_length + ctg::racing_road_gap_length;
     for (int y = -road_period + static_cast<int>(s.road_scroll); y < static_cast<int>(height); y += road_period) {
-        rect(s.road.x, y, ctg::racing_road_border_width, ctg::racing_road_dash_length, border_color);
-        rect(s.road.x + s.road.width - ctg::racing_road_border_width, y, ctg::racing_road_border_width, ctg::racing_road_dash_length, border_color);
-        if (s.narrow || s.two_players) rect(ctg::racing_x(ctg::racing_center_column), y, ctg::racing_cell_width, ctg::racing_road_dash_length, border_color);
+        for (int row = std::max(y, 0); row < std::min(y + static_cast<int>(ctg::racing_road_dash_length), static_cast<int>(height)); ++row) {
+            const std::uint32_t color = racing_dirt_at(s, row) ? 0xf5b84b : border_color;
+            rect(s.road.x, row, ctg::racing_road_border_width, 1, color);
+            rect(s.road.x + s.road.width - ctg::racing_road_border_width, row, ctg::racing_road_border_width, 1, color);
+            if (s.narrow || s.two_players) rect(ctg::racing_x(ctg::racing_center_column), row, ctg::racing_cell_width, 1, color);
+        }
     }
     const auto car_shape = [this](const ctg::RacingRect& car, std::uint32_t color, bool opponent) {
         const auto piece = [this, color, opponent](int x, int y, int w, int h) {
@@ -342,20 +349,16 @@ void Renderer::render(const RenderState& state) {
                         horizontal_arrow(218, y + 6, false, color);
                         continue;
                     }
-                    if (i == racing_opponents_row || i == racing_wall_crash_row) {
+                    if (i == racing_opponents_row || i == racing_wall_crash_row || i == racing_bad_road_row) {
                         const bool wall_crash = i == racing_wall_crash_row;
-                        text(75, y + 3, wall_crash ? "WALL CRASH" : "MORE CARS", color);
+                        const bool bad_road = i == racing_bad_road_row;
+                        text(75, y + 3, bad_road ? "BAD ROAD" : wall_crash ? "WALL CRASH" : "MORE CARS", color);
                         horizontal_arrow(151, y + 6, true, color);
-                        text(167, y + 3, (wall_crash ? state.racing_wall_crash : state.racing_more_cars) ? "ON" : "OFF", color);
+                        text(167, y + 3, (bad_road ? state.racing_bad_road : wall_crash ? state.racing_wall_crash : state.racing_more_cars) ? "ON" : "OFF", color);
                         horizontal_arrow(218, y + 6, false, color);
                         continue;
                     }
-                    if (i >= racing_bad_road_row) {
-                        const char* labels[] = {"BAD ROAD", "WALL CRASH", "MORE CARS", "CAR PATH"};
-                        text(75, y + 3, labels[i - racing_bad_road_row], 0x888888);
-                        text(167, y + 3, "IN DEV", 0x888888);
-                        continue;
-                    }
+
                     const bool mode = i == racing_mode_row;
                     text(75, y + 3, mode ? "MODE" : "SPEED", color);
                     horizontal_arrow(135, y + 6, true, color);

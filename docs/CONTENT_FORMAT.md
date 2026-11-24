@@ -17,7 +17,7 @@ For example, `43 54 47 31 00` represents ID 0. The ID is one byte, so byte order
 
 The former public B group is now Original and the former A group Variant. These project labels do not establish historical identity or primacy. IDs and gameplay remain unchanged, and the `6 + 15` assignment remains provisional; see [research notes](RESEARCH.md).
 
-Generated filenames include, for example, `Tennis Variant - Singles (Color TV Game 15).ctg` and `Tennis Original - Singles (Color TV Game 6 + 15).ctg`. The `6 + 15` suffix remains tied to IDs 2, 3, 6, 7, 10 and 11, not to a historical verification. The remaining IDs 0–14 use `(Color TV Game 15)`; ID 14 is generated as `Shooting Game (Color TV Game 15).ctg`. ID 15 generates the single descriptor `Racing 112 (Color TV Game Racing 112).ctg`; it represents Racing 112 as a whole, not 112 separate files. This assignment does not by itself implement Racing gameplay.
+Generated filenames include, for example, `Tennis Variant - Singles (Color TV Game 15).ctg` and `Tennis Original - Singles (Color TV Game 6 + 15).ctg`. The `6 + 15` suffix remains tied to IDs 2, 3, 6, 7, 10 and 11, not to a historical verification. The remaining IDs 0–14 use `(Color TV Game 15)`; ID 14 is generated as `Shooting Game (Color TV Game 15).ctg`. ID 15 generates the single descriptor `Racing 112 (Color TV Game Racing 112).ctg`; it represents Racing 112 as a whole, not 112 separate files. The descriptor selects the Racing entry; its configuration is chosen in the launch menu.
 
 | Decimal ID | Hex ID | Assignment |
 | ---: | :---: | --- |

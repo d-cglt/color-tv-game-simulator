@@ -17,7 +17,7 @@ The package is based on [CI run 43856733238](https://github.com/d-cglt/color-tv-
    - Core loads and identifies itself; the no-content selector opens.
    - Menus display correctly and respond to controller or keyboard input.
    - A paddle game starts and plays; controls, video and sound work.
-   - Shooting and the Racing prototype start and play.
+   - Shooting and Racing 112 start and play.
    - Pause, resume, restart and exit work without crashing.
    - If feasible, change a game setting, exit the frontend, reopen it and check whether it persists.
    - If using selectors, load one directly and confirm it opens the expected game.

@@ -266,6 +266,44 @@ int video_rumble_scenarios(ContentContext& context) {
     for (const auto& call : rumble_calls) CHECK(call.strength == 0);
     retro_unload_game(); retro_deinit();
 
+    // BAD ROAD preview is silent; gameplay pulses both players together at the
+    // eight-frame wiggle cadence, and switching vibration off suppresses pulses.
+    bytes[4] = 15; buttons = buttons2 = 0; rumble_calls.clear();
+    retro_init(); retro_set_controller_port_device(0, RETRO_DEVICE_JOYPAD);
+    retro_set_controller_port_device(1, RETRO_DEVICE_JOYPAD);
+    CHECK(retro_load_game(&game)); retro_run();
+    const auto press_racing = [&](unsigned id) {
+        buttons = 1u << id; retro_run(); buttons = 0; retro_run();
+    };
+    press_racing(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    press_racing(RETRO_DEVICE_ID_JOYPAD_RIGHT);
+    press_racing(RETRO_DEVICE_ID_JOYPAD_RIGHT); // two players
+    press_racing(RETRO_DEVICE_ID_JOYPAD_DOWN); // speed
+    press_racing(RETRO_DEVICE_ID_JOYPAD_DOWN); // bad road
+    press_racing(RETRO_DEVICE_ID_JOYPAD_RIGHT);
+    for (int i = 0; i < 400; ++i) retro_run();
+    CHECK(rumble_calls.empty());
+    press_racing(RETRO_DEVICE_ID_JOYPAD_UP);
+    press_racing(RETRO_DEVICE_ID_JOYPAD_UP);
+    press_racing(RETRO_DEVICE_ID_JOYPAD_UP);
+    press_racing(RETRO_DEVICE_ID_JOYPAD_START);
+    int previous_pair = -100, paired_wiggles = 0;
+    for (int frame_index = 0; frame_index < 3000 && paired_wiggles < 3; ++frame_index) {
+        rumble_calls.clear(); retro_run();
+        bool ports[2] = {};
+        for (const auto& call : rumble_calls)
+            if (call.strength == 0x8000 && call.effect == RETRO_RUMBLE_STRONG && call.port < 2) ports[call.port] = true;
+        if (ports[0] && ports[1]) {
+            if (frame_index - previous_pair == 8) ++paired_wiggles;
+            previous_pair = frame_index;
+        }
+    }
+    CHECK(paired_wiggles >= 3);
+    set_vibration("Off"); retro_run(); rumble_calls.clear();
+    for (int i = 0; i < 500; ++i) retro_run();
+    CHECK(rumble_calls.empty());
+    retro_unload_game(); retro_deinit();
+
     // Starting each ball game and completing its initial automatic serve is silent
     // on both controllers, before the first ball movement or paddle collision.
     for (unsigned id = 0; id < 14; ++id) {

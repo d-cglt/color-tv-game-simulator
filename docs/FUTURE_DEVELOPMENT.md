@@ -30,16 +30,16 @@ This is a proposed roadmap, not a description of implemented features. The start
 
 ## 4. Expand carefully
 
-- Investigate TV-Game 15 after the first target: validate shared and distinct game modes rather than assuming internal equivalence. Then assess Racing 112 and Block Kuzushi separately, with dedicated controls and evidence for each.
+- Continue validating TV-Game 6/15 modes and Racing 112 against evidence rather than assuming historical equivalence. Assess Block Kuzushi separately, with dedicated controls and evidence.
 - Evaluate Computer TV-Game as a separate feasibility project: hardware architecture, ROM availability, licensing and legally supplied assets are unresolved. Do not bundle dumps without permission.
 - Add model-specific options, documentation, accessibility and regression fixtures only when supported by evidence. Test each model independently.
 
 ### Long-term cross-console scope
 
-This is exploratory work beyond the current CTG-6/CTG-15 scope, not a commitment to a release or an assertion that these systems share hardware. Keep the current CTG content IDs and their meanings unchanged. No content-format changes are proposed now; selection and compatibility for any future console require a separate design decision.
+This is exploratory work beyond the current CTG-6/CTG-15 and Racing 112 scope, not a commitment to a release or an assertion that these systems share hardware. Keep the current CTG content IDs and their meanings unchanged. No content-format changes are proposed now; selection and compatibility for any future console require a separate design decision.
 
 1. **Evidence and feasibility:** Prioritize original manuals, hardware documentation and measurements, and recordings from verified systems; corroborate secondary accounts where possible. Record provenance, uncertainty and gaps in [RESEARCH.md](RESEARCH.md), and use the strongest available evidence to choose which console to investigate first rather than treating reported variation counts as verified implementations.
-2. **Separate console investigations:** Assess Racing 112's steering and other controls and racing experience, Block Kuzushi's block-breaking variations and controls, and Computer TV-Game's Othello experience and substantially different reported architecture independently. Establish practical evidence, input, audiovisual and validation targets for each before committing to implementation; Computer TV-Game may require a distinct feasibility decision.
+2. **Separate console investigations:** Continue researching Racing 112's steering, controls and racing experience; assess Block Kuzushi's block-breaking variations and controls, and Computer TV-Game's Othello experience and substantially different reported architecture independently. Establish practical evidence, input, audiovisual and validation targets for future implementations; Computer TV-Game may require a distinct feasibility decision.
 3. **Architecture and prototypes:** Keep console-specific state, rules and timing isolated behind appropriate interfaces rather than forcing a shared hardware model. Reuse existing input, renderer, sound, demo, AI and pause facilities where appropriate, adapting or separating them when a console's needs differ. Prototype one evidence-backed target at a time and retain deterministic behavior and independent regression coverage for existing CTG games.
 4. **Validation and possible integration:** Compare each independent implementation against its own evidence, test controls and lifecycle in a frontend, and document approximations and limitations. Only after a prototype is justified should integration, model selection, compatibility and distribution be designed without disrupting existing CTG content.
 

@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include <cstdint>
 #include <random>
 
 namespace ctg {
@@ -52,6 +53,9 @@ struct RacingState {
     bool two_players = false;
     bool wall_crash = false;
     bool zigzag = false;
+    bool bad_road = false;
+    std::int64_t road_position = 0;
+    unsigned road_seed = 0;
     int path_position = 0; // Fixed-point pixels, denominator 60.
     int path_direction = 1;
     int extra_path_position = 0;
@@ -63,6 +67,9 @@ struct RacingState {
     bool section_collided2 = false;
     unsigned blink_samples = 0, blink_samples2 = 0;
 };
+
+// Dirt is sampled at a screen y coordinate, shared by physics and rendering.
+bool racing_dirt_at(const RacingState& state, int y);
 
 struct RacingInput {
     // Digital steering moves 6 pixels per frame; opposite directions cancel.
@@ -82,7 +89,9 @@ enum RacingEvent : unsigned {
     racing_none = 0,
     racing_collision = 1 << 0,
     racing_pass = 1 << 1,
-    racing_finished = 1 << 2
+    racing_finished = 1 << 2,
+    racing_wiggle_player1 = 1 << 3,
+    racing_wiggle_player2 = 1 << 4
 };
 
 // Original, simplified arcade approximation, not a hardware simulation.
@@ -106,7 +115,7 @@ public:
     // In two-player mode both lanes accelerate to the switch-selected speed;
     // either player's collision slows the shared speed during recovery.
     void set_speed_switch(unsigned setting);
-    void set_random_seed(unsigned seed) { random_.seed(seed); }
+    void set_random_seed(unsigned seed) { random_.seed(seed); road_random_.seed(seed); }
     // Switch geometry immediately; configuration persists across reset and preview.
     void set_narrow(bool enabled);
     // Changing mode resets the game. Two players use separate halves of the road;
@@ -115,6 +124,7 @@ public:
     // Changing traffic density resets the game; configuration persists across resets.
     void set_more_cars(bool enabled);
     void set_zigzag(bool enabled);
+    void set_bad_road(bool enabled);
     void reset_preview();
     // Restores both players' positions in two-player mode, clamped to their lanes.
     void reset_from_layout(const RacingState& layout);
@@ -124,9 +134,12 @@ public:
     // Collision and pass event bits indicate an event for either player.
     unsigned step(RacingInput input = {}, RacingInput player2 = {});
     const RacingState& state() const { return state_; }
+    RacingState unwiggled_state() const;
 
 private:
     void steer(RacingInput input, bool second = false);
+    void remove_wiggle();
+    unsigned apply_wiggle();
     int opponent_x();
     void arrange_extra_traffic();
     void advance_path();
@@ -140,8 +153,11 @@ private:
     bool two_players_ = false;
     bool more_cars_ = false;
     bool zigzag_ = false;
+    bool bad_road_ = false;
     unsigned high_gear_speed_ = max_speed;
-    std::mt19937 random_{1};
+    std::mt19937 random_{1}, road_random_{1};
+    int wiggle_offset_ = 0, wiggle_offset2_ = 0;
+    unsigned wiggle_frame_ = 0, wiggle_frame2_ = 0;
     int steering_remainder_ = 0, steering_remainder2_ = 0;
 };
 }

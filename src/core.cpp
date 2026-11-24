@@ -42,7 +42,7 @@ unsigned content_id = 0, previous = 0;
 bool loaded = false, detail = false;
 unsigned shooting_target = 2, shooting_direction = 0, shooting_size = 0, shooting_speed = 0;
 unsigned racing_mode = 0, racing_speed = 2; // HIGH lever selection: 0 low, 1 medium, 2 high.
-bool racing_more_cars = false, racing_wall_crash = false, racing_zigzag = false;
+bool racing_more_cars = false, racing_wall_crash = false, racing_zigzag = false, racing_bad_road = false;
 bool shooting_resolved_small = false, shooting_resolved_high_speed = false;
 std::mt19937 shooting_random{std::random_device{}()};
 bool selector = false, paused = false;
@@ -102,7 +102,7 @@ std::array<bool, 2> small_paddle{};
 void step_demo(unsigned id) {
     if (demo.current_id() != id) audio_engine.clear_demo();
     const ctg::DemoOptions options{high_speed, small_paddle, shooting_target, shooting_direction,
-                                   shooting_size, shooting_speed, racing_mode, racing_more_cars, racing_zigzag};
+                                   shooting_size, shooting_speed, racing_mode, racing_more_cars, racing_zigzag, racing_bad_road};
     unsigned events = demo.step(id, paddle_movement_rebound, anti_stalemate, options);
     if (id == 14 && !shooting_fire_sound) events &= ~ctg::sound_shot;
     if (demo_sounds && events) audio_engine.trigger_demo(events, id);
@@ -136,6 +136,7 @@ void start_racing_match(bool from_preview = true) {
     racing.set_more_cars(racing_more_cars);
     racing.set_wall_crash(racing_wall_crash);
     racing.set_zigzag(racing_zigzag);
+    racing.set_bad_road(racing_bad_road);
     racing.reset();
     auto centered_layout = layout;
     if (!from_preview && racing_zigzag) {
@@ -156,7 +157,7 @@ ctg::RenderState render_state() {
             winning_score, shot_limit, shooting_target, shooting_direction, shooting_size, shooting_speed, racing_mode,
             opponent_modes, tennis, demo.tennis, shooting, demo.shooting, racing, demo.racing,
             audio_engine.racing_player_visible(), {test_fixed_score, test_left_score, test_right_score},
-            rally_result_frames < 24, racing_speed, racing_more_cars, racing_wall_crash, racing_zigzag};
+            rally_result_frames < 24, racing_speed, racing_more_cars, racing_wall_crash, racing_zigzag, racing_bad_road};
 }
 void select_game(unsigned id) {
     content_id = id;
@@ -218,6 +219,7 @@ PreferenceData preference_data() {
     data[31] = static_cast<unsigned char>(racing_more_cars);
     data[32] = static_cast<unsigned char>(racing_wall_crash);
     data[33] = static_cast<unsigned char>(racing_zigzag);
+    data[34] = static_cast<unsigned char>(racing_bad_road);
     return data;
 }
 void read_preferences() noexcept {
@@ -230,7 +232,7 @@ void read_preferences() noexcept {
         winning_score = data[8]; shot_limit = data[9]; shooting_target = data[10];
         shooting_direction = data[11];
         shooting_size = data[27]; shooting_speed = data[28]; racing_mode = data[29]; racing_speed = data[30];
-        racing_more_cars = data[31]; racing_wall_crash = data[32]; racing_zigzag = data[33];
+        racing_more_cars = data[31]; racing_wall_crash = data[32]; racing_zigzag = data[33]; racing_bad_road = data[34];
         shooting_resolved_small = shooting_size == 1;
         shooting_resolved_high_speed = shooting_speed == 1;
         for (std::size_t i = 0; i < opponent_modes.size(); ++i) opponent_modes[i] = data[13 + i];
@@ -364,7 +366,7 @@ void retro_init() {
     shot_limit = ctg::Shooting::default_shot_limit;
     shooting_size = shooting_speed = racing_mode = 0;
     racing_speed = 2;
-    racing_more_cars = racing_wall_crash = racing_zigzag = false;
+    racing_more_cars = racing_wall_crash = racing_zigzag = racing_bad_road = false;
     shooting_resolved_small = shooting_resolved_high_speed = false;
     apply_options();
     controls.reset_repeat();
@@ -574,11 +576,9 @@ void retro_run() {
                     (racing.state().two_players && previous_score2 < 50 && racing.state().score2 >= 50)) {
                     audio_engine.bonus();
                 }
-                if (events & ctg::racing_collision) {
-                    if (racing.state().collisions != previous_collisions) pulse_rumble(0);
-                    if (racing.state().collisions2 != previous_collisions2) pulse_rumble(1);
-                    audio_engine.collision();
-                }
+                if ((events & ctg::racing_wiggle_player1) || racing.state().collisions != previous_collisions) pulse_rumble(0);
+                if ((events & ctg::racing_wiggle_player2) || racing.state().collisions2 != previous_collisions2) pulse_rumble(1);
+                if (events & ctg::racing_collision) audio_engine.collision();
                 if (events & ctg::racing_finished) result_choice = 0;
             } else if (content_id == 14) {
                 {
@@ -631,6 +631,7 @@ void retro_run() {
                         const int delta = (pressed & (1u << RETRO_DEVICE_ID_JOYPAD_RIGHT)) ? 1 : -1;
                         racing_speed = (racing_speed + 3 + delta) % 3;
                     }
+                    else if (menu_choice == ctg::menu::racing_bad_road_row) racing_bad_road = !racing_bad_road;
                     else if (menu_choice == ctg::menu::racing_wall_crash_row) racing_wall_crash = !racing_wall_crash;
                     else if (menu_choice == ctg::menu::racing_opponents_row) racing_more_cars = !racing_more_cars;
                     else if (menu_choice == ctg::menu::racing_car_path_row) racing_zigzag = !racing_zigzag;

@@ -67,7 +67,7 @@ bool valid(const Data& data) {
         data[9] < 5 || data[9] > 30 || data[9] % 5 ||
         data[10] > 4 || data[11] > 3 || data[12] > 2) return false;
     for (std::size_t i = 13; i < 27; ++i) if (data[i] > 3) return false;
-    return data[27] <= 2 && data[28] <= 2 && data[29] <= 2 && data[30] <= 2 && data[31] <= 1 && data[32] <= 1 && data[33] <= 1;
+    return data[27] <= 2 && data[28] <= 2 && data[29] <= 2 && data[30] <= 2 && data[31] <= 1 && data[32] <= 1 && data[33] <= 1 && data[34] <= 1;
 }
 }
 
@@ -134,7 +134,7 @@ bool read(const std::filesystem::path& path, Data& data, Unknown& unknown) noexc
 
 bool write(const std::filesystem::path& path, const Data& data, const Unknown& unknown, std::mt19937& random) noexcept {
     try {
-        if (!valid(data) || unknown.size() > 65536 - 5 - 29 * 5) return false;
+        if (!valid(data) || unknown.size() > 65536 - 5 - (data.size() - 5) * 5) return false;
         std::vector<unsigned char> bytes{'C', 'T', 'G', 'P', 9};
         for (unsigned id = 5; id < data.size(); ++id) {
             bytes.insert(bytes.end(), {static_cast<unsigned char>(id), 0, 1, 0, data[id]});

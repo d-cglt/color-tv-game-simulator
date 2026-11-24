@@ -97,16 +97,17 @@ int persistence_selector_demo_scenarios(ContentContext& context) {
     const auto speed_low = frame;
     CHECK(!same_menu(speed_high, speed_low));
     press(RETRO_DEVICE_ID_JOYPAD_RIGHT);
-    const auto speed_medium = frame;
+    auto speed_medium = frame;
     CHECK(!same_menu(speed_low, speed_medium) && !same_menu(speed_high, speed_medium));
     press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(same_menu(frame, speed_low));
     press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(same_menu(frame, speed_high));
     press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(same_menu(frame, speed_medium));
-    // BAD ROAD is inert; WALL CRASH toggles in both directions.
+    // BAD ROAD and WALL CRASH toggle in both directions.
     press(RETRO_DEVICE_ID_JOYPAD_DOWN);
     const auto bad_road = frame;
-    press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(same_menu(frame, bad_road));
+    press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(!same_menu(frame, bad_road));
     press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(same_menu(frame, bad_road));
+    press(RETRO_DEVICE_ID_JOYPAD_RIGHT); const auto bad_road_on = frame;
     press(RETRO_DEVICE_ID_JOYPAD_DOWN);
     CHECK(saved_wall_crash() == 0);
     press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(saved_wall_crash() == 1);
@@ -130,7 +131,7 @@ int persistence_selector_demo_scenarios(ContentContext& context) {
     }
     press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(same_menu(frame, straight));
     for (unsigned row = 0; row < 4; ++row) press(RETRO_DEVICE_ID_JOYPAD_UP);
-    CHECK(same_menu(frame, speed_medium));
+    speed_medium = frame;
     press(RETRO_DEVICE_ID_JOYPAD_UP);
     racing_narrow = frame;
     press(RETRO_DEVICE_ID_JOYPAD_RIGHT); const auto racing_two_player = frame;
@@ -163,7 +164,8 @@ int persistence_selector_demo_scenarios(ContentContext& context) {
     CHECK(same_menu(frame, racing_narrow));
     CHECK(saved_wall_crash() == 1);
     press(RETRO_DEVICE_ID_JOYPAD_DOWN); CHECK(same_menu(frame, speed_medium));
-    for (unsigned row = 0; row < 2; ++row) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    press(RETRO_DEVICE_ID_JOYPAD_DOWN); CHECK(same_menu(frame, bad_road_on));
+    press(RETRO_DEVICE_ID_JOYPAD_DOWN);
     // A failed save is retried on unload without dropping unknown entries.
     save_available = false;
     press(RETRO_DEVICE_ID_JOYPAD_LEFT); CHECK(saved_wall_crash() == 1);

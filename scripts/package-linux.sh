@@ -16,7 +16,7 @@ stage=$(mktemp -d)
 trap 'rm -rf "$stage"' EXIT HUP INT TERM
 mkdir "$stage/colortvgame-linux"
 cp "$core" "$stage/colortvgame-linux/colortvgame_libretro.so"
-cp "$root/LICENSE" "$stage/colortvgame-linux/LICENSE"
+cp "$root/LICENSE" "$root/GAME_MANUAL.md" "$stage/colortvgame-linux/"
 cp "$root/docs/LINUX_RELEASE.md" "$stage/colortvgame-linux/README.md"
 # Copy the notice directly from the vendored header to preserve its attribution and terms.
 sed -n '1,28p' "$root/third_party/libretro/libretro.h" > "$stage/colortvgame-linux/LICENSE-libretro.txt"

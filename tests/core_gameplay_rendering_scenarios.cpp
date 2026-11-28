@@ -42,12 +42,12 @@ int gameplay_rendering_scenarios(ContentContext& context, MenuSnapshot& snapshot
     CHECK(at(initial, 60, 200) == ((0x46a79a & 0xfefefe) >> 1));
     CHECK(at(initial, 60, 204) == 0x46a79a);
     CHECK(at(initial, 75, 103) == 0x295166);
-    CHECK(at(initial, 151, 124) == 0xffffff && at(initial, 222, 124) == 0xffffff);
+    CHECK(at(initial, 151, 124) == 0xffffff && at(initial, 240, 124) == 0xffffff);
     keys[RETROK_p] = true; retro_run(); CHECK(same_menu(frame, initial));
     keys[RETROK_p] = false; retro_run();
     press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(same_menu(frame, initial));
     press(RETRO_DEVICE_ID_JOYPAD_DOWN); auto& option = snapshot.option; option = frame; CHECK(!same_menu(option, initial));
-    CHECK(at(option, 75, 118) == 0x295166 && at(option, 151, 124) == 0x70e0ff && at(option, 222, 124) == 0x70e0ff);
+    CHECK(at(option, 75, 118) == 0x295166 && at(option, 151, 124) == 0x70e0ff && at(option, 240, 124) == 0x70e0ff);
     press(RETRO_DEVICE_ID_JOYPAD_A); CHECK(same_menu(frame, option));
     keys[RETROK_p] = true; retro_run(); CHECK(same_menu(frame, option));
     keys[RETROK_p] = false; retro_run();

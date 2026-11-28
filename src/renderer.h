@@ -21,7 +21,30 @@ enum RacingRow : unsigned { racing_return, racing_start, racing_mode_row, racing
                             racing_row_count };
 enum ShootingRow : unsigned { shooting_return, shooting_start, shooting_target_row, shooting_direction_row,
                               shooting_target_size_row, shooting_speed_row, shooting_shots_row, shooting_row_count };
-constexpr unsigned option_count(unsigned id) { return id == 15 ? static_cast<unsigned>(racing_row_count) : id == 14 ? static_cast<unsigned>(shooting_row_count) : 7u; }
+constexpr unsigned option_count(unsigned id) { return id == 15 ? static_cast<unsigned>(racing_row_count) : id == 14 ? static_cast<unsigned>(shooting_row_count) : (id >= 4 && id <= 7) ? 8u : 7u; }
+constexpr bool row_visible(unsigned id, unsigned row, bool original, bool locked) {
+    if (locked && row == 0) return false;
+    if (!original || id == 15) return true;
+    return id == 14 ? row != shooting_direction_row && row != shooting_shots_row
+                    : row != 2 && row != 6 && row != 7;
+}
+constexpr unsigned visible_count(unsigned id, bool original, bool locked) {
+    unsigned count = 0;
+    for (unsigned row = 0; row < option_count(id); ++row) count += row_visible(id, row, original, locked);
+    return count;
+}
+constexpr unsigned visible_row(unsigned id, unsigned index, bool original, bool locked) {
+    for (unsigned row = 0; row < option_count(id); ++row)
+        if (row_visible(id, row, original, locked) && index-- == 0) return row;
+    return 1;
+}
+constexpr unsigned visible_index(unsigned id, unsigned choice, bool original, bool locked) {
+    unsigned index = 0;
+    for (unsigned row = 0; row < choice && row < option_count(id); ++row)
+        index += row_visible(id, row, original, locked);
+    return index;
+}
+
 struct LaunchLayout {
     unsigned first, rows, y, spacing;
     bool scroll;
@@ -65,6 +88,9 @@ struct RenderState {
     bool racing_wall_crash = false;
     bool racing_zigzag = false;
     bool racing_bad_road = false;
+    bool direct_launch_locked = false;
+    bool ice_hockey = false;
+    bool original_features = false;
 };
 
 class Renderer : public Graphics {

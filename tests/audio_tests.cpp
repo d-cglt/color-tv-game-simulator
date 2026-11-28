@@ -98,6 +98,40 @@ static bool frame(ctg::Audio& audio, Baseline& baseline, bool preview = false,
 }
 
 int main() {
+    // Identical oscillators verify direction, center, live switching and phase continuity.
+    for (int x : {0, 160, 320}) {
+        ctg::Audio mono, stereo;
+        mono.trigger_game(ctg::sound_paddle, false, x);
+        stereo.trigger_game(ctg::sound_paddle, false, x);
+        auto a = mono.render(false, false, false, 0, 30);
+        auto b = stereo.render(false, false, false, 0, 30, true);
+        CHECK(a[0] != 0);
+        CHECK(b[0] == (x == 320 ? 0 : a[0]));
+        CHECK(b[1] == (x == 0 ? 0 : a[1]));
+        CHECK(mono.render(false, false, false, 0, 30) == stereo.render(false, false, false, 0, 30, false));
+    }
+    {
+        ctg::Audio a, b;
+        a.trigger_demo(ctg::sound_shot, 14, 0);
+        b.trigger_demo(ctg::sound_shot, 14, 0);
+        CHECK(a.render(true, false, false, 14, 30) == b.render(true, false, false, 14, 30, false));
+        auto p = b.render(true, false, false, 14, 30, true);
+        CHECK(p[0] != 0 && p[1] == 0);
+    }
+    {
+        ctg::Audio race;
+        race.start_racing();
+        auto start = race.render(false, false, false, 15, 30, true, 0);
+        CHECK(start[0] == start[1] && start[0] != 0);
+        race.bonus(320);
+        auto bonus = race.render(false, false, false, 15, 30, true, 0);
+        CHECK(bonus[0] == 0 && bonus[1] != 0);
+        race.collision(0);
+        auto crash = race.render(false, false, false, 15, 30, true, 320);
+        CHECK(crash[0] != 0 && crash[1] == 0);
+        auto paused = race.render(false, false, true, 15, 30, true, 320);
+        for (auto sample : paused) CHECK(sample == 0);
+    }
     static_assert(ctg::Audio::racing_crash_segment_samples == 12960);
     static_assert(ctg::Audio::racing_crash_total_samples == 77760);
     static_assert(ctg::Audio::racing_bonus_tone_samples == 6336);

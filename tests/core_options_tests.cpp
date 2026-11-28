@@ -16,35 +16,41 @@ struct Expected {
     const char* legacy;
 };
 const Expected expected[] = {
-    {"colortvgame_generate_files", "Generate game files",
-     "Generate CTG game files in system/Nintendo Color TV-Game. Files can be moved and used like ROMs. Select Generate, then resume the core.",
-     {"Ready", "Generate"}, "Ready", "Generate game files; Ready|Generate"},
-    {"colortvgame_vibration", "Vibration", "Vibrate controllers during gameplay.",
-     {"Off", "On"}, "Off", "Vibration; Off|On"},
-    {"colortvgame_shooting_fire_sound", "Shooting fire sound", "Play a firing sound in Shooting gameplay and previews. Off matches the original console's silent firing.",
-     {"On", "Off"}, "On", "Shooting fire sound; On|Off"},
-    {"colortvgame_demo_sounds", "Demo sounds", "Play sounds during menu previews.",
-     {"On", "Off"}, "On", "Demo sounds; On|Off"},
-    {"colortvgame_start_game", "Selected game at start", "Choose the initial game in the no-content selector.",
-     {"Last used", "First", "Random"}, "Last used", "Selected game at start; Last used|First|Random"},
-    {"colortvgame_demo_rotation", "Demo game rotation", "Rotate games while the selector is idle.",
-     {"Random every 15 seconds", "Off", "Every 15 seconds"}, "Random every 15 seconds",
-     "Demo game rotation; Random every 15 seconds|Off|Every 15 seconds"},
-    {"colortvgame_rebound", "Rebound behavior", "Choose the approximate paddle rebound model.",
-     {"Hit position", "Paddle movement"}, "Hit position", "Rebound behavior; Hit position|Paddle movement"},
-    {"colortvgame_anti_stalemate", "Anti-stalemate",
-     "On the third consecutive horizontal paddle rebound, add a small vertical angle at the hit. Modern approximation, not proven original hardware behavior. Applies to competitive games and demos; Off disables it.",
-     {"On", "Off"}, "On", "Anti-stalemate; On|Off"},
     {"colortvgame_color", "Color", "Display the rendered image in color or grayscale.",
      {"On", "Off"}, "On", "Color; On|Off"},
     {"colortvgame_rf_filter", "RF filter", "Approximate composite signal color and bandwidth artifacts.",
      {"Off", "On"}, "Off", "RF filter; Off|On"},
     {"colortvgame_rf_quality", "RF signal quality", "Lower quality adds color bleed and noise. No effect when the RF filter is off.",
      {"0%", "10%", "20%", "30%", "40%", "50%", "60%", "70%", "80%", "90%", "100%"}, "100%",
-     "RF signal quality (no effect when RF filter is off); 100%|0%|10%|20%|30%|40%|50%|60%|70%|80%|90%"}
+     "RF signal quality (no effect when RF filter is off); 100%|0%|10%|20%|30%|40%|50%|60%|70%|80%|90%"},
+    {"colortvgame_shooting_fire_sound", "Shooting fire sound", "Play a firing sound in Shooting gameplay and previews. Off matches the original console's silent firing.",
+     {"On", "Off"}, "On", "Shooting fire sound; On|Off"},
+    {"colortvgame_demo_sounds", "Demo sounds", "Play sounds during menu previews.",
+     {"On", "Off"}, "On", "Demo sounds; On|Off"},
+    {"colortvgame_stereo", "Stereo", "Pan positional game sounds across stereo channels.",
+     {"No", "Yes"}, "No", "Stereo; No|Yes"},
+    {"colortvgame_vibration", "Vibration", "Vibrate controllers during gameplay.",
+     {"Off", "On"}, "Off", "Vibration; Off|On"},
+    {"colortvgame_original_features", "Original features mode", "Restrict features to original consoles.",
+     {"Off", "On"}, "Off", "Original features mode; Off|On"},
+    {"colortvgame_rebound", "Rebound behavior", "Choose the approximate paddle rebound model.",
+     {"Hit position", "Paddle movement"}, "Hit position", "Rebound behavior; Hit position|Paddle movement"},
+    {"colortvgame_anti_stalemate", "Anti-stalemate",
+     "Add a small vertical angle on the 3rd consecutive horizontal rebound.",
+     {"On", "Off"}, "On", "Anti-stalemate; On|Off"},
+    {"colortvgame_start_game", "Selected game at start", "Choose the initial game in the no-content selector.",
+     {"Last used", "First", "Random"}, "Last used", "Selected game at start; Last used|First|Random"},
+    {"colortvgame_direct_launch_lock", "Lock direct-launched game", "Restrict a direct .ctg session to its loaded game. No-content sessions are unaffected.",
+     {"Off", "On"}, "Off", "Lock direct-launched game; Off|On"},
+    {"colortvgame_demo_rotation", "Demo game rotation", "Rotate games while the selector is idle.",
+     {"Random every 15 seconds", "Off", "Every 15 seconds"}, "Random every 15 seconds",
+     "Demo game rotation; Random every 15 seconds|Off|Every 15 seconds"},
+    {"colortvgame_generate_files", "Generate game files",
+     "Generate CTG game files in system/Nintendo Color TV-Game. Files can be moved and used like ROMs. Select Generate, then resume the core.",
+     {"Ready", "Generate"}, "Ready", "Generate game files; Ready|Generate"}
 };
 constexpr unsigned option_count = sizeof(expected) / sizeof(expected[0]);
-static_assert(option_count == 11, "Golden option count");
+static_assert(option_count == 14, "Golden option count");
 bool equal(const char* actual, const char* golden) {
     return actual && std::strcmp(actual, golden) == 0;
 }
@@ -54,7 +60,7 @@ struct Registration {
 };
 std::vector<Registration> registrations;
 unsigned reported_version = 0, queries = 0, support_calls = 0;
-bool query_supported = true, write_version = true, support_valid = true;
+bool query_supported = true, write_version = true, support_valid = true, categories_supported = true;
 bool environment(unsigned command, void* data) {
     if (command == RETRO_ENVIRONMENT_SET_SUPPORT_NO_GAME) {
         ++support_calls;
@@ -70,7 +76,7 @@ bool environment(unsigned command, void* data) {
         command == RETRO_ENVIRONMENT_SET_CORE_OPTIONS ||
         command == RETRO_ENVIRONMENT_SET_CORE_OPTIONS_V2) {
         registrations.push_back({command, data});
-        return true;
+        return command != RETRO_ENVIRONMENT_SET_CORE_OPTIONS_V2 || categories_supported;
     }
     return false;
 }
@@ -109,11 +115,23 @@ bool validate(const Registration& registration) {
     } else {
         CHECK(registration.command == RETRO_ENVIRONMENT_SET_CORE_OPTIONS_V2);
         const auto* options = static_cast<const retro_core_options_v2*>(registration.data);
-        CHECK(options->categories == nullptr);
+        CHECK(options->categories);
+        const char* keys[] = {"video", "audio", "gameplay"};
+        const char* labels[] = {"Video", "Audio", "Gameplay"};
+        for (unsigned i = 0; i < 3; ++i) {
+            CHECK(equal(options->categories[i].key, keys[i]));
+            CHECK(equal(options->categories[i].desc, labels[i]));
+            CHECK(options->categories[i].info == nullptr);
+        }
+        CHECK(options->categories[3].key == nullptr && options->categories[3].desc == nullptr &&
+              options->categories[3].info == nullptr);
         CHECK(modern(options->definitions));
+        const char* categories[] = {"video", "video", "video", "audio", "audio", "audio",
+                                    "gameplay", "gameplay", "gameplay", "gameplay", nullptr, nullptr, nullptr, nullptr, nullptr};
         for (unsigned i = 0; i <= option_count; ++i) {
             const auto& d = options->definitions[i];
-            CHECK(d.desc_categorized == nullptr && d.info_categorized == nullptr && d.category_key == nullptr);
+            CHECK(d.desc_categorized == nullptr && d.info_categorized == nullptr);
+            CHECK(categories[i] ? equal(d.category_key, categories[i]) : d.category_key == nullptr);
         }
     }
     return true;
@@ -132,6 +150,7 @@ bool run() {
         {true, true, std::numeric_limits<unsigned>::max(), RETRO_ENVIRONMENT_SET_CORE_OPTIONS_V2}
     };
     for (unsigned repeat = 0; repeat < 3; ++repeat) {
+        categories_supported = repeat != 1;
         for (const auto& test : cases) {
             query_supported = test.supported;
             write_version = test.writes;

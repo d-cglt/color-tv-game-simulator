@@ -273,6 +273,8 @@ Latest development check: a clean Linux Debug build with `-Wall -Wextra -Wpedant
 
 ## Milestone 8: Testing and releases — in progress
 
+0.2.1 preparation: on 2026-11-28 the local Linux x86-64 Release build and versioned Linux and selector archives were refreshed; all 23 CTest tests passed. The packaged core reports 0.2.1, both packaged manuals match the source, and the selector archive contains IDs 0–15. The user confirmed the local packaged Linux x86-64 core in RetroArch and approved preparing a draft release. Hosted CI and independent frontend confirmation of final CI-built artifacts remain pending. See [release notes](RELEASE_NOTES_0.2.1.md); publishing requires separate approval.
+
 0.1.8 preparation covers Shooting, option-aware demos and Racing modes and controls; see [release notes](RELEASE_NOTES_0.1.8.md). The user confirmed the gray Racing options and two-player scoring and behavior. Release CI, packaged-core frontend validation and distribution remain to be verified; prior checks do not establish those results. Demo AI may struggle at fast speeds. Back up game-menu preferences before upgrading if a downgrade is planned: older cores cannot read records written by 0.1.8.
 
 - [x] Publish the source under `d-cglt` and create the [0.1.0 GitHub release](https://github.com/d-cglt/color-tv-game-simulator/releases/tag/v0.1.0) with the Linux x86-64 archive. RetroArch Core Downloader inclusion is a separate, unsubmitted process.

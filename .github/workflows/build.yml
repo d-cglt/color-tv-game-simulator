@@ -56,7 +56,7 @@ jobs:
           CORE: ${{ matrix.core }}
         run: |
           mkdir -p artifact
-          cp "$CORE" LICENSE artifact/
+          cp "$CORE" LICENSE GAME_MANUAL.md artifact/
           cp docs/CI_ARTIFACT.md artifact/README.md
           sed -n '1,28p' third_party/libretro/libretro.h > artifact/LICENSE-libretro.txt
       - uses: actions/upload-artifact@v4

@@ -1,6 +1,7 @@
 // Full-frame renderer regression hashes; see docs/RENDERER_TESTS.md for their
 // provenance, scenario ordering, limitations, and safe update procedure.
 #include "renderer.h"
+#include "hockey_ball.h"
 #include "score_digits.h"
 #include "tennis_b.h"
 #include "shooting.h"
@@ -115,13 +116,13 @@ constexpr std::uint64_t expected[] = {
     UINT64_C(0xc9254751298f3da9), // id=0 kind=1 choice=0 effect=1
     UINT64_C(0xf941c620922fc5df), // id=0 kind=2 choice=0 effect=0
     UINT64_C(0x63dda589905eb18d), // id=0 kind=6 choice=0 effect=0
-    UINT64_C(0x20ded4c36b9c309e), // id=0 kind=3 choice=0 effect=0
-    UINT64_C(0x40edda6f82435227), // id=0 kind=3 choice=1 effect=0
-    UINT64_C(0x08569de72ee74bf9), // id=0 kind=3 choice=2 effect=0
-    UINT64_C(0x7e37d5e13c6c3cf6), // id=0 kind=3 choice=3 effect=0
-    UINT64_C(0xae7209151370491f), // id=0 kind=3 choice=4 effect=0
-    UINT64_C(0x8c4c3351527d710f), // id=0 kind=3 choice=5 effect=0
-    UINT64_C(0x9a59e4c8567538b4), // id=0 kind=3 choice=6 effect=0
+    UINT64_C(0x1abed858c7753626), // id=0 kind=3 choice=0 effect=0
+    UINT64_C(0x3338437c7465ba97), // id=0 kind=3 choice=1 effect=0
+    UINT64_C(0x9299d50dce649011), // id=0 kind=3 choice=2 effect=0
+    UINT64_C(0x17bb1c6c41c091b3), // id=0 kind=3 choice=3 effect=0
+    UINT64_C(0xd3b259b6dba67c07), // id=0 kind=3 choice=4 effect=0
+    UINT64_C(0x3871e570ff88a5ca), // id=0 kind=3 choice=5 effect=0
+    UINT64_C(0xa60efae9b1a1a31c), // id=0 kind=3 choice=6 effect=0
     UINT64_C(0xd013a682cc18cef4), // id=0 kind=4 choice=0 effect=0
     UINT64_C(0xa4cd1d0f3a9f5e7a), // id=0 kind=4 choice=1 effect=0
     UINT64_C(0x3dbfd47715713589), // id=0 kind=4 choice=2 effect=0
@@ -132,13 +133,13 @@ constexpr std::uint64_t expected[] = {
     UINT64_C(0x7c0fe92a0d2e8089), // id=1 kind=1 choice=0 effect=1
     UINT64_C(0x5edc86f2c3112afa), // id=1 kind=2 choice=1 effect=0
     UINT64_C(0x45e528a7125d1ea5), // id=1 kind=6 choice=0 effect=0
-    UINT64_C(0xa3280ce315434012), // id=1 kind=3 choice=0 effect=0
-    UINT64_C(0x91d47ef0b2c3736b), // id=1 kind=3 choice=1 effect=0
-    UINT64_C(0x133b4b0ad71fec96), // id=1 kind=3 choice=2 effect=0
-    UINT64_C(0x4b96f0f31d50ea92), // id=1 kind=3 choice=3 effect=0
-    UINT64_C(0xded5e2c1e4bb108b), // id=1 kind=3 choice=4 effect=0
-    UINT64_C(0x5a09697b72e2d33b), // id=1 kind=3 choice=5 effect=0
-    UINT64_C(0x51799d14e27ca0e0), // id=1 kind=3 choice=6 effect=0
+    UINT64_C(0x16b2a9f716c4cde2), // id=1 kind=3 choice=0 effect=0
+    UINT64_C(0xe4948244906a3c7b), // id=1 kind=3 choice=1 effect=0
+    UINT64_C(0xafc405b21c541b06), // id=1 kind=3 choice=2 effect=0
+    UINT64_C(0x11432163d325cc47), // id=1 kind=3 choice=3 effect=0
+    UINT64_C(0x64b4fd3bd3ac36eb), // id=1 kind=3 choice=4 effect=0
+    UINT64_C(0x371b6e841fbf2bde), // id=1 kind=3 choice=5 effect=0
+    UINT64_C(0x45a9f20ffc9392f0), // id=1 kind=3 choice=6 effect=0
     UINT64_C(0xff7ff048b60d02c4), // id=1 kind=4 choice=0 effect=0
     UINT64_C(0x2aa3669057af8d0a), // id=1 kind=4 choice=1 effect=0
     UINT64_C(0x14c9fbba8e1bdfb9), // id=1 kind=4 choice=2 effect=0
@@ -149,13 +150,13 @@ constexpr std::uint64_t expected[] = {
     UINT64_C(0x23aa3a8cc5005a59), // id=2 kind=1 choice=0 effect=1
     UINT64_C(0xcc09ef7ead8b6f27), // id=2 kind=2 choice=2 effect=0
     UINT64_C(0xd7ff53ce364dd6e1), // id=2 kind=6 choice=0 effect=0
-    UINT64_C(0xe39b84ee574b0bca), // id=2 kind=3 choice=0 effect=0
-    UINT64_C(0xfae38b44f7841773), // id=2 kind=3 choice=1 effect=0
-    UINT64_C(0xfe0274c45ccf6703), // id=2 kind=3 choice=2 effect=0
-    UINT64_C(0x1349670604161332), // id=2 kind=3 choice=3 effect=0
-    UINT64_C(0xad46fc46d0d25392), // id=2 kind=3 choice=4 effect=0
-    UINT64_C(0xa5797a67e52d5faf), // id=2 kind=3 choice=5 effect=0
-    UINT64_C(0xc38999242fcaf4d7), // id=2 kind=3 choice=6 effect=0
+    UINT64_C(0x15ffeda7d13c7e6f), // id=2 kind=3 choice=0 effect=0
+    UINT64_C(0xb869b7f9405a8a06), // id=2 kind=3 choice=1 effect=0
+    UINT64_C(0x257e5db6b57f4913), // id=2 kind=3 choice=2 effect=0
+    UINT64_C(0xa1e2a9f18f41e883), // id=2 kind=3 choice=3 effect=0
+    UINT64_C(0x117c0951cf78c66b), // id=2 kind=3 choice=4 effect=0
+    UINT64_C(0x6dbf0a3abb52a72e), // id=2 kind=3 choice=5 effect=0
+    UINT64_C(0xc6042a3f3ca693e2), // id=2 kind=3 choice=6 effect=0
     UINT64_C(0xd2e550e0cf4c4156), // id=2 kind=4 choice=0 effect=0
     UINT64_C(0x96c42cbd01740057), // id=2 kind=4 choice=1 effect=0
     UINT64_C(0x038912b37774677b), // id=2 kind=4 choice=2 effect=0
@@ -166,13 +167,13 @@ constexpr std::uint64_t expected[] = {
     UINT64_C(0x30a43c7c50d66049), // id=3 kind=1 choice=0 effect=1
     UINT64_C(0xe9454c6b89764e48), // id=3 kind=2 choice=3 effect=0
     UINT64_C(0x989793735674e979), // id=3 kind=6 choice=0 effect=0
-    UINT64_C(0x79ea3418d2519a58), // id=3 kind=3 choice=0 effect=0
-    UINT64_C(0x89a2444305c4b951), // id=3 kind=3 choice=1 effect=0
-    UINT64_C(0x27f72436ceded580), // id=3 kind=3 choice=2 effect=0
-    UINT64_C(0xf826f881cb33cf5c), // id=3 kind=3 choice=3 effect=0
-    UINT64_C(0xf59fe13b20bed7fc), // id=3 kind=3 choice=4 effect=0
-    UINT64_C(0x09570784bd012089), // id=3 kind=3 choice=5 effect=0
-    UINT64_C(0x58fb14d8eaa93ea5), // id=3 kind=3 choice=6 effect=0
+    UINT64_C(0xc78faa627c540f35), // id=3 kind=3 choice=0 effect=0
+    UINT64_C(0xd17c7a74b7be73bc), // id=3 kind=3 choice=1 effect=0
+    UINT64_C(0xf0b5642e21e8ec20), // id=3 kind=3 choice=2 effect=0
+    UINT64_C(0x9086798787da8b0d), // id=3 kind=3 choice=3 effect=0
+    UINT64_C(0xea62657f01aba515), // id=3 kind=3 choice=4 effect=0
+    UINT64_C(0x595dd621f31eee38), // id=3 kind=3 choice=5 effect=0
+    UINT64_C(0x8b9e66803e9bc428), // id=3 kind=3 choice=6 effect=0
     UINT64_C(0xca59fc73f8e63fe6), // id=3 kind=4 choice=0 effect=0
     UINT64_C(0x98a3551537b4b8c7), // id=3 kind=4 choice=1 effect=0
     UINT64_C(0x76760c3f0629643b), // id=3 kind=4 choice=2 effect=0
@@ -183,13 +184,13 @@ constexpr std::uint64_t expected[] = {
     UINT64_C(0x8429e921cbfcd22b), // id=4 kind=1 choice=0 effect=1
     UINT64_C(0xe024cc73e759c05c), // id=4 kind=2 choice=4 effect=0
     UINT64_C(0x89046f30ad0dfb8e), // id=4 kind=6 choice=0 effect=0
-    UINT64_C(0x618f684f1365c6cb), // id=4 kind=3 choice=0 effect=0
-    UINT64_C(0x5b3c46ff37879741), // id=4 kind=3 choice=1 effect=0
-    UINT64_C(0x0f745d0649b2a0e1), // id=4 kind=3 choice=2 effect=0
-    UINT64_C(0x77942724344c0389), // id=4 kind=3 choice=3 effect=0
-    UINT64_C(0xf326a2f66ebef35d), // id=4 kind=3 choice=4 effect=0
-    UINT64_C(0xca216ad68fa26c56), // id=4 kind=3 choice=5 effect=0
-    UINT64_C(0x25c9ce572fb671eb), // id=4 kind=3 choice=6 effect=0
+    UINT64_C(0x0504837b18ca5c07), // id=4 kind=3 choice=0 effect=0
+    UINT64_C(0x2fdb326b30bb42d5), // id=4 kind=3 choice=1 effect=0
+    UINT64_C(0x101eed0a95219c32), // id=4 kind=3 choice=2 effect=0
+    UINT64_C(0xb2e3e0f9b0f6d4d1), // id=4 kind=3 choice=3 effect=0
+    UINT64_C(0xdf2931d6745fbe82), // id=4 kind=3 choice=4 effect=0
+    UINT64_C(0x1d44f5eeda09bbe2), // id=4 kind=3 choice=5 effect=0
+    UINT64_C(0x5c756a0b127d044d), // id=4 kind=3 choice=6 effect=0
     UINT64_C(0x81e0cd6ce9447446), // id=4 kind=4 choice=0 effect=0
     UINT64_C(0xe7c7aa25ab8f9510), // id=4 kind=4 choice=1 effect=0
     UINT64_C(0x3b6fffd3a67fc5b0), // id=4 kind=4 choice=2 effect=0
@@ -200,13 +201,13 @@ constexpr std::uint64_t expected[] = {
     UINT64_C(0xaf9eaddaac0ff26b), // id=5 kind=1 choice=0 effect=1
     UINT64_C(0x95f26e3dec6e47ff), // id=5 kind=2 choice=5 effect=0
     UINT64_C(0xac06c3ab920fbc0e), // id=5 kind=6 choice=0 effect=0
-    UINT64_C(0xaa908a8d075c087e), // id=5 kind=3 choice=0 effect=0
-    UINT64_C(0x8e1daca2449dea78), // id=5 kind=3 choice=1 effect=0
-    UINT64_C(0xe026c71e607efc5e), // id=5 kind=3 choice=2 effect=0
-    UINT64_C(0xd88a2be4a2258af0), // id=5 kind=3 choice=3 effect=0
-    UINT64_C(0x05b5da947b5b36e4), // id=5 kind=3 choice=4 effect=0
-    UINT64_C(0xcc7a8b688b36ec9f), // id=5 kind=3 choice=5 effect=0
-    UINT64_C(0xa53a3516c8731c4e), // id=5 kind=3 choice=6 effect=0
+    UINT64_C(0x654cf2505ed624a2), // id=5 kind=3 choice=0 effect=0
+    UINT64_C(0x1bf6216897060294), // id=5 kind=3 choice=1 effect=0
+    UINT64_C(0x13b547ab7c8cbd69), // id=5 kind=3 choice=2 effect=0
+    UINT64_C(0x02ccf63a420ba680), // id=5 kind=3 choice=3 effect=0
+    UINT64_C(0x4ae89fdb854cafbb), // id=5 kind=3 choice=4 effect=0
+    UINT64_C(0x0d3aad8b4542704b), // id=5 kind=3 choice=5 effect=0
+    UINT64_C(0x411e208eca8531e1), // id=5 kind=3 choice=6 effect=0
     UINT64_C(0xc796ea32657d12b6), // id=5 kind=4 choice=0 effect=0
     UINT64_C(0x51dbe6625ceae6f0), // id=5 kind=4 choice=1 effect=0
     UINT64_C(0x109179d2331c8f70), // id=5 kind=4 choice=2 effect=0
@@ -217,13 +218,13 @@ constexpr std::uint64_t expected[] = {
     UINT64_C(0x14f65b1cd6ff74eb), // id=6 kind=1 choice=0 effect=1
     UINT64_C(0x3d670a9a3b30ff87), // id=6 kind=2 choice=6 effect=0
     UINT64_C(0x3526c9645915d9ee), // id=6 kind=6 choice=0 effect=0
-    UINT64_C(0x656822d97d8c30af), // id=6 kind=3 choice=0 effect=0
-    UINT64_C(0x14fa7cff9840d7cd), // id=6 kind=3 choice=1 effect=0
-    UINT64_C(0xfe79a86d9cd6271d), // id=6 kind=3 choice=2 effect=0
-    UINT64_C(0xc7cf8057d27825a5), // id=6 kind=3 choice=3 effect=0
-    UINT64_C(0x496a1b45a1b00119), // id=6 kind=3 choice=4 effect=0
-    UINT64_C(0x4b70c34eb8029fcd), // id=6 kind=3 choice=5 effect=0
-    UINT64_C(0xc79d630ede91a24f), // id=6 kind=3 choice=6 effect=0
+    UINT64_C(0x0a9af52df28afc83), // id=6 kind=3 choice=0 effect=0
+    UINT64_C(0xf2fbcbe87a3a9e51), // id=6 kind=3 choice=1 effect=0
+    UINT64_C(0x387aafed8640ddae), // id=6 kind=3 choice=2 effect=0
+    UINT64_C(0xcb522914da9d1185), // id=6 kind=3 choice=3 effect=0
+    UINT64_C(0x368a947a67c75d35), // id=6 kind=3 choice=4 effect=0
+    UINT64_C(0x3da7e8bd39683ead), // id=6 kind=3 choice=5 effect=0
+    UINT64_C(0x947d03f345e9a1a2), // id=6 kind=3 choice=6 effect=0
     UINT64_C(0x2389e28d6942e99a), // id=6 kind=4 choice=0 effect=0
     UINT64_C(0xe8271f9cc59fdd24), // id=6 kind=4 choice=1 effect=0
     UINT64_C(0x8475d4e5051cf534), // id=6 kind=4 choice=2 effect=0
@@ -234,13 +235,13 @@ constexpr std::uint64_t expected[] = {
     UINT64_C(0xef26c79bfe2471eb), // id=7 kind=1 choice=0 effect=1
     UINT64_C(0xd5a71bac97795529), // id=7 kind=2 choice=7 effect=0
     UINT64_C(0x4066da80247b75ce), // id=7 kind=6 choice=0 effect=0
-    UINT64_C(0x0a270f0d8d01cd0a), // id=7 kind=3 choice=0 effect=0
-    UINT64_C(0x4926705b633581d4), // id=7 kind=3 choice=1 effect=0
-    UINT64_C(0x07bc43079c4a07ea), // id=7 kind=3 choice=2 effect=0
-    UINT64_C(0x8d57ebd57f428e5c), // id=7 kind=3 choice=3 effect=0
-    UINT64_C(0x17f36d65b293d3e0), // id=7 kind=3 choice=4 effect=0
-    UINT64_C(0xd7d20f039219d3dc), // id=7 kind=3 choice=5 effect=0
-    UINT64_C(0xa0d14d42bb2a494a), // id=7 kind=3 choice=6 effect=0
+    UINT64_C(0xb230c97f5e2c1146), // id=7 kind=3 choice=0 effect=0
+    UINT64_C(0x2e743552d1f91f70), // id=7 kind=3 choice=1 effect=0
+    UINT64_C(0x4cfb749c13ec827d), // id=7 kind=3 choice=2 effect=0
+    UINT64_C(0x603dc63a37913264), // id=7 kind=3 choice=3 effect=0
+    UINT64_C(0xa60dd4367d4be9f4), // id=7 kind=3 choice=4 effect=0
+    UINT64_C(0x8fb41caa208f356c), // id=7 kind=3 choice=5 effect=0
+    UINT64_C(0x43eab9edb887c067), // id=7 kind=3 choice=6 effect=0
     UINT64_C(0xaa8ebf06955e062a), // id=7 kind=4 choice=0 effect=0
     UINT64_C(0x11540be7f305b224), // id=7 kind=4 choice=1 effect=0
     UINT64_C(0xb8d4b716ae20e714), // id=7 kind=4 choice=2 effect=0
@@ -251,13 +252,13 @@ constexpr std::uint64_t expected[] = {
     UINT64_C(0x7d90413fb7524a8e), // id=8 kind=1 choice=0 effect=1
     UINT64_C(0xd3a62ea7bd1c2d7e), // id=8 kind=2 choice=8 effect=0
     UINT64_C(0x1f21b4296b56ce0a), // id=8 kind=6 choice=0 effect=0
-    UINT64_C(0x84158ed0abad5d01), // id=8 kind=3 choice=0 effect=0
-    UINT64_C(0x2ae2e2b784e502c9), // id=8 kind=3 choice=1 effect=0
-    UINT64_C(0x4148e08aba7b343e), // id=8 kind=3 choice=2 effect=0
-    UINT64_C(0x9072026ea09f4c09), // id=8 kind=3 choice=3 effect=0
-    UINT64_C(0x0407b3a7e7b9c921), // id=8 kind=3 choice=4 effect=0
-    UINT64_C(0xa13a641be6ee609d), // id=8 kind=3 choice=5 effect=0
-    UINT64_C(0xd4f22ce05c30f5a6), // id=8 kind=3 choice=6 effect=0
+    UINT64_C(0x1f9b39864be29731), // id=8 kind=3 choice=0 effect=0
+    UINT64_C(0x3b05c6505b3d7559), // id=8 kind=3 choice=1 effect=0
+    UINT64_C(0x92c40c61377c8d16), // id=8 kind=3 choice=2 effect=0
+    UINT64_C(0x02a3829f7c7d799d), // id=8 kind=3 choice=3 effect=0
+    UINT64_C(0xdd6465a34858bf79), // id=8 kind=3 choice=4 effect=0
+    UINT64_C(0x2d5d4e5018134829), // id=8 kind=3 choice=5 effect=0
+    UINT64_C(0x247af7e6c9596586), // id=8 kind=3 choice=6 effect=0
     UINT64_C(0x3323f5da82fc7ba1), // id=8 kind=4 choice=0 effect=0
     UINT64_C(0x0a5f2d26c0d025b2), // id=8 kind=4 choice=1 effect=0
     UINT64_C(0xa046fefe2d2b8ff9), // id=8 kind=4 choice=2 effect=0
@@ -268,13 +269,13 @@ constexpr std::uint64_t expected[] = {
     UINT64_C(0x376d3456889b302e), // id=9 kind=1 choice=0 effect=1
     UINT64_C(0x4a27007da3462b16), // id=9 kind=2 choice=9 effect=0
     UINT64_C(0xfaeba40cd7d9071e), // id=9 kind=6 choice=0 effect=0
-    UINT64_C(0x6cbd38d027f6aa41), // id=9 kind=3 choice=0 effect=0
-    UINT64_C(0xf1feba7243219ee1), // id=9 kind=3 choice=1 effect=0
-    UINT64_C(0x832c2558cb88e761), // id=9 kind=3 choice=2 effect=0
-    UINT64_C(0xbc0d76574e537e79), // id=9 kind=3 choice=3 effect=0
-    UINT64_C(0xf6a82fa087bfd0f9), // id=9 kind=3 choice=4 effect=0
-    UINT64_C(0x1e44a589016dd52d), // id=9 kind=3 choice=5 effect=0
-    UINT64_C(0x646ad50f474b8616), // id=9 kind=3 choice=6 effect=0
+    UINT64_C(0xaae7e07617ee6055), // id=9 kind=3 choice=0 effect=0
+    UINT64_C(0x8f9f5ece1173eff5), // id=9 kind=3 choice=1 effect=0
+    UINT64_C(0xe2120994202a4909), // id=9 kind=3 choice=2 effect=0
+    UINT64_C(0x0f2d4fed085b22e9), // id=9 kind=3 choice=3 effect=0
+    UINT64_C(0x7d312d28540c32ed), // id=9 kind=3 choice=4 effect=0
+    UINT64_C(0xd72faea293e419d5), // id=9 kind=3 choice=5 effect=0
+    UINT64_C(0xf6d8a0ae1213e442), // id=9 kind=3 choice=6 effect=0
     UINT64_C(0xe7bad0bd206688d1), // id=9 kind=4 choice=0 effect=0
     UINT64_C(0xbf89b76eb10ecf62), // id=9 kind=4 choice=1 effect=0
     UINT64_C(0x60d7bfb8eb533279), // id=9 kind=4 choice=2 effect=0
@@ -285,13 +286,13 @@ constexpr std::uint64_t expected[] = {
     UINT64_C(0x1892f868d73d709e), // id=10 kind=1 choice=0 effect=1
     UINT64_C(0x0faf8b58a54abe7d), // id=10 kind=2 choice=10 effect=0
     UINT64_C(0x722a7b0299c1cfb6), // id=10 kind=6 choice=0 effect=0
-    UINT64_C(0x64ca62b2f6652e36), // id=10 kind=3 choice=0 effect=0
-    UINT64_C(0xf2ef875b3483494e), // id=10 kind=3 choice=1 effect=0
-    UINT64_C(0x55a9e9126242a70e), // id=10 kind=3 choice=2 effect=0
-    UINT64_C(0x1a785e0ba9dbd00a), // id=10 kind=3 choice=3 effect=0
-    UINT64_C(0xf9213d17a677c18e), // id=10 kind=3 choice=4 effect=0
-    UINT64_C(0xaf62fc699fc4320e), // id=10 kind=3 choice=5 effect=0
-    UINT64_C(0xd45dd155fbc28812), // id=10 kind=3 choice=6 effect=0
+    UINT64_C(0x77a7d49be25073fa), // id=10 kind=3 choice=0 effect=0
+    UINT64_C(0xa68dc278907721f2), // id=10 kind=3 choice=1 effect=0
+    UINT64_C(0x73683c61daf91c1e), // id=10 kind=3 choice=2 effect=0
+    UINT64_C(0xeb1bfad1391b39b6), // id=10 kind=3 choice=3 effect=0
+    UINT64_C(0xa0b51404598984ba), // id=10 kind=3 choice=4 effect=0
+    UINT64_C(0x05ccd5490ba754ba), // id=10 kind=3 choice=5 effect=0
+    UINT64_C(0x6664a8a78d9df5b6), // id=10 kind=3 choice=6 effect=0
     UINT64_C(0x54967c6c0c224eba), // id=10 kind=4 choice=0 effect=0
     UINT64_C(0xdf31b6248087e25e), // id=10 kind=4 choice=1 effect=0
     UINT64_C(0x7460b0a0af273a06), // id=10 kind=4 choice=2 effect=0
@@ -302,13 +303,13 @@ constexpr std::uint64_t expected[] = {
     UINT64_C(0x712f3c316975b26e), // id=11 kind=1 choice=0 effect=1
     UINT64_C(0xc5351ffb0d5d05da), // id=11 kind=2 choice=11 effect=0
     UINT64_C(0x39f4446141190312), // id=11 kind=6 choice=0 effect=0
-    UINT64_C(0xd530c706f3936175), // id=11 kind=3 choice=0 effect=0
-    UINT64_C(0x723f104ef8d50305), // id=11 kind=3 choice=1 effect=0
-    UINT64_C(0x3122f6f43bc21731), // id=11 kind=3 choice=2 effect=0
-    UINT64_C(0xcf1fb592337e6c2d), // id=11 kind=3 choice=3 effect=0
-    UINT64_C(0xb56ff4c349888039), // id=11 kind=3 choice=4 effect=0
-    UINT64_C(0x05c0bf02ce9ae219), // id=11 kind=3 choice=5 effect=0
-    UINT64_C(0x31abcca721c37459), // id=11 kind=3 choice=6 effect=0
+    UINT64_C(0x3f6f4cf7ba957689), // id=11 kind=3 choice=0 effect=0
+    UINT64_C(0x02ff5f2fdb1fc1d9), // id=11 kind=3 choice=1 effect=0
+    UINT64_C(0x104e276480ef65a1), // id=11 kind=3 choice=2 effect=0
+    UINT64_C(0xdc36f45d0a887309), // id=11 kind=3 choice=3 effect=0
+    UINT64_C(0xb94e1508df26f345), // id=11 kind=3 choice=4 effect=0
+    UINT64_C(0x7d45e059e63e5af5), // id=11 kind=3 choice=5 effect=0
+    UINT64_C(0x0b0444a1eb35ff9d), // id=11 kind=3 choice=6 effect=0
     UINT64_C(0x78380c2bd6491aba), // id=11 kind=4 choice=0 effect=0
     UINT64_C(0xb48e002049b9b15e), // id=11 kind=4 choice=1 effect=0
     UINT64_C(0x4294962b399e91b6), // id=11 kind=4 choice=2 effect=0
@@ -319,13 +320,13 @@ constexpr std::uint64_t expected[] = {
     UINT64_C(0x92b3f1b39487442c), // id=12 kind=1 choice=0 effect=1
     UINT64_C(0xcfa0a0e6d74163b9), // id=12 kind=2 choice=12 effect=0
     UINT64_C(0xb7c590bc3c54c5b8), // id=12 kind=6 choice=0 effect=0
-    UINT64_C(0x5b5e145396051142), // id=12 kind=3 choice=0 effect=0
-    UINT64_C(0xf6bd36dd47b06bf2), // id=12 kind=3 choice=1 effect=0
-    UINT64_C(0xa44c70eccceb8ba6), // id=12 kind=3 choice=2 effect=0
-    UINT64_C(0xcef124ca5d468a9e), // id=12 kind=3 choice=3 effect=0
-    UINT64_C(0xe54c11f0a1ee895e), // id=12 kind=3 choice=4 effect=0
-    UINT64_C(0x947626f47e54f5ad), // id=12 kind=3 choice=5 effect=0
-    UINT64_C(0xd31e8d50dd088b06), // id=12 kind=3 choice=6 effect=0
+    UINT64_C(0x06a9189c45117e22), // id=12 kind=3 choice=0 effect=0
+    UINT64_C(0xee65d43db296b9d2), // id=12 kind=3 choice=1 effect=0
+    UINT64_C(0xc32409db4f6bc766), // id=12 kind=3 choice=2 effect=0
+    UINT64_C(0x9684784e5472cdc6), // id=12 kind=3 choice=3 effect=0
+    UINT64_C(0x1208cf23dc2b6b36), // id=12 kind=3 choice=4 effect=0
+    UINT64_C(0xf02ff9e7ecc47ba5), // id=12 kind=3 choice=5 effect=0
+    UINT64_C(0xe7f25197fd3a487e), // id=12 kind=3 choice=6 effect=0
     UINT64_C(0x0eddc55a2869effd), // id=12 kind=4 choice=0 effect=0
     UINT64_C(0x82f64818b6a0e4fd), // id=12 kind=4 choice=1 effect=0
     UINT64_C(0x710827e23cbea351), // id=12 kind=4 choice=2 effect=0
@@ -336,13 +337,13 @@ constexpr std::uint64_t expected[] = {
     UINT64_C(0x70b3cf25714e1eec), // id=13 kind=1 choice=0 effect=1
     UINT64_C(0x05a48a94d671da54), // id=13 kind=2 choice=13 effect=0
     UINT64_C(0xd8830f562da9af14), // id=13 kind=6 choice=0 effect=0
-    UINT64_C(0x0288671a49bb1bb9), // id=13 kind=3 choice=0 effect=0
-    UINT64_C(0xd0135e3239f3b835), // id=13 kind=3 choice=1 effect=0
-    UINT64_C(0x05ffe01ba874eabd), // id=13 kind=3 choice=2 effect=0
-    UINT64_C(0x9c009d72f28fbd31), // id=13 kind=3 choice=3 effect=0
-    UINT64_C(0xb11496dad895dbf5), // id=13 kind=3 choice=4 effect=0
-    UINT64_C(0x615d40cdd9ef7746), // id=13 kind=3 choice=5 effect=0
-    UINT64_C(0x9b94bcfd086f0375), // id=13 kind=3 choice=6 effect=0
+    UINT64_C(0xba282b432dc2efc1), // id=13 kind=3 choice=0 effect=0
+    UINT64_C(0xb4ab1af983f999fd), // id=13 kind=3 choice=1 effect=0
+    UINT64_C(0xcda3f16e2e9c00fd), // id=13 kind=3 choice=2 effect=0
+    UINT64_C(0xc71b614b614a4e31), // id=13 kind=3 choice=3 effect=0
+    UINT64_C(0x745e97a8a0ad9205), // id=13 kind=3 choice=4 effect=0
+    UINT64_C(0x80704a9b5579b656), // id=13 kind=3 choice=5 effect=0
+    UINT64_C(0xc33520396e918f65), // id=13 kind=3 choice=6 effect=0
     UINT64_C(0x206c12b2a7d30f9d), // id=13 kind=4 choice=0 effect=0
     UINT64_C(0x50adbe4f92a5525d), // id=13 kind=4 choice=1 effect=0
     UINT64_C(0xfb61ee2bc82076a9), // id=13 kind=4 choice=2 effect=0
@@ -353,13 +354,13 @@ constexpr std::uint64_t expected[] = {
     UINT64_C(0xf07708fb422eb571), // id=14 kind=1 choice=0 effect=1
     UINT64_C(0x040c029a50b5c3bf), // id=14 kind=2 choice=14 effect=0
     UINT64_C(0xa1b31116b3cf593d), // id=14 kind=6 choice=0 effect=0
-    UINT64_C(0xac8360fca04df32a), // id=14 kind=3 choice=0 effect=0
-    UINT64_C(0x51685b9ba8f0979f), // id=14 kind=3 choice=1 effect=0
-    UINT64_C(0x93e55051f875bbe5), // id=14 kind=3 choice=2 effect=0
-    UINT64_C(0x19ccc28ff53c5e40), // id=14 kind=3 choice=3 effect=0
-    UINT64_C(0x940b17d345265a2a), // id=14 kind=3 choice=4 effect=0
-    UINT64_C(0x8bac93da46916cfd), // id=14 kind=3 choice=5 effect=0
-    UINT64_C(0x16a903791ce37238), // id=14 kind=3 choice=6 effect=0
+    UINT64_C(0x0c4cd66c568619da), // id=14 kind=3 choice=0 effect=0
+    UINT64_C(0x0ea3e9785a2db39f), // id=14 kind=3 choice=1 effect=0
+    UINT64_C(0xf4381a99ae101865), // id=14 kind=3 choice=2 effect=0
+    UINT64_C(0x2267281dc9cfa620), // id=14 kind=3 choice=3 effect=0
+    UINT64_C(0x6a101e6bbdfbdf6a), // id=14 kind=3 choice=4 effect=0
+    UINT64_C(0x7e255b7f9f4e2a0d), // id=14 kind=3 choice=5 effect=0
+    UINT64_C(0x01ce331328ac8658), // id=14 kind=3 choice=6 effect=0
 
     UINT64_C(0x8061322b569d086e), // id=14 kind=4 choice=0 effect=0
     UINT64_C(0xd793337e27afd7bb), // id=14 kind=4 choice=1 effect=0
@@ -371,14 +372,14 @@ constexpr std::uint64_t expected[] = {
     UINT64_C(0xde85234b8f7f40f5), // id=15 kind=1 choice=0 effect=1
     UINT64_C(0xe330fabd45fa461e), // id=15 kind=2 choice=15 effect=0
     UINT64_C(0x64d7345123cd7e1f), // id=15 kind=6 choice=0 effect=0
-    UINT64_C(0x44b9d40bf7461f6c), // id=15 kind=3 choice=0 effect=0
-    UINT64_C(0x7d7a50b844f58522), // id=15 kind=3 choice=1 effect=0
-    UINT64_C(0xb5ed3dfee07a806a), // id=15 kind=3 choice=2 effect=0
-    UINT64_C(0x0f207b6acb15d642), // id=15 kind=3 choice=3 effect=0
-    UINT64_C(0x44c20d1c1528197c), // id=15 kind=3 choice=4 effect=0
-    UINT64_C(0x1b7613f93ed01592), // id=15 kind=3 choice=5 effect=0
-    UINT64_C(0xd82ba62eb7bf09c5), // id=15 kind=3 choice=6 effect=0
-    UINT64_C(0xfad8da1bd5e4ab9a), // id=15 kind=3 choice=7 effect=0
+    UINT64_C(0x440c1bfdb6f74d0c), // id=15 kind=3 choice=0 effect=0
+    UINT64_C(0xde972a9f53ef6732), // id=15 kind=3 choice=1 effect=0
+    UINT64_C(0xea8d48161454ba5a), // id=15 kind=3 choice=2 effect=0
+    UINT64_C(0x95fb967ec3fe11f2), // id=15 kind=3 choice=3 effect=0
+    UINT64_C(0x3f8e384f1131debc), // id=15 kind=3 choice=4 effect=0
+    UINT64_C(0x7303b0be302403d2), // id=15 kind=3 choice=5 effect=0
+    UINT64_C(0x0e6a4f6192376cc9), // id=15 kind=3 choice=6 effect=0
+    UINT64_C(0x8fb91683f1b7dcee), // id=15 kind=3 choice=7 effect=0
     UINT64_C(0x582794b47a6cb7fc), // id=15 kind=4 choice=0 effect=0
     UINT64_C(0xc9cad7302c236436), // id=15 kind=4 choice=1 effect=0
     UINT64_C(0xf0c95b87644ee6e6), // id=15 kind=4 choice=2 effect=0
@@ -388,10 +389,10 @@ constexpr std::uint64_t expected[] = {
     UINT64_C(0xa8dc2ea4f11cca6d), // id=7 kind=2 choice=15 effect=2
     UINT64_C(0x209cdf643581e1ff), // id=8 kind=4 choice=2 effect=2
     UINT64_C(0xf8c6221bff0a4c78), // id=14 kind=5 choice=1 effect=2
-    UINT64_C(0x56a751c1954eb3f2), // id=14 kind=3 choice=0 effect=2
-    UINT64_C(0x4838fb29dad9fdf2), // id=14 kind=3 choice=4 effect=2
-    UINT64_C(0xc09e5cadfdb11e1b), // id=14 kind=3 choice=6 effect=2
-    UINT64_C(0x66c2e91328139e42), // id=15 kind=3 choice=1 effect=2
+    UINT64_C(0xe9f4bc22a40c5c72), // id=14 kind=3 choice=0 effect=2
+    UINT64_C(0x37b967ec3722b6f2), // id=14 kind=3 choice=4 effect=2
+    UINT64_C(0x1d82c75a5d1a2c1b), // id=14 kind=3 choice=6 effect=2
+    UINT64_C(0x868416a532b19542), // id=15 kind=3 choice=1 effect=2
     UINT64_C(0xb57ff59664dde289), // id=0 kind=1 choice=0 effect=3
     UINT64_C(0xba8246fc5648a6de), // id=6 kind=1 choice=0 effect=3
     UINT64_C(0x0b8fde84ced97dd6), // id=10 kind=1 choice=0 effect=3
@@ -493,6 +494,72 @@ std::uint64_t draw(const fixtures::Case& c, bool diagnostics = false, bool rally
 }
 
 int main() {
+    // The ice palette must cover walls, the variant barrier, and both score digits.
+    for (bool ice : {false, true}) for (bool fixed : {false, true}) {
+        ctg::TennisB game(false, true, false, false, true);
+        game.set_ice_hockey(ice);
+        auto renderer = std::make_unique<ctg::Renderer>();
+        renderer->render_tennis(game, true, {fixed, 0, 0});
+        const auto pixel = [&](int x, int y) { return renderer->pixels[y * 320 + x]; };
+        const unsigned ink = ice ? 0x245574 : 0xaefbff;
+        if (pixel(100, 20) != (ice ? 0x285c9cu : 0xb1ffbfu) ||
+            pixel(157, 28) != (ice ? 0x285c9cu : ctg::hockey_boundary) ||
+            pixel(0, 0) != 0x505068u ||
+            pixel(73, 44) != ink || pixel(247, 44) != ink ||
+            pixel(100, 100) != (ice ? 0xb9e4edu : 0x2cc94cu) ||
+            pixel(49, game.paddle_visible_top(0)) != (ice ? 0xe67fdbu : 0xff9fffu) ||
+            pixel(265, game.paddle_visible_top(1)) != (ice ? 0xb5cf60u : 0xd5e87cu)) {
+            std::fprintf(stderr, "Hockey palette mismatch ice=%d fixed=%d\n", ice, fixed);
+            return 1;
+        }
+    }
+    // Doubles inner paddles use the same owner colors as the outer paddles.
+    for (bool ice : {false, true}) {
+        ctg::TennisB game(true, true);
+        game.set_ice_hockey(ice);
+        auto renderer = std::make_unique<ctg::Renderer>();
+        renderer->render_tennis(game, false);
+        if (renderer->pixels[game.paddle_visible_top(1) * 320 + 121] != (ice ? 0xb5cf60u : 0xd5e87cu) ||
+            renderer->pixels[game.paddle_visible_top(0) * 320 + 193] != (ice ? 0xe67fdbu : 0xff9fffu)) {
+            std::fprintf(stderr, "Hockey doubles palette mismatch ice=%d\n", ice);
+            return 1;
+        }
+    }
+    // Check the puck both on the court and across the exterior boundary.
+    for (bool ice : {false, true}) for (int x : {160, -8}) {
+        ctg::TennisB game(false, true);
+        game.set_ice_hockey(ice);
+        auto& state = const_cast<ctg::TennisState&>(game.state());
+        state.serve_wait = 0; state.ball_x = x; state.ball_y = 120;
+        auto renderer = std::make_unique<ctg::Renderer>();
+        renderer->render_tennis(game, false);
+        const int px = ctg::hockey_x(x), py = ctg::hockey_y(120);
+        const unsigned expected = ice ? 0x243e70 : x == 160 ? ctg::hockey_puck_color : ctg::hockey_exterior_puck_color;
+        if (renderer->pixels[py * 320 + px] != expected) {
+            std::fprintf(stderr, "Hockey puck palette mismatch ice=%d x=%d\n", ice, x);
+            return 1;
+        }
+    }
+    // Hidden previews use the demo game's ice palette, including fixed test scores.
+    {
+        fixtures::Case c{4, fixtures::hidden, 0, fixtures::plain};
+        fixtures::Fixture f(c);
+        f.demo_tennis.set_ice_hockey(true);
+        ctg::RenderState state{4, false, false, false, false, true,
+            0, 0, 0, 0, false, {}, 15, 15, 0, 0, 0, 0, 0,
+            f.modes, f.tennis, f.demo_tennis, f.shooting, f.demo_shooting,
+            f.racing, f.demo_racing, true, {true, 0, 0}, true};
+        auto renderer = std::make_unique<ctg::Renderer>();
+        renderer->render(state);
+        if (renderer->pixels[20 * 320 + 100] != 0x285c9cu ||
+                    renderer->pixels[0] != 0x505068u ||
+            renderer->pixels[44 * 320 + 73] != 0x245574u ||
+            renderer->pixels[f.demo_tennis.paddle_visible_top(0) * 320 + 49] != 0xe67fdbu ||
+            renderer->pixels[f.demo_tennis.paddle_visible_top(1) * 320 + 265] != 0xb5cf60u) {
+            std::fprintf(stderr, "Ice preview palette mismatch\n");
+            return 1;
+        }
+    }
     // Mixed surfaces split visible dashes at the exact dirt transition in every layout.
     for (int mode = 0; mode < 3; ++mode) for (int position : {-125, -1475})
         for (unsigned phase : {0u, 100u, 239u}) for (bool show_score : {false, true}) {
@@ -836,6 +903,74 @@ int main() {
     static_assert(ctg::menu::shooting_target_size_row == 4 && ctg::menu::shooting_speed_row == 5 && ctg::menu::shooting_shots_row == 6);
     static_assert(ctg::menu::shooting_row_count == 7);
     static_assert(!ctg::menu::launch_layout(ctg::menu::shooting_row_count, ctg::menu::shooting_shots_row).scroll);
+    // Compare complete selected option rows with independently positioned glyphs and arrows.
+    // Exercise each viewport, feature/lock combination, value, and monochrome outline.
+    for (unsigned id : {0u, 4u, 14u, 15u}) for (bool original : {false, true})
+    for (bool locked : {false, true}) for (bool mono : {false, true})
+    for (unsigned choice = 2; choice < ctg::menu::option_count(id); ++choice) {
+        if (!ctg::menu::row_visible(id, choice, original, locked)) continue;
+        for (unsigned v = 0; v < 60; ++v) {
+            fixtures::Case c{id, fixtures::launch, choice, fixtures::plain};
+            fixtures::Fixture f(c);
+            f.modes[id < 14 ? id : 0] = v % 4;
+            ctg::RenderState state{id, false, false, false, false, false,
+                choice, choice, choice, choice, bool(v % 2), {bool(v % 2), bool(v % 2)}, 30, 30,
+                v % 5, v % 4, v % 3, v % 3, v % 3, f.modes, f.tennis, f.demo_tennis,
+                f.shooting, f.demo_shooting, f.racing, f.demo_racing, true, {}, true};
+            state.racing_speed = v % 3;
+            state.racing_more_cars = state.racing_wall_crash = state.racing_zigzag = state.racing_bad_road = v % 2;
+            state.ice_hockey = v % 2;
+            state.original_features = original;
+            state.direct_launch_locked = locked;
+            const char* label = nullptr;
+            const char* value = nullptr;
+            const char* modes[] = {"2 PLAYERS", "1P EASY", "1P NORMAL", "1P HARD"};
+            const char* racing_modes[] = {"1P SPACIOUS", "1P NARROW", "2 PLAYERS"};
+            const char* speeds[] = {"LOW", "MEDIUM", "HIGH"};
+            const char* targets[] = {"MANUAL", "SLOW", "NORMAL", "FAST", "RANDOM"};
+            const char* directions[] = {"DOWN", "UP", "RANDOM", "BOUNCE"};
+            const char* sizes[] = {"LARGE", "SMALL", "RANDOM"};
+            const char* shot_speeds[] = {"LOW", "HIGH", "RANDOM"};
+            if (id == 15) {
+                const char* labels[] = {"MODE", "SPEED", "BAD ROAD", "WALL CRASH", "MORE CARS", "CAR PATH"};
+                label = labels[choice - 2];
+                value = choice == 2 ? racing_modes[v % 3] : choice == 3 ? speeds[v % 3] :
+                        choice == 7 ? (v % 2 ? "ZIGZAG" : "STRAIGHT") : (v % 2 ? "ON" : "OFF");
+            } else if (id == 14) {
+                const char* labels[] = {"TARGET MOVE", "DIRECTION", "TARGET SIZE", "SHOTS SPEED", "SHOTS"};
+                label = labels[choice - 2];
+                value = choice == 2 ? targets[v % 5] : choice == 3 ? directions[v % 4] :
+                        choice == 4 ? sizes[v % 3] : choice == 5 ? shot_speeds[v % 3] : "30";
+            } else {
+                const char* labels[] = {"MODE", "SPEED", "P1 SIZE", "P2 SIZE", "SCORE", "ICE HOCKEY"};
+                label = labels[choice - 2];
+                value = choice == 2 ? modes[v % 4] : choice == 3 ? (v % 2 ? "HIGH" : "LOW") :
+                        choice == 6 ? "30" : choice == 7 ? (v % 2 ? "ON" : "OFF") : (v % 2 ? "SMALL" : "LARGE");
+            }
+            if (75 + std::strlen(label) * 6 - 1 >= 151 || 163 + std::strlen(value) * 6 - 1 >= 234) {
+                std::fprintf(stderr, "Option columns overlap: %s / %s\n", label, value);
+                return 1;
+            }
+            const auto layout = ctg::menu::launch_layout(ctg::menu::visible_count(id, original, locked),
+                ctg::menu::visible_index(id, choice, original, locked));
+            const unsigned y = layout.y + (ctg::menu::visible_index(id, choice, original, locked) - layout.first) * layout.spacing;
+            auto actual = std::make_unique<ctg::Renderer>();
+            auto expected_row = std::make_unique<ctg::Graphics>();
+            actual->render(state);
+            expected_row->pixels.fill(0x295166);
+            const auto ink = id == 14 && choice == 3 && v % 5 == 0 ? 0x888888u : 0x70e0ffu;
+            expected_row->text(75, y + 3, label, ink);
+            expected_row->horizontal_arrow(151, y + 6, true, ink);
+            expected_row->text(163, y + 3, value, ink);
+            expected_row->horizontal_arrow(236, y + 6, false, ink);
+            if (mono) { actual->grayscale(); actual->monochrome_selection_outline(state); expected_row->grayscale(); }
+            for (unsigned py = y + 2; py <= y + 10; ++py) for (unsigned x = 54; x < 266; ++x)
+                if (actual->pixels[py * 320 + x] != expected_row->pixels[py * 320 + x]) {
+                    std::fprintf(stderr, "Option row mismatch id=%u row=%u value=%u original=%d locked=%d mono=%d at %u,%u\n", id, choice, v, original, locked, mono, x, py);
+                    return 1;
+                }
+        }
+    }
     // The active MORE CARS row displays the selected OFF/ON value and arrows.
     {
         constexpr unsigned choice = ctg::menu::racing_opponents_row;
@@ -855,10 +990,10 @@ int main() {
             expected_row->pixels.fill(0x295166);
             expected_row->text(75, y + 3, "MORE CARS", 0x70e0ff);
             expected_row->horizontal_arrow(151, y + 6, true, 0x70e0ff);
-            expected_row->text(167, y + 3, enabled ? "ON" : "OFF", 0x70e0ff);
-            expected_row->horizontal_arrow(218, y + 6, false, 0x70e0ff);
-            for (unsigned py = y + 3; py < y + 10; ++py)
-                for (unsigned px = 75; px < 225; ++px)
+            expected_row->text(163, y + 3, enabled ? "ON" : "OFF", 0x70e0ff);
+            expected_row->horizontal_arrow(236, y + 6, false, 0x70e0ff);
+            for (unsigned py = y + 2; py < y + 11; ++py)
+                for (unsigned px = 75; px < 241; ++px)
                     if (renderer->pixels[py * ctg::Graphics::width + px] !=
                         expected_row->pixels[py * ctg::Graphics::width + px]) {
                         std::fprintf(stderr, "MORE CARS row mismatch enabled=%d x=%u y=%u\n", enabled, px, py);
@@ -887,10 +1022,10 @@ int main() {
         expected_row->pixels.fill(0);
         expected_row->text(75, y + 3, "WALL CRASH", color);
         expected_row->horizontal_arrow(151, y + 6, true, color);
-        expected_row->text(167, y + 3, enabled ? "ON" : "OFF", color);
-        expected_row->horizontal_arrow(218, y + 6, false, color);
-        for (unsigned py = y + 3; py < y + 10; ++py)
-            for (unsigned px = 75; px < 225; ++px)
+        expected_row->text(163, y + 3, enabled ? "ON" : "OFF", color);
+        expected_row->horizontal_arrow(236, y + 6, false, color);
+        for (unsigned py = y + 2; py < y + 11; ++py)
+            for (unsigned px = 75; px < 241; ++px)
                 if (expected_row->pixels[py * ctg::Graphics::width + px] == color &&
                     renderer->pixels[py * ctg::Graphics::width + px] != color) {
                     std::fprintf(stderr, "WALL CRASH row mismatch selected=%d enabled=%d x=%u y=%u\n", selected, enabled, px, py);

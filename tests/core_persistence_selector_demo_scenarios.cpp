@@ -32,6 +32,23 @@ int persistence_selector_demo_scenarios(ContentContext& context) {
         if (!retro_load_game(&direct)) return false;
         retro_run(); return true;
     };
+    // Direct Hockey launch previews and gameplay use the saved ice setting.
+    CHECK(load_direct(6));
+    const auto normal_court = at(frame, 60, 30);
+    for (int i = 0; i < 6; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    press(RETRO_DEVICE_ID_JOYPAD_RIGHT);
+    const auto icy_court = at(frame, 60, 30);
+    CHECK(icy_court != normal_court);
+    retro_unload_game(); retro_deinit(); retro_init();
+    CHECK(load_direct(7));
+    CHECK(at(frame, 60, 30) == icy_court);
+    press(RETRO_DEVICE_ID_JOYPAD_START);
+    CHECK(at(frame, 60, 30) == 0xb9e4ed);
+    retro_unload_game();
+    CHECK(load_direct(6));
+    for (int i = 0; i < 6; ++i) press(RETRO_DEVICE_ID_JOYPAD_DOWN);
+    press(RETRO_DEVICE_ID_JOYPAD_RIGHT);
+    retro_unload_game();
     auto saved_opponents = [&]() {
         std::ifstream in(settings_file, std::ios::binary);
         std::vector<unsigned char> record((std::istreambuf_iterator<char>(in)), {});

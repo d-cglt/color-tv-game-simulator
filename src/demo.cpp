@@ -32,7 +32,7 @@ void Demo::resolve_shooting_settings(const DemoOptions& options) {
     const bool high = options.shooting_speed == 2
         ? std::uniform_int_distribution<unsigned>(0, 1)(shooting_random_) != 0 : options.shooting_speed == 1;
     const unsigned speeds[] = {11, 6, 11, 16};
-    shooting.set_options(high, {!high, small});
+    shooting.set_options(high, {options.original_features ? small : !high, small});
     shooting.set_target_behavior(speeds[target], direction == 1 ? -1 : 1, true, direction == 3);
 }
 
@@ -81,11 +81,13 @@ unsigned Demo::step(unsigned id, bool rebound, bool anti, const DemoOptions& opt
     } else if (id == 14) {
         if (changed_game || options.shooting_target != options_.shooting_target ||
             options.shooting_direction != options_.shooting_direction ||
-            options.shooting_size != options_.shooting_size || options.shooting_speed != options_.shooting_speed) {
+            options.shooting_size != options_.shooting_size || options.shooting_speed != options_.shooting_speed ||
+            options.original_features != options_.original_features) {
             resolve_shooting_settings(options);
         }
     } else {
         tennis.set_options(options.high_speed, options.small_paddle);
+        if (changed_game || options.ice_hockey != options_.ice_hockey) tennis.set_ice_hockey(options.ice_hockey);
     }
     options_ = options;
     unsigned events = 0;

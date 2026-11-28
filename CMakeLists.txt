@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(ColorTVGameSimulator VERSION 0.2.0 LANGUAGES CXX)
+project(ColorTVGameSimulator VERSION 0.2.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -81,6 +81,11 @@ if(BUILD_TESTING)
   target_compile_definitions(shooting_random_tests PRIVATE CORE_VERSION="${PROJECT_VERSION}")
   target_link_libraries(shooting_random_tests PRIVATE core_components)
   add_test(NAME shooting_random_tests COMMAND shooting_random_tests)
+  add_executable(original_features_tests tests/original_features_tests.cpp src/content.cpp src/generator.cpp src/preferences.cpp)
+  target_include_directories(original_features_tests PRIVATE src third_party/libretro)
+  target_compile_definitions(original_features_tests PRIVATE CORE_VERSION="${PROJECT_VERSION}")
+  target_link_libraries(original_features_tests PRIVATE core_components)
+  add_test(NAME original_features_tests COMMAND original_features_tests)
   add_executable(preferences_tests tests/preferences_tests.cpp src/preferences.cpp)
   target_include_directories(preferences_tests PRIVATE src)
   add_test(NAME preferences_tests COMMAND preferences_tests)
@@ -94,6 +99,7 @@ if(BUILD_TESTING)
     tests/core_test_harness.cpp
     tests/core_boot_generator_scenarios.cpp
     tests/core_demo_preview_scenarios.cpp
+    tests/core_direct_launch_lock_scenarios.cpp
     tests/core_gameplay_rendering_scenarios.cpp
     tests/core_menus_options_scenarios.cpp
     tests/core_persistence_selector_demo_scenarios.cpp
@@ -103,6 +109,7 @@ if(BUILD_TESTING)
   target_link_libraries(core_tests PRIVATE colortvgame_libretro)
   target_compile_definitions(core_tests PRIVATE CONTENT_DIR="${CMAKE_CURRENT_SOURCE_DIR}/content" RETRO_IMPORT_SYMBOLS)
   add_test(NAME core_tests COMMAND core_tests)
+
   add_executable(core_options_tests tests/core_options_tests.cpp)
   target_include_directories(core_options_tests PRIVATE third_party/libretro)
   target_compile_definitions(core_options_tests PRIVATE RETRO_IMPORT_SYMBOLS)

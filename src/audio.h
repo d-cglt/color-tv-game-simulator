@@ -14,27 +14,29 @@ public:
     static constexpr unsigned racing_start_pulse = 25440;
     static constexpr unsigned racing_start_total = 3 * racing_start_interval + 38640;
 
-    void trigger_game(unsigned events, bool shooting);
+    void trigger_game(unsigned events, bool shooting, int x = 160);
     // Caller gates this on demo_sounds; id changes must call clear_demo().
-    void trigger_demo(unsigned events, unsigned id);
+    void trigger_demo(unsigned events, unsigned id, int x = 160);
     void clear_demo() { demo_ = {}; }
     // Unlike clear_demo(), preserves the oscillator phase and period.
     void clear_game_tone() { game_.remaining = 0; }
     void start_racing();
-    void collision();
-    void bonus();
+    void collision(int x = 160);
+    void bonus(int x = 160);
     bool racing_recovering() const { return crash_sample_ < racing_crash_total_samples; }
     bool racing_starting() const { return start_sample_ < racing_start_total; }
     bool racing_player_visible() const {
         return !racing_recovering() || (crash_sample_ / racing_crash_segment_samples) % 2 == 0;
     }
     // One 48 kHz stereo frame (800 sample pairs). Speed uses Racing's units.
-    Samples render(bool preview, bool finished, bool paused, unsigned id, unsigned racing_speed);
+    Samples render(bool preview, bool finished, bool paused, unsigned id, unsigned racing_speed,
+                       bool stereo = false, int engine_x = 160);
 
 private:
     struct Tone {
         unsigned remaining = 0, phase = 0, period = 0, total = 0;
         bool collision = false, alternating = false;
+                int x = 160;
         double filtered = 0, previous_input = 0;
     };
     static void trigger(Tone& tone, unsigned events, bool shooting);
@@ -44,5 +46,6 @@ private:
     unsigned bonus_sample_ = racing_bonus_total_samples, bonus_phase_ = 0;
     unsigned start_sample_ = racing_start_total, start_phase_ = 0;
     unsigned engine_phase_ = 0;
+        int crash_x_ = 160, bonus_x_ = 160;
 };
 }

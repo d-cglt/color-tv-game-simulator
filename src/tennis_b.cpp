@@ -58,11 +58,14 @@ int TennisB::paddle_rebound(int owner, int offset) {
 
 void TennisB::reset() {
     const bool doubles = state_.doubles, hockey = state_.hockey, volleyball = state_.volleyball, tennis_a = state_.tennis_a, hockey_a = state_.hockey_a, volleyball_a = state_.volleyball_a, ping_pong = state_.ping_pong;
-    const bool high_speed = state_.high_speed;
+    const bool high_speed = state_.high_speed, ice_hockey = state_.ice_hockey;
     const auto small_paddle = state_.small_paddle;
     state_ = {};
     paddle_displacement_ = {};
     analog_remainder_ = {};
+    ice_velocity_ = {};
+    ice_remainder_ = {};
+    state_.ice_hockey = ice_hockey;
     paddle_missed_ = {};
     horizontal_rebounds_ = 0;
     state_.high_speed = high_speed;
@@ -121,7 +124,19 @@ unsigned TennisB::step(TennisInput input) {
         const int direction = (controls[i] > 0) - (controls[i] < 0);
         const int previous_y = state_.paddle_y[i];
         int movement;
-        if (input.human[i] && input.analog[i])
+        if (state_.ice_hockey) {
+            int target = direction * paddle_speed * (input.human[i] ? 2 : 1) * 256;
+            if (input.human[i] && input.analog[i]) {
+                const int axis = std::clamp(input.analog[i], -32767, 32767);
+                const int magnitude = std::max(0, std::abs(axis) - 8192);
+                target = (axis < 0 ? -1 : 1) * magnitude * (paddle_speed * 2 * 256) / (32767 - 8192);
+            }
+            ice_velocity_[i] += (target - ice_velocity_[i]) / (target ? 4 : 8);
+            if (!target && std::abs(ice_velocity_[i]) < 4) ice_velocity_[i] = 0;
+            ice_remainder_[i] += ice_velocity_[i];
+            movement = ice_remainder_[i] / 256;
+            ice_remainder_[i] %= 256;
+        } else if (input.human[i] && input.analog[i])
             movement = analog_motion(input.analog[i], paddle_speed * 2, analog_remainder_[i]);
         else {
             analog_remainder_[i] = 0;
@@ -130,6 +145,9 @@ unsigned TennisB::step(TennisInput input) {
         state_.paddle_y[i] = std::clamp(state_.paddle_y[i] + movement, paddle_min(i), paddle_max(i));
         if ((state_.paddle_y[i] == paddle_min(i) && input.analog[i] < 0) ||
             (state_.paddle_y[i] == paddle_max(i) && input.analog[i] > 0)) analog_remainder_[i] = 0;
+        if (state_.ice_hockey && ((state_.paddle_y[i] == paddle_min(i) && ice_velocity_[i] < 0) ||
+                                  (state_.paddle_y[i] == paddle_max(i) && ice_velocity_[i] > 0)))
+            ice_velocity_[i] = ice_remainder_[i] = 0;
         const int displacement = state_.paddle_y[i] - previous_y;
         if (displacement != 0) paddle_displacement_[i] = displacement;
     }

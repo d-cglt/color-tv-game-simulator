@@ -13,15 +13,17 @@ namespace ctg::preferences {
 // Version 4 adds Racing mode (0 spacious, 1 narrow, 2 two players); older records default to spacious.
 // Versions before 3 retain Shooting shot speed from the rally speed setting.
 // Extensible version 9 entry 34 adds Racing BAD ROAD, default off.
-using Data = std::array<unsigned char, 35>;
+// Extensible version 9 entry 35 adds ICE HOCKEY, default off.
+using Data = std::array<unsigned char, 36>;
 // CTGD, version 1, grid, fixed score, left score, right score, car collision.
 using DiagnosticData = std::array<unsigned char, 10>;
 
 // Invalid or unavailable records leave the caller's current settings intact.
-// Opaque, complete v9 entries. Keep this alongside Data across all saves.
+// Opaque unknown or invalid v9 entries. Keep this alongside Data across all saves.
 using Unknown = std::vector<unsigned char>;
 bool read(const std::filesystem::path& path, Data& data, Unknown& unknown) noexcept;
 bool write(const std::filesystem::path& path, const Data& data, const Unknown& unknown, std::mt19937& random) noexcept;
+void discard_changed(Unknown& unknown, const Data& before, const Data& after);
 bool read_diagnostic(const std::filesystem::path& path, DiagnosticData& data) noexcept;
 bool write_diagnostic(const std::filesystem::path& path, const DiagnosticData& data, std::mt19937& random) noexcept;
 unsigned read_last_game(const std::filesystem::path& path, unsigned fallback) noexcept;

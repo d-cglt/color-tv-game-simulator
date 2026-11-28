@@ -10,7 +10,8 @@ unsigned system_queries = 0, set_variable_calls = 0;
 bool set_variable_supported = true, variable_updated = false, variable_update_supported = true;
 std::string generate_value = "Ready", last_set_key, last_set_value, generate_definition;
 std::string demo_sounds_value, demo_sounds_definition;
-std::string shooting_fire_sound_value;
+std::string shooting_fire_sound_value, direct_launch_lock_value, stereo_value;
+unsigned stereo_pairs = 0;
 std::string rebound_value, rebound_definition;
 std::string anti_stalemate_value, anti_stalemate_definition;
 unsigned core_options_version = 0;
@@ -110,6 +111,8 @@ bool env(unsigned cmd, void* data) {
         auto* variable = static_cast<retro_variable*>(data);
         if (std::strcmp(variable->key, "colortvgame_generate_files") == 0) variable->value = generate_value.c_str();
         else if (std::strcmp(variable->key, "colortvgame_demo_sounds") == 0 && !demo_sounds_value.empty()) variable->value = demo_sounds_value.c_str();
+        else if (std::strcmp(variable->key, "colortvgame_stereo") == 0 && !stereo_value.empty()) variable->value = stereo_value.c_str();
+        else if (std::strcmp(variable->key, "colortvgame_direct_launch_lock") == 0 && !direct_launch_lock_value.empty()) variable->value = direct_launch_lock_value.c_str();
         else if (std::strcmp(variable->key, "colortvgame_shooting_fire_sound") == 0 && !shooting_fire_sound_value.empty()) variable->value = shooting_fire_sound_value.c_str();
         else if (std::strcmp(variable->key, "colortvgame_rebound") == 0 && !rebound_value.empty()) variable->value = rebound_value.c_str();
         else if (std::strcmp(variable->key, "colortvgame_vibration") == 0 && !vibration_value.empty()) variable->value = vibration_value.c_str();
@@ -170,6 +173,7 @@ int16_t input(unsigned port, unsigned device, unsigned index, unsigned id) {
 }
 size_t audio(const int16_t* data, size_t n) {
     for (size_t i = 0; i < n * 2; ++i) if (data[i] != 0) ++nonzero_audio;
+    for (size_t i = 0; i < n; ++i) if (data[2 * i] != data[2 * i + 1]) ++stereo_pairs;
     audio_frames += static_cast<unsigned>(n); return n;
 }
 

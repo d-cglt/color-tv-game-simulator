@@ -7,6 +7,7 @@ from pathlib import Path
 
 
 def build(generator, readme, output):
+    root = Path(__file__).resolve().parent.parent
     output = Path(output).resolve()
     # Keep all temporary files alongside the output, and replace only on success.
     with tempfile.TemporaryDirectory(prefix=".ctg-package-", dir=output.parent) as tmp:
@@ -18,7 +19,9 @@ def build(generator, readme, output):
             raise ValueError("generator did not produce exactly 16 selectors")
         archive = tmp / "selectors.zip"
         with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_STORED) as z:
-            for name, data in [("README.md", Path(readme).read_bytes())] + [
+            for name, data in [("README.md", Path(readme).read_bytes()),
+                                           ("GAME_MANUAL.md", (root / "GAME_MANUAL.md").read_bytes()),
+                                           ("LICENSE", (root / "LICENSE").read_bytes())] + [
                 (p.name, p.read_bytes()) for p in files
             ]:
                 info = zipfile.ZipInfo(name, (1980, 1, 1, 0, 0, 0))

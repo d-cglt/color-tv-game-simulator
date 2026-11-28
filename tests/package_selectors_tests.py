@@ -1,10 +1,10 @@
 import os
-from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import unittest
 import zipfile
+from pathlib import Path
 
 GENERATOR = Path(sys.argv[1]).resolve()
 ROOT = Path(sys.argv[2]).resolve()
@@ -34,7 +34,9 @@ class SelectorPackageTests(unittest.TestCase):
                                check=True, env={**os.environ, "TZ": tz})
             self.assertEqual(outputs[0].read_bytes(), outputs[1].read_bytes())
             with zipfile.ZipFile(outputs[0]) as z:
-                self.assertEqual(z.namelist(), ["README.md"] + sorted(expected))
+                self.assertEqual(z.namelist(), ["README.md", "GAME_MANUAL.md", "LICENSE"] + sorted(expected))
+                self.assertEqual(z.read("GAME_MANUAL.md"), (ROOT / "GAME_MANUAL.md").read_bytes())
+                self.assertEqual(z.read("LICENSE"), (ROOT / "LICENSE").read_bytes())
                 self.assertEqual(z.read("README.md"), README.read_bytes())
                 for name, data in expected.items():
                     self.assertEqual(z.read(name), data)
@@ -50,7 +52,7 @@ class SelectorPackageTests(unittest.TestCase):
             output.write_bytes(b"keep me")
             result = subprocess.run([sys.executable, str(PACKAGER), str(GENERATOR),
                                      str(root / "missing-readme"), str(output)],
-                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                                    capture_output=True, check=False)
             self.assertNotEqual(result.returncode, 0)
             self.assertEqual(output.read_bytes(), b"keep me")
             self.assertEqual(list(root.iterdir()), [output])

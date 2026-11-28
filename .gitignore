@@ -5,5 +5,7 @@
 /drafts/
 
 # Local editor and operating-system files
+/.gitignore
+/.cursor/
 .cache/
 .DS_Store

@@ -23,7 +23,8 @@ extern unsigned system_queries, set_variable_calls;
 extern bool set_variable_supported, variable_updated, variable_update_supported;
 extern std::string generate_value, last_set_key, last_set_value, generate_definition;
 extern std::string demo_sounds_value, demo_sounds_definition;
-extern std::string shooting_fire_sound_value;
+extern std::string shooting_fire_sound_value, direct_launch_lock_value, stereo_value;
+extern unsigned stereo_pairs;
 extern std::string rebound_value, rebound_definition;
 extern std::string anti_stalemate_value, anti_stalemate_definition;
 extern unsigned core_options_version;
@@ -78,4 +79,5 @@ int gameplay_rendering_scenarios(ContentContext& context, MenuSnapshot& snapshot
 int menus_options_scenarios(ContentContext& context, const MenuSnapshot& snapshot);
 int persistence_selector_demo_scenarios(ContentContext& context);
 int video_rumble_scenarios(ContentContext& context);
+int direct_launch_lock_scenarios(ContentContext& context);
 } // namespace core_test

@@ -67,7 +67,7 @@ bool valid(const Data& data) {
         data[9] < 5 || data[9] > 30 || data[9] % 5 ||
         data[10] > 4 || data[11] > 3 || data[12] > 2) return false;
     for (std::size_t i = 13; i < 27; ++i) if (data[i] > 3) return false;
-    return data[27] <= 2 && data[28] <= 2 && data[29] <= 2 && data[30] <= 2 && data[31] <= 1 && data[32] <= 1 && data[33] <= 1 && data[34] <= 1;
+    return data[27] <= 2 && data[28] <= 2 && data[29] <= 2 && data[30] <= 2 && data[31] <= 1 && data[32] <= 1 && data[33] <= 1 && data[34] <= 1 && data[35] <= 1;
 }
 }
 
@@ -98,15 +98,13 @@ bool read(const std::filesystem::path& path, Data& data, Unknown& unknown) noexc
                 const unsigned length = bytes[pos + 2] | (unsigned(bytes[pos + 3]) << 8);
                 if (seen[id] || length > bytes.size() - pos - 4) return false;
                 seen[id] = true;
-                if (id >= 5 && id < record.size()) {
-                    if (length == 1) {
-                        Data candidate = record;
-                        candidate[id] = bytes[pos + 4];
-                        if (valid(candidate)) record = candidate;
-                    }
-                } else {
-                    extra.insert(extra.end(), bytes.begin() + pos, bytes.begin() + pos + 4 + length);
+                bool retained = false;
+                if (id >= 5 && id < record.size() && length == 1) {
+                    Data candidate = record;
+                    candidate[id] = bytes[pos + 4];
+                    if (valid(candidate)) { record = candidate; retained = true; }
                 }
+                if (!retained) extra.insert(extra.end(), bytes.begin() + pos, bytes.begin() + pos + 4 + length);
                 pos += 4 + length;
             }
             data = record;
@@ -132,12 +130,31 @@ bool read(const std::filesystem::path& path, Data& data, Unknown& unknown) noexc
     } catch (...) { return false; }
 }
 
+void discard_changed(Unknown& unknown, const Data& before, const Data& after) {
+    for (std::size_t pos = 0; pos + 4 <= unknown.size();) {
+        const unsigned id = unknown[pos] | (unsigned(unknown[pos + 1]) << 8);
+        const unsigned length = unknown[pos + 2] | (unsigned(unknown[pos + 3]) << 8);
+        if (length > unknown.size() - pos - 4) break;
+        if (id >= 5 && id < before.size() && before[id] != after[id])
+            unknown.erase(unknown.begin() + pos, unknown.begin() + pos + 4 + length);
+        else pos += 4 + length;
+    }
+}
+
 bool write(const std::filesystem::path& path, const Data& data, const Unknown& unknown, std::mt19937& random) noexcept {
     try {
         if (!valid(data) || unknown.size() > 65536 - 5 - (data.size() - 5) * 5) return false;
         std::vector<unsigned char> bytes{'C', 'T', 'G', 'P', 9};
+        std::array<bool, 36> retained{};
+        for (std::size_t pos = 0; pos + 4 <= unknown.size();) {
+            const unsigned id = unknown[pos] | (unsigned(unknown[pos + 1]) << 8);
+            const unsigned length = unknown[pos + 2] | (unsigned(unknown[pos + 3]) << 8);
+            if (length > unknown.size() - pos - 4) return false;
+            if (id >= 5 && id < retained.size()) retained[id] = true;
+            pos += 4 + length;
+        }
         for (unsigned id = 5; id < data.size(); ++id) {
-            bytes.insert(bytes.end(), {static_cast<unsigned char>(id), 0, 1, 0, data[id]});
+            if (!retained[id]) bytes.insert(bytes.end(), {static_cast<unsigned char>(id), 0, 1, 0, data[id]});
         }
         bytes.insert(bytes.end(), unknown.begin(), unknown.end());
         return atomic_write(path, bytes.data(), bytes.size(), random);

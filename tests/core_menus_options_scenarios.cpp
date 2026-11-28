@@ -238,11 +238,13 @@ int menus_options_scenarios(ContentContext& context, const MenuSnapshot& snapsho
         bytes[4] = static_cast<unsigned char>(id);
         CHECK(retro_load_game(&game)); retro_run();
         auto defaults = frame;
-        const unsigned count = 7;
+        const bool hockey_menu = id >= 4 && id <= 7;
+        const unsigned count = hockey_menu ? 8 : 7;
         for (unsigned row = 0; row < count; ++row) {
             const unsigned choice = (row + 1) % count;
-            CHECK(at(frame, 75, 88 + choice * 15) == 0x295166);
-            CHECK(at(frame, 160, 87) != 0xffffff && at(frame, 156, 181) != 0xffffff);
+            const unsigned first = hockey_menu && choice >= 5 ? choice - 4 : 0;
+            CHECK(at(frame, 75, hockey_menu ? 98 + (choice - first) * 16 : 88 + choice * 15) == 0x295166);
+            if (!hockey_menu) CHECK(at(frame, 160, 87) != 0xffffff && at(frame, 156, 181) != 0xffffff);
             press(RETRO_DEVICE_ID_JOYPAD_DOWN);
         }
         CHECK(same_menu(frame, defaults));
@@ -251,7 +253,7 @@ int menus_options_scenarios(ContentContext& context, const MenuSnapshot& snapsho
         press(RETRO_DEVICE_ID_JOYPAD_DOWN); // Rally speed or Shooting target size.
         auto low = frame; press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(!same_menu(frame, low));
         press(RETRO_DEVICE_ID_JOYPAD_DOWN); // P1 size or Shooting shots speed.
-        if (id != 14) CHECK(at(frame, 117, 151) == 0x70e0ff); // Z in P1 SIZE.
+        if (id != 14 && !hockey_menu) CHECK(at(frame, 105, 151) == 0x70e0ff); // Z in P1 SIZE.
         auto large_left = frame; press(RETRO_DEVICE_ID_JOYPAD_RIGHT); CHECK(!same_menu(frame, large_left));
         if (id != 14) {
             press(RETRO_DEVICE_ID_JOYPAD_DOWN); // P2 size.
@@ -473,7 +475,8 @@ int menus_options_scenarios(ContentContext& context, const MenuSnapshot& snapsho
         bytes[4] = static_cast<unsigned char>(id);
         CHECK(retro_load_game(&game)); retro_run();
         press(RETRO_DEVICE_ID_JOYPAD_DOWN);
-        CHECK(at(frame, 75, 118) == 0x295166 && at(frame, 91, 124) == 0x70e0ff && at(frame, 220, 124) == 0x70e0ff);
+        const unsigned mode_y = id >= 4 && id <= 7 ? 130 : 118;
+        CHECK(at(frame, 75, mode_y) == 0x295166 && at(frame, 79, mode_y + 6) == 0x70e0ff && at(frame, 238, mode_y + 6) == 0x70e0ff);
         std::vector<std::vector<unsigned char>> modes{frame};
         for (int i = 0; i < 3; ++i) {
             press(RETRO_DEVICE_ID_JOYPAD_RIGHT);

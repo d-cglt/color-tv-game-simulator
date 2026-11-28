@@ -20,7 +20,11 @@ int demo_preview_scenarios(ContentContext& context) {
     shooting_fire_sound_value = "On";
     CHECK(retro_load_game(&game));
     fire_audio = nonzero_audio;
-    retro_run(); CHECK(nonzero_audio > fire_audio);
+    unsigned unequal = stereo_pairs;
+    retro_run(); CHECK(nonzero_audio > fire_audio); CHECK(stereo_pairs == unequal);
+    stereo_value = "Yes"; retro_run(); CHECK(stereo_pairs > unequal);
+    unequal = stereo_pairs; stereo_value = "No"; retro_run(); CHECK(stereo_pairs == unequal);
+    stereo_value.clear();
     retro_unload_game(); shooting_fire_sound_value.clear();
     // The declared default and an unavailable frontend value both enable demo sound.
     CHECK(demo_sounds_definition.find("; On|Off") != std::string::npos);

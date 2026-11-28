@@ -1,6 +1,6 @@
 # Color TV-Game Simulator selectors
 
-These 16 `.ctg` files select games in the Color TV-Game Simulator libretro core. They are five-byte project-defined descriptors, not ROMs or original console assets; the independently developed core supplies the game logic. This archive does not include the core or RetroArch.
+These 16 `.ctg` files select games in the Color TV-Game Simulator libretro core. They are five-byte project-defined descriptors, not ROMs or original console assets; the independently developed core supplies the game logic. This archive also contains `GAME_MANUAL.md` and the project MIT `LICENSE`. It does not include the core or RetroArch.
 
 Extract the archive, install a compatible core in RetroArch, choose **Load Core**, then **Load Content** and select a `.ctg` file. The files can be placed anywhere the frontend can access. Frontend and core architectures must match, and the frontend must support XRGB8888 video. Alternatively, start the core without content and choose a game in its selector.
 

@@ -48,6 +48,55 @@ int hockey_a_barrier() {
 }
 
 int hockey_lifecycle_and_scoring() {
+    for (bool human : {false, true}) {
+        ctg::TennisB ice(false, true), normal(false, true);
+        ice.set_ice_hockey(true);
+        ctg::TennisInput input{};
+        input.left = 1; input.human[0] = human;
+        for (int i = 0; i < 6; ++i) { ice.step(input); normal.step(input); }
+        const int ice_start = ice.state().paddle_y[0], normal_start = normal.state().paddle_y[0];
+        input.left = 0;
+        for (int i = 0; i < 8; ++i) { ice.step(input); normal.step(input); }
+        CHECK(ice.state().paddle_y[0] - ice_start >= (human ? 20 : 10));
+        CHECK(normal.state().paddle_y[0] == normal_start);
+        input.left = -1;
+        const int reversal = ice.state().paddle_y[0];
+        for (int i = 0; i < 12; ++i) ice.step(input);
+        CHECK(ice.state().paddle_y[0] < reversal);
+    }
+    for (bool doubles : {false, true}) {
+        ctg::TennisB ice(doubles, true);
+        ice.set_ice_hockey(true);
+        ctg::TennisInput input;
+        input.left = 1; input.right = -1; input.human[1] = false;
+        for (int i = 0; i < 8; ++i) ice.step(input);
+        const auto before = ice.state().paddle_y;
+        ice.step();
+        CHECK(ice.state().paddle_y[0] > before[0] && ice.state().paddle_y[1] < before[1]);
+        for (int i = 0; i < 120; ++i) ice.step({1, -1});
+        CHECK(ice.state().paddle_y[0] == ice.paddle_max(0));
+        ice.step();
+        CHECK(ice.state().paddle_y[0] == ice.paddle_max(0));
+        ice.reset();
+        CHECK(ice.state().ice_hockey && ice.state().paddle_y[0] == ctg::TennisB::height / 2);
+        ice.step();
+        CHECK(ice.state().paddle_y[0] == ctg::TennisB::height / 2);
+        input = {}; input.analog[0] = 32767;
+        for (int i = 0; i < 8; ++i) ice.step(input);
+        const int analog_before = ice.state().paddle_y[0];
+        ice.step();
+        CHECK(ice.state().paddle_y[0] > analog_before);
+        input.analog[0] = -32767;
+        for (int i = 0; i < 20; ++i) ice.step(input);
+        CHECK(ice.state().paddle_y[0] < analog_before);
+        ice.reset_input(0);
+        const int stopped = ice.state().paddle_y[0];
+        ice.step();
+        CHECK(ice.state().paddle_y[0] == stopped);
+    }
+    ctg::TennisB non_hockey;
+    non_hockey.set_ice_hockey(true);
+    CHECK(!non_hockey.state().ice_hockey);
     ctg::TennisB hockey(false, true);
     auto& h = const_cast<ctg::TennisState&>(hockey.state());
     ctg::TennisB hockey_twin(false, true);

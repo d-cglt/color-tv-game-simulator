@@ -40,9 +40,12 @@ unsigned selector_position(unsigned id) {
 }
 unsigned content_id = 0, previous = 0;
 bool loaded = false, detail = false;
+std::optional<unsigned> direct_launch_id;
+bool direct_launch_locked = false;
 unsigned shooting_target = 2, shooting_direction = 0, shooting_size = 0, shooting_speed = 0;
 unsigned racing_mode = 0, racing_speed = 2; // HIGH lever selection: 0 low, 1 medium, 2 high.
 bool racing_more_cars = false, racing_wall_crash = false, racing_zigzag = false, racing_bad_road = false;
+bool ice_hockey = false;
 bool shooting_resolved_small = false, shooting_resolved_high_speed = false;
 std::mt19937 shooting_random{std::random_device{}()};
 bool selector = false, paused = false;
@@ -85,6 +88,7 @@ ctg::Racing racing;
 ctg::Demo demo;
 bool paddle_movement_rebound = false;
 bool anti_stalemate = true;
+bool original_features = false;
 unsigned inactivity_frames = 0;
 bool menu_hidden = false, suppress_wake_input = false;
 bool demo_sounds = true;
@@ -99,27 +103,37 @@ void reset_demo() {
 }
 bool high_speed = false;
 std::array<bool, 2> small_paddle{};
+unsigned effective_target() { return original_features && shooting_target != 0 && shooting_target != 2 ? 2 : shooting_target; }
+unsigned effective_direction() { return original_features ? 0 : shooting_direction; }
+unsigned effective_size() { return original_features && shooting_size > 1 ? 0 : shooting_size; }
+unsigned effective_speed() { return original_features && shooting_speed > 1 ? 0 : shooting_speed; }
 void step_demo(unsigned id) {
     if (demo.current_id() != id) audio_engine.clear_demo();
-    const ctg::DemoOptions options{high_speed, small_paddle, shooting_target, shooting_direction,
-                                   shooting_size, shooting_speed, racing_mode, racing_more_cars, racing_zigzag, racing_bad_road};
+    const ctg::DemoOptions options{high_speed, small_paddle, effective_target(), effective_direction(),
+                                   effective_size(), effective_speed(), racing_mode, racing_more_cars, racing_zigzag, racing_bad_road, !original_features && ice_hockey, original_features};
+    const int previous_ball_x = demo.tennis.state().ball_x;
+    const bool same_demo = demo.current_id() == id;
     unsigned events = demo.step(id, paddle_movement_rebound, anti_stalemate, options);
     if (id == 14 && !shooting_fire_sound) events &= ~ctg::sound_shot;
-    if (demo_sounds && events) audio_engine.trigger_demo(events, id);
+    const int x = id == 14 ? demo.shooting.state().shot_x :
+                  (same_demo && (events & (ctg::sound_point | ctg::sound_win))) ? previous_ball_x : demo.tennis.state().ball_x;
+    if (demo_sounds && events) audio_engine.trigger_demo(events, id, x);
 }
 unsigned winning_score = ctg::TennisB::winning_score;
 unsigned shot_limit = ctg::Shooting::default_shot_limit;
 bool preferences_dirty = false;
 bool diagnostic_dirty = false;
-void apply_options() { tennis.set_anti_stalemate(anti_stalemate); tennis.set_rebound_mode(paddle_movement_rebound); tennis.set_options(high_speed, small_paddle); tennis.set_winning_score(winning_score); shooting.set_options(shooting_resolved_high_speed, {!shooting_resolved_high_speed, shooting_resolved_small}); shooting.set_shot_limit(shot_limit); }
+void apply_options() { tennis.set_anti_stalemate(anti_stalemate); tennis.set_rebound_mode(paddle_movement_rebound); tennis.set_options(high_speed, small_paddle); tennis.set_winning_score(original_features ? 15 : winning_score); shooting.set_options(shooting_resolved_high_speed, {original_features ? shooting_resolved_small : !shooting_resolved_high_speed, shooting_resolved_small}); shooting.set_shot_limit(original_features ? 15 : shot_limit); }
 unsigned option_count() { return ctg::menu::option_count(content_id); }
 void resolve_shooting_settings() {
-    const unsigned target = shooting_target == 4 ? std::uniform_int_distribution<unsigned>(1, 3)(shooting_random) : shooting_target;
-    const unsigned direction = shooting_target != 0 && shooting_direction == 2 ? std::uniform_int_distribution<unsigned>(0, 1)(shooting_random) : shooting_direction;
+    const unsigned selected_target = effective_target(), selected_direction = effective_direction();
+    const unsigned size = effective_size(), speed = effective_speed();
+    const unsigned target = selected_target == 4 ? std::uniform_int_distribution<unsigned>(1, 3)(shooting_random) : selected_target;
+    const unsigned direction = selected_target != 0 && selected_direction == 2 ? std::uniform_int_distribution<unsigned>(0, 1)(shooting_random) : selected_direction;
 
-    shooting_resolved_small = shooting_size == 2 ? std::uniform_int_distribution<unsigned>(0, 1)(shooting_random) != 0 : shooting_size == 1;
-    shooting_resolved_high_speed = shooting_speed == 2 ? std::uniform_int_distribution<unsigned>(0, 1)(shooting_random) != 0 : shooting_speed == 1;
-    shooting.set_options(shooting_resolved_high_speed, {!shooting_resolved_high_speed, shooting_resolved_small});
+    shooting_resolved_small = size == 2 ? std::uniform_int_distribution<unsigned>(0, 1)(shooting_random) != 0 : size == 1;
+    shooting_resolved_high_speed = speed == 2 ? std::uniform_int_distribution<unsigned>(0, 1)(shooting_random) != 0 : speed == 1;
+    shooting.set_options(shooting_resolved_high_speed, {original_features ? shooting_resolved_small : !shooting_resolved_high_speed, shooting_resolved_small});
     const unsigned speeds[] = {11, 6, 11, 16};
     shooting.set_target_behavior(speeds[target], direction == 1 ? -1 : 1, true, direction == 3);
 }
@@ -154,15 +168,16 @@ void start_racing_match(bool from_preview = true) {
 ctg::RenderState render_state() {
     return {content_id, selector, detail, paused, result(), menu_hidden,
             selector_choice, menu_choice, pause_choice, result_choice, high_speed, small_paddle,
-            winning_score, shot_limit, shooting_target, shooting_direction, shooting_size, shooting_speed, racing_mode,
+            original_features ? 15u : winning_score, original_features ? 15u : shot_limit, effective_target(), effective_direction(), effective_size(), effective_speed(), racing_mode,
             opponent_modes, tennis, demo.tennis, shooting, demo.shooting, racing, demo.racing,
             audio_engine.racing_player_visible(), {test_fixed_score, test_left_score, test_right_score},
-            rally_result_frames < 24, racing_speed, racing_more_cars, racing_wall_crash, racing_zigzag, racing_bad_road};
+            rally_result_frames < 24, racing_speed, racing_more_cars, racing_wall_crash, racing_zigzag, racing_bad_road, direct_launch_locked, !original_features && ice_hockey, original_features};
 }
 void select_game(unsigned id) {
     content_id = id;
     opponent.reset(); rally_difficulty.reset();
     tennis = ctg::make_rally_game(id);
+    tennis.set_ice_hockey(!original_features && ice_hockey);
     apply_options();
     shooting.reset();
     racing.reset();
@@ -220,6 +235,7 @@ PreferenceData preference_data() {
     data[32] = static_cast<unsigned char>(racing_wall_crash);
     data[33] = static_cast<unsigned char>(racing_zigzag);
     data[34] = static_cast<unsigned char>(racing_bad_road);
+    data[35] = static_cast<unsigned char>(ice_hockey);
     return data;
 }
 void read_preferences() noexcept {
@@ -232,7 +248,7 @@ void read_preferences() noexcept {
         winning_score = data[8]; shot_limit = data[9]; shooting_target = data[10];
         shooting_direction = data[11];
         shooting_size = data[27]; shooting_speed = data[28]; racing_mode = data[29]; racing_speed = data[30];
-        racing_more_cars = data[31]; racing_wall_crash = data[32]; racing_zigzag = data[33]; racing_bad_road = data[34];
+        racing_more_cars = data[31]; racing_wall_crash = data[32]; racing_zigzag = data[33]; racing_bad_road = data[34]; ice_hockey = data[35];
         shooting_resolved_small = shooting_size == 1;
         shooting_resolved_high_speed = shooting_speed == 1;
         for (std::size_t i = 0; i < opponent_modes.size(); ++i) opponent_modes[i] = data[13 + i];
@@ -356,6 +372,7 @@ void retro_init() {
     reset_demo();
     renderer.rf_noise_frame = 0;
     option_known = false;
+    original_features = false;
     selector_choice = 0;
     opponent_modes = {};
     opponent.reset();
@@ -367,11 +384,13 @@ void retro_init() {
     shooting_size = shooting_speed = racing_mode = 0;
     racing_speed = 2;
     racing_more_cars = racing_wall_crash = racing_zigzag = racing_bad_road = false;
+    ice_hockey = false;
     shooting_resolved_small = shooting_resolved_high_speed = false;
     apply_options();
     controls.reset_repeat();
     content_id = previous = 0;
     loaded = detail = selector = paused = false;
+    direct_launch_id.reset(); direct_launch_locked = false;
     shooting_target = 2;
     shooting_direction = 0;
 
@@ -392,6 +411,7 @@ void retro_deinit() {
     reset_demo();
     demo_sounds = false;
     loaded = detail = false;
+    direct_launch_id.reset(); direct_launch_locked = false;
     previous = content_id = 0;
 }
 unsigned retro_api_version() { return RETRO_API_VERSION; }
@@ -414,8 +434,34 @@ void retro_reset() {
     audio_engine.clear_game_tone();
 }
 void retro_run() {
+    retro_variable original_option{"colortvgame_original_features", nullptr};
+    const bool original = environment && environment(RETRO_ENVIRONMENT_GET_VARIABLE, &original_option) &&
+                          original_option.value && std::strcmp(original_option.value, "On") == 0;
+    if (original != original_features) {
+        original_features = original;
+        audio_engine.clear_demo();
+        if (!ctg::menu::row_visible(content_id, menu_choice, original, direct_launch_locked)) menu_choice = 1;
+        tennis.set_ice_hockey(!original && ice_hockey);
+        resolve_shooting_settings();
+        apply_options();
+        if (loaded && detail && content_id != 15) {
+            tennis.reset(); shooting.reset(); opponent.reset(); rally_difficulty.reset();
+            paused = false; result_choice = 0;
+            audio_engine.clear_game_tone();
+        }
+    }
+    retro_variable lock_option{"colortvgame_direct_launch_lock", nullptr};
+    direct_launch_locked = loaded && direct_launch_id && environment &&
+                           environment(RETRO_ENVIRONMENT_GET_VARIABLE, &lock_option) && lock_option.value &&
+                           std::strcmp(lock_option.value, "On") == 0;
+    if (direct_launch_locked && (selector || content_id != *direct_launch_id)) {
+        stop_rumble(); reset_demo(); controls.reset_repeat();
+        selector = detail = paused = false; menu_choice = 1;
+        select_game(*direct_launch_id);
+    }
+    if (direct_launch_locked && menu_choice == 0) menu_choice = 1;
     retro_variable vibration_option{"colortvgame_vibration", nullptr};
-    rumble_enabled = environment && environment(RETRO_ENVIRONMENT_GET_VARIABLE, &vibration_option) &&
+    rumble_enabled = !original_features && environment && environment(RETRO_ENVIRONMENT_GET_VARIABLE, &vibration_option) &&
                      vibration_option.value && std::strcmp(vibration_option.value, "On") == 0;
     if (!rumble_enabled) stop_rumble();
     else advance_rumble();
@@ -437,7 +483,7 @@ void retro_run() {
         demo.tennis.set_anti_stalemate(enabled);
     }
     retro_variable fire_option{"colortvgame_shooting_fire_sound", nullptr};
-    shooting_fire_sound = !(environment && environment(RETRO_ENVIRONMENT_GET_VARIABLE, &fire_option) &&
+    shooting_fire_sound = !original_features && !(environment && environment(RETRO_ENVIRONMENT_GET_VARIABLE, &fire_option) &&
                             fire_option.value && std::strcmp(fire_option.value, "Off") == 0);
     retro_variable demo_option{"colortvgame_demo_sounds", nullptr};
     demo_sounds = !(environment && environment(RETRO_ENVIRONMENT_GET_VARIABLE, &demo_option) &&
@@ -574,17 +620,26 @@ void retro_run() {
                 else events = racing.step(steering, steering2);
                 if ((previous_score < 50 && racing.state().score >= 50) ||
                     (racing.state().two_players && previous_score2 < 50 && racing.state().score2 >= 50)) {
-                    audio_engine.bonus();
+                    const bool first = previous_score < 50 && racing.state().score >= 50;
+                    const bool second = racing.state().two_players && previous_score2 < 50 && racing.state().score2 >= 50;
+                    const auto& s = racing.state();
+                    const int x1 = s.player.x + s.player.width / 2, x2 = s.player2.x + s.player2.width / 2;
+                    audio_engine.bonus(first && second ? (x1 + x2) / 2 : first ? x1 : x2);
                 }
                 if ((events & ctg::racing_wiggle_player1) || racing.state().collisions != previous_collisions) pulse_rumble(0);
                 if ((events & ctg::racing_wiggle_player2) || racing.state().collisions2 != previous_collisions2) pulse_rumble(1);
-                if (events & ctg::racing_collision) audio_engine.collision();
+                if (events & ctg::racing_collision) {
+                    const auto& s = racing.state();
+                    const bool first = s.collisions != previous_collisions, second = s.collisions2 != previous_collisions2;
+                    const int x1 = s.player.x + s.player.width / 2, x2 = s.player2.x + s.player2.width / 2;
+                    audio_engine.collision(first && second ? (x1 + x2) / 2 : second ? x2 : x1);
+                }
                 if (events & ctg::racing_finished) result_choice = 0;
             } else if (content_id == 14) {
                 {
                     const int direction = controls.shooting_direction(0);
                     const int target_direction = controls.shooting_direction(1);
-                    unsigned events = shooting.step(direction, pressed & ((1u << RETRO_DEVICE_ID_JOYPAD_A) | (1u << RETRO_DEVICE_ID_JOYPAD_Y)), target_direction, shooting_target != 0, true,
+                    unsigned events = shooting.step(direction, pressed & ((1u << RETRO_DEVICE_ID_JOYPAD_A) | (1u << RETRO_DEVICE_ID_JOYPAD_Y)), target_direction, effective_target() != 0, true,
                                                                         {controls.paddle_axis(0, true), controls.paddle_axis(1, true)});
                     if (events & ctg::event_player1_shot) pulse_rumble(0);
                     if (events & ctg::sound_paddle) resolve_shooting_settings();
@@ -592,34 +647,42 @@ void retro_run() {
                     if (!shooting_fire_sound) events &= ~ctg::sound_shot;
                     if (events) {
                         if (events & ctg::sound_win) { result_choice = 0; rally_result_frames = 0; }
-                        audio_engine.trigger_game(events, true);
+                        audio_engine.trigger_game(events, true, shooting.state().shot_x);
                     }
                 }
             } else if (content_id < opponent_modes.size()) {
                 {
                     int directions[2]{controls.paddle_direction(0), controls.paddle_direction(1)};
-                    if (opponent_modes[content_id]) {
+                    if (!original_features && opponent_modes[content_id]) {
                         const unsigned difficulty = rally_difficulty.effective(opponent_modes[content_id]);
                         directions[1] = opponent.step(tennis.state(), difficulty, difficulty == 1);
                     }
                     const ctg::TennisState before = tennis.state();
-                    unsigned events = tennis.step({directions[0], directions[1], {true, !opponent_modes[content_id]},
+                    unsigned events = tennis.step({directions[0], directions[1], {true, original_features || !opponent_modes[content_id]},
                                                                        {controls.paddle_axis(0), controls.paddle_axis(1)}});
                     rally_difficulty.advance(before, events & sound_mask);
                     if (events & ctg::event_player1_hit) pulse_rumble(0);
-                    if (!opponent_modes[content_id] && (events & ctg::event_player2_hit)) pulse_rumble(1);
+                    if ((original_features || !opponent_modes[content_id]) && (events & ctg::event_player2_hit)) pulse_rumble(1);
                     events &= sound_mask;
                     if (events) {
                         if (events & ctg::sound_win) { result_choice = 0; rally_result_frames = 0; }
-                        audio_engine.trigger_game(events, false);
+                        audio_engine.trigger_game(events, false, (events & (ctg::sound_point | ctg::sound_win)) ? before.ball_x : tennis.state().ball_x);
                     }
                 }
             }
         } else {
-            unsigned count = option_count();
-            if (pressed & back) { selector = true; selector_choice = selector_position(content_id); select_game(content_id); }
-            else if (navigation & up) menu_choice = (menu_choice + count - 1) % count;
-            else if (navigation & down) menu_choice = (menu_choice + 1) % count;
+            const unsigned count = ctg::menu::visible_count(content_id, original_features, direct_launch_locked);
+            if (pressed & back) {
+                if (!direct_launch_locked) { selector = true; selector_choice = selector_position(content_id); select_game(content_id); }
+            }
+            else if (navigation & up) {
+                const unsigned index = ctg::menu::visible_index(content_id, menu_choice, original_features, direct_launch_locked);
+                menu_choice = ctg::menu::visible_row(content_id, (index + count - 1) % count, original_features, direct_launch_locked);
+            }
+            else if (navigation & down) {
+                const unsigned index = ctg::menu::visible_index(content_id, menu_choice, original_features, direct_launch_locked);
+                menu_choice = ctg::menu::visible_row(content_id, (index + 1) % count, original_features, direct_launch_locked);
+            }
             else if (menu_choice >= 2 && (pressed & ((1u << RETRO_DEVICE_ID_JOYPAD_LEFT) | (1u << RETRO_DEVICE_ID_JOYPAD_RIGHT)))) {
                 const auto before = preference_data();
                 if (content_id == 15) {
@@ -638,19 +701,22 @@ void retro_run() {
                 } else if (content_id == 14) {
                     const int delta = (pressed & (1u << RETRO_DEVICE_ID_JOYPAD_RIGHT)) ? 1 : -1;
                     switch (menu_choice) {
-                    case shooting_target_row: shooting_target = (shooting_target + 5 + delta) % 5; break;
+                    case shooting_target_row: shooting_target = original_features ? (effective_target() == 0 ? 2 : 0) : (shooting_target + 5 + delta) % 5; break;
                     case shooting_direction_row: if (shooting_target != 0) shooting_direction = (shooting_direction + 4 + delta) % 4; break;
 
                     case shooting_speed_row:
-                        shooting_speed = (shooting_speed + 3 + delta) % 3;
+                        shooting_speed = original_features ? 1 - effective_speed() : (shooting_speed + 3 + delta) % 3;
                         shooting_resolved_high_speed = shooting_speed == 1;
                         apply_options(); break;
                     case shooting_target_size_row:
-                        shooting_size = (shooting_size + 3 + delta) % 3;
+                        shooting_size = original_features ? 1 - effective_size() : (shooting_size + 3 + delta) % 3;
                         shooting_resolved_small = shooting_size == 1;
                         apply_options(); break;
                     case shooting_shots_row: shot_limit = ((shot_limit / 5 - 1 + 6 + delta) % 6 + 1) * 5; apply_options(); break;
                     }
+                } else if (content_id >= 4 && content_id <= 7 && menu_choice == 7) {
+                    ice_hockey = !ice_hockey;
+                    tennis.set_ice_hockey(ice_hockey);
                 } else if (menu_choice == 2) {
                     const int delta = (pressed & (1u << RETRO_DEVICE_ID_JOYPAD_RIGHT)) ? 1 : -1;
                     opponent_modes[content_id] = (opponent_modes[content_id] + 4 + delta) % 4;
@@ -665,7 +731,11 @@ void retro_run() {
                     else small_paddle[option - 1] = !small_paddle[option - 1];
                     apply_options();
                 }
-                if (preference_data() != before) save_preferences();
+                const auto after = preference_data();
+                if (after != before) {
+                    ctg::preferences::discard_changed(preference_unknown, before, after);
+                    save_preferences();
+                }
             }
             else if (pressed & confirm) {
                 if (menu_choice == 0) { selector = true; selector_choice = selector_position(content_id); select_game(content_id); }
@@ -708,7 +778,12 @@ void retro_run() {
         test_clean_frame = pixels;
         if (test_grid) renderer.test_grid_overlay(content_id == 15);
         if (video) video(pixels.data(), width, height, width * sizeof(pixels[0]));
-        const auto samples = audio_engine.render(preview, result(), paused, content_id, racing.state().speed);
+        retro_variable stereo_option{"colortvgame_stereo", nullptr};
+        const bool stereo = !original_features && environment && environment(RETRO_ENVIRONMENT_GET_VARIABLE, &stereo_option) &&
+                            stereo_option.value && std::strcmp(stereo_option.value, "Yes") == 0;
+        const auto& race = racing.state();
+        const int engine_x = race.two_players ? 160 : race.player.x + race.player.width / 2;
+        const auto samples = audio_engine.render(preview, result(), paused, content_id, race.speed, stereo, engine_x);
         if (audio_batch) audio_batch(samples.data(), 800);
         else if (audio) for (unsigned i = 0; i < 800; ++i) audio(samples[2 * i], samples[2 * i + 1]);
     }
@@ -724,6 +799,7 @@ bool retro_load_game(const retro_game_info* game) {
     opponent.reset(); rally_difficulty.reset();
     controls.reset_repeat();
     test_menu = false;
+    direct_launch_id.reset(); direct_launch_locked = false;
     loaded = detail = selector = paused = false; menu_choice = 1; pause_choice = 0; content_id = previous = 0; audio_engine.clear_game_tone(); tennis.reset(); shooting.reset(); racing.reset();
     auto id = game ? ctg::parse_content(game->data, game->size) : std::optional<std::uint8_t>{0};
     if (!id) { message("Invalid CTG1 content: expected five bytes and ID 0-15"); return false; }
@@ -733,6 +809,7 @@ bool retro_load_game(const retro_game_info* game) {
     else read_preferences();
     if (diagnostic_dirty) retry_diagnostic();
     else read_diagnostic();
+    if (game) direct_launch_id = *id;
     selector = !game;
     selector_choice = selector ? initial_selector_choice() : selector_position(*id);
     select_game(selector ? selector_order[selector_choice] : *id);
@@ -741,7 +818,7 @@ bool retro_load_game(const retro_game_info* game) {
 bool retro_load_game_special(unsigned, const retro_game_info*, size_t) { return false; }
 void retro_unload_game() {
     test_menu = false;
-    retry_preferences(); retry_diagnostic(); stop_rumble(); reset_demo(); loaded = detail = false; content_id = previous = 0; audio_engine.clear_game_tone(); tennis.reset(); racing.reset(); }
+    retry_preferences(); retry_diagnostic(); stop_rumble(); reset_demo(); loaded = detail = false; direct_launch_id.reset(); direct_launch_locked = false; content_id = previous = 0; audio_engine.clear_game_tone(); tennis.reset(); racing.reset(); }
 unsigned retro_get_region() { return RETRO_REGION_NTSC; }
 void* retro_get_memory_data(unsigned) { return nullptr; }
 size_t retro_get_memory_size(unsigned) { return 0; }

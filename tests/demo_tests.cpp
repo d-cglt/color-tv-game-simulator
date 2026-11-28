@@ -91,6 +91,22 @@ bool same(const ctg::Demo& demo, const Original& original) {
 }
 
 int main() {
+    {
+        ctg::Demo demo;
+        ctg::DemoOptions options;
+        demo.step(6, false, true, options);
+        CHECK(!demo.tennis.state().ice_hockey);
+        options.ice_hockey = true;
+        demo.step(6, false, true, options);
+        CHECK(demo.tennis.state().ice_hockey);
+        demo.step(2, false, true, options);
+        CHECK(!demo.tennis.state().ice_hockey);
+        demo.step(4, false, true, options);
+        CHECK(demo.tennis.state().ice_hockey);
+        options.ice_hockey = false;
+        demo.step(4, false, true, options);
+        CHECK(!demo.tennis.state().ice_hockey);
+    }
     CHECK(std::string_view(ctg::titles[15].name) == "RACING 112");
     CHECK(std::string_view(ctg::titles[15].variant).empty());
     {

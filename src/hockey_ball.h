@@ -25,10 +25,10 @@ inline int hockey_paddle_top(int y, int height = hockey_paddle_height) { return 
 
 // Draw at display coordinates, clipping to the framebuffer and changing color
 // at the horizontal court boundaries.
-inline void draw_hockey_ball(std::array<std::uint32_t, 320 * 240>& pixels, int x, int y) {
+inline void draw_hockey_ball(std::array<std::uint32_t, 320 * 240>& pixels, int x, int y, bool ice = false) {
     for (int row = std::max(0, y - 2); row < std::min(240, y + 3); ++row) {
         for (int col = std::max(0, x - 3); col < std::min(320, x + 4); ++col) {
-            pixels[row * 320 + col] = col >= 35 && col < 285 ? hockey_puck_color : hockey_exterior_puck_color;
+            pixels[row * 320 + col] = ice ? 0x243e70 : col >= 35 && col < 285 ? hockey_puck_color : hockey_exterior_puck_color;
         }
     }
 }

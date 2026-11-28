@@ -11,9 +11,10 @@ tar -xzf "$tmp/package.tar.gz" -C "$tmp/extracted"
 package=$tmp/extracted/colortvgame-linux
 # Check both the exact payload and the redistributed notices.
 find "$tmp/extracted" -type f -printf '%P\n' | LC_ALL=C sort > "$tmp/files"
-printf '%s\n' colortvgame-linux/LICENSE colortvgame-linux/LICENSE-libretro.txt colortvgame-linux/README.md colortvgame-linux/colortvgame_libretro.so > "$tmp/expected"
+printf '%s\n' colortvgame-linux/GAME_MANUAL.md colortvgame-linux/LICENSE colortvgame-linux/LICENSE-libretro.txt colortvgame-linux/README.md colortvgame-linux/colortvgame_libretro.so > "$tmp/expected"
 cmp "$tmp/expected" "$tmp/files"
 cmp "$root/LICENSE" "$package/LICENSE"
+cmp "$root/GAME_MANUAL.md" "$package/GAME_MANUAL.md"
 cmp "$root/docs/LINUX_RELEASE.md" "$package/README.md"
 sed -n '1,28p' "$root/third_party/libretro/libretro.h" > "$tmp/notice"
 cmp "$tmp/notice" "$package/LICENSE-libretro.txt"

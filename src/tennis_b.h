@@ -37,6 +37,7 @@ struct TennisState {
     std::array<bool, 2> small_paddle{};
     bool doubles = false;
     bool hockey = false;
+    bool ice_hockey = false;
     bool hockey_a = false;
     bool hockey_barrier_closed = false;
     bool volleyball = false;
@@ -63,7 +64,8 @@ public:
 
     explicit TennisB(bool doubles = false, bool hockey = false, bool volleyball = false, bool tennis_a = false, bool hockey_a = false, bool volleyball_a = false, bool ping_pong = false);
     void reset();
-    void reset_input(unsigned player) { if (player < 2) analog_remainder_[player] = 0; }
+    void reset_input(unsigned player) { if (player < 2) { analog_remainder_[player] = 0; ice_velocity_[player] = ice_remainder_[player] = 0; } }
+    void set_ice_hockey(bool enabled) { state_.ice_hockey = state_.hockey && enabled; ice_velocity_ = {}; ice_remainder_ = {}; }
     void set_winning_score(unsigned score) { winning_score_ = score; }
     // Configuration persists across reset; enabling does not reopen a finished game.
     void set_endless(bool enabled) { endless_ = enabled; }
@@ -99,6 +101,7 @@ private:
     unsigned horizontal_rebounds_ = 0;
     std::array<int, 2> paddle_displacement_{};
     std::array<int, 2> analog_remainder_{};
+    std::array<int, 2> ice_velocity_{}, ice_remainder_{};
     std::array<bool, 2> paddle_missed_{};
     std::uint32_t random_state_ = 1;
     int serving_side_ = 0;

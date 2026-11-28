@@ -74,7 +74,7 @@ void Renderer::rally_score_value(bool right, unsigned value, std::uint32_t color
 void Renderer::render_tennis(const ctg::TennisB& tennis, bool show_score, ScoreOverride scores) {
     const auto& state = tennis.state();
     pixels.fill(state.ping_pong ? 0x706a6a : state.hockey ? 0x505068 : state.volleyball ? 0x19b537 : 0x0e7aab);
-    rect(rally_x(0), rally_y(0), 246, 200, state.ping_pong ? 0x706a6a : state.hockey ? 0x2cc94c : state.volleyball ? 0x6d70f9 : 0xc07645);
+    rect(rally_x(0), rally_y(0), 246, 200, state.ping_pong ? 0x706a6a : state.hockey ? (state.ice_hockey ? 0xb9e4ed : 0x2cc94c) : state.volleyball ? 0x6d70f9 : 0xc07645);
     if (state.ping_pong) {
         rect(rally_x(0), rally_y(49), 246, 4, 0xffffff);
         rect(rally_x(20), rally_y(34), 6, 16, 0xffffff);
@@ -84,7 +84,7 @@ void Renderer::render_tennis(const ctg::TennisB& tennis, bool show_score, ScoreO
         const int bottom = 21 + ctg::TennisB::hockey_goal_bottom * 188 / ctg::TennisB::height;
         for (int x = rally_x(0); x < rally_x(41); ++x) {
             const int progress = std::min(x - rally_x(0), 25);
-            const std::uint32_t wall = ((153 + 24 * progress / 25) << 16) | 0xff00 | (142 + 49 * progress / 25);
+            const std::uint32_t wall = state.ice_hockey ? 0x285c9c : ((153 + 24 * progress / 25) << 16) | 0xff00 | (142 + 49 * progress / 25);
             rect(x, rally_y(0), 1, rally_y(1) - rally_y(0), wall);
             rect(x, rally_y(49), 1, rally_y(50) - rally_y(49), wall);
             if (x < rally_x(1) || x >= rally_x(40)) {
@@ -96,7 +96,7 @@ void Renderer::render_tennis(const ctg::TennisB& tennis, bool show_score, ScoreO
         if (state.hockey_a) {
             for (int i = 0; i < 6; ++i) {
                 if (state.hockey_barrier_closed || (i != 2 && i != 3))
-                    rect(rally_x(20), rally_y(2 + i * 8), 6, 16, hockey_boundary);
+                    rect(rally_x(20), rally_y(2 + i * 8), 6, 16, state.ice_hockey ? 0x285c9c : hockey_boundary);
             }
         }
     } else if (state.volleyball) {
@@ -128,7 +128,7 @@ void Renderer::render_tennis(const ctg::TennisB& tennis, bool show_score, ScoreO
     }
 
     if ((show_score && (state.serve_wait || state.winner != -1)) || scores.enabled) {
-        const std::uint32_t score_color = state.ping_pong ? 0x8affa1 : state.hockey ? 0xaefbff : state.volleyball ? volleyball_score : 0xcdf0ff;
+        const std::uint32_t score_color = state.ping_pong ? 0x8affa1 : state.hockey ? (state.ice_hockey ? 0x245574 : 0xaefbff) : state.volleyball ? volleyball_score : 0xcdf0ff;
         rally_score_value(false, scores.enabled ? scores.left : state.score[0], score_color);
         rally_score_value(true, scores.enabled ? scores.right : state.score[1], score_color);
     }
@@ -136,16 +136,19 @@ void Renderer::render_tennis(const ctg::TennisB& tennis, bool show_score, ScoreO
         const int top = tennis.paddle_visible_top(owner);
         rect(x, top, 6, tennis.paddle_visible_bottom(owner) - top, color);
     };
+    const auto hockey_paddle_color = [&](int owner) {
+        return state.ice_hockey ? (owner == 0 ? 0xe67fdbu : 0xb5cf60u) : (owner == 0 ? 0xff9fffu : 0xd5e87cu);
+    };
     for (int i = 0; i < 2; ++i) {
         draw_paddle(rally_x(i == 0 ? 2 : 38), i,
-             state.ping_pong ? 0x9b8cff : state.hockey ? (i == 0 ? 0xff9fff : 0xd5e87c) : state.volleyball ? 0xa6e6ff : 0xd0ecb2);
+             state.ping_pong ? 0x9b8cff : state.hockey ? hockey_paddle_color(i) : state.volleyball ? 0xa6e6ff : 0xd0ecb2);
     }
     if (state.doubles) {
         for (int i = 0; i < 2; ++i) {
             if (state.hockey) {
                 const int owner = 1 - i;
                 draw_paddle(rally_x(i == 0 ? 14 : 26), owner,
-                     owner == 0 ? 0xff9fff : 0xd5e87c);
+                     hockey_paddle_color(owner));
             } else {
                 draw_paddle(rally_x(i == 0 ? 12 : 28), i,
                                      state.ping_pong ? 0x9b8cff : state.volleyball ? 0xa6e6ff : 0xd0ecb2);
@@ -156,7 +159,7 @@ void Renderer::render_tennis(const ctg::TennisB& tennis, bool show_score, ScoreO
     const int ball_y = ctg::hockey_y(state.ball_y);
     if (!state.serve_wait) {
         if (state.hockey) {
-            ctg::draw_hockey_ball(pixels, ball_x, ball_y);
+            ctg::draw_hockey_ball(pixels, ball_x, ball_y, state.ice_hockey);
         } else {
             rect(ball_x - 3, ball_y - 2, 7, 5, state.ping_pong ? 0xffffff : state.volleyball ? volleyball_ball : tennis_ball);
         }
@@ -263,9 +266,10 @@ void Renderer::monochrome_selection_outline(const RenderState& state) {
     } else if (state.paused || state.finished) {
         x = 75; y = 99 + (state.finished ? state.result_choice : state.pause_choice) * 16; w = 170; h = 14;
     } else {
-        const auto layout = launch_layout(option_count(state.content_id), state.menu_choice);
+        const unsigned choice = visible_index(state.content_id, state.menu_choice, state.original_features, state.direct_launch_locked);
+        const auto layout = launch_layout(visible_count(state.content_id, state.original_features, state.direct_launch_locked), choice);
         x = 53; w = 214;
-        y = layout.y + (state.menu_choice - layout.first) * layout.spacing; h = 14;
+        y = layout.y + (choice - layout.first) * layout.spacing; h = 14;
     }
     rect(x, y, w, 1, 0xffffff);
     rect(x, y + h - 1, w, 1, 0xffffff);
@@ -326,12 +330,13 @@ void Renderer::render(const RenderState& state) {
         centered_text(58, titles[state.content_id].name, 0xffffff);
         centered_text(70, titles[state.content_id].variant, 0xffffff);
 
-        const unsigned count = option_count(state.content_id);
-        const auto layout = launch_layout(count, state.menu_choice);
+        const unsigned count = visible_count(state.content_id, state.original_features, state.direct_launch_locked);
+        const unsigned choice = visible_index(state.content_id, state.menu_choice, state.original_features, state.direct_launch_locked);
+        const auto layout = launch_layout(count, choice);
         const unsigned first = layout.first;
         if (layout.scroll && first) arrow(87, true);
         for (unsigned row = 0; row < layout.rows && first + row < count; ++row) {
-            const unsigned i = first + row, y = layout.y + row * layout.spacing;
+            const unsigned i = visible_row(state.content_id, first + row, state.original_features, state.direct_launch_locked), y = layout.y + row * layout.spacing;
             if (i == state.menu_choice) rect(53, y, 214, 14, 0x295166);
             const std::uint32_t color = i == state.menu_choice ? 0x70e0ff : 0xffffff;
             if (i == 0) {
@@ -340,30 +345,28 @@ void Renderer::render(const RenderState& state) {
             } else if (i == 1) {
                 centered_text(y + 3, "START", color);
             } else {
+                const auto option_row = [&](const char* label, const char* value, std::uint32_t ink) {
+                    text(75, y + 3, label, ink);
+                    horizontal_arrow(151, y + 6, true, ink);
+                    text(163, y + 3, value, ink);
+                    horizontal_arrow(236, y + 6, false, ink);
+                };
                 if (state.content_id == 15) {
                     const char* speeds[] = {"LOW", "MEDIUM", "HIGH"};
                     if (i == racing_car_path_row) {
-                        text(75, y + 3, "CAR PATH", color);
-                        horizontal_arrow(151, y + 6, true, color);
-                        text(167, y + 3, state.racing_zigzag ? "ZIGZAG" : "STRAIGHT", color);
-                        horizontal_arrow(218, y + 6, false, color);
+                        option_row("CAR PATH", state.racing_zigzag ? "ZIGZAG" : "STRAIGHT", color);
                         continue;
                     }
                     if (i == racing_opponents_row || i == racing_wall_crash_row || i == racing_bad_road_row) {
                         const bool wall_crash = i == racing_wall_crash_row;
                         const bool bad_road = i == racing_bad_road_row;
-                        text(75, y + 3, bad_road ? "BAD ROAD" : wall_crash ? "WALL CRASH" : "MORE CARS", color);
-                        horizontal_arrow(151, y + 6, true, color);
-                        text(167, y + 3, (bad_road ? state.racing_bad_road : wall_crash ? state.racing_wall_crash : state.racing_more_cars) ? "ON" : "OFF", color);
-                        horizontal_arrow(218, y + 6, false, color);
+                        option_row(bad_road ? "BAD ROAD" : wall_crash ? "WALL CRASH" : "MORE CARS",
+                                   (bad_road ? state.racing_bad_road : wall_crash ? state.racing_wall_crash : state.racing_more_cars) ? "ON" : "OFF", color);
                         continue;
                     }
 
                     const bool mode = i == racing_mode_row;
-                    text(75, y + 3, mode ? "MODE" : "SPEED", color);
-                    horizontal_arrow(135, y + 6, true, color);
-                    text(145, y + 3, mode ? (state.racing_mode == 2 ? "2 PLAYERS" : state.racing_mode == 1 ? "1P NARROW" : "1P SPACIOUS") : speeds[state.racing_speed], color);
-                    horizontal_arrow(218, y + 6, false, color);
+                    option_row(mode ? "MODE" : "SPEED", mode ? (state.racing_mode == 2 ? "2 PLAYERS" : state.racing_mode == 1 ? "1P NARROW" : "1P SPACIOUS") : speeds[state.racing_speed], color);
                     continue;
                 }
                 if (state.content_id == 14) {
@@ -377,10 +380,11 @@ void Renderer::render(const RenderState& state) {
                     const char* values[] = {targets[state.shooting_target], directions[state.shooting_direction],
                                             sizes[state.shooting_size], speeds[state.shooting_speed], shots};
                     const std::uint32_t row_color = i == shooting_direction_row && state.shooting_target == 0 ? 0x888888 : color;
-                    text(75, y + 3, labels[i - shooting_target_row], row_color);
-                    horizontal_arrow(151, y + 6, true, row_color);
-                    text(167, y + 3, values[i - shooting_target_row], row_color);
-                    horizontal_arrow(218, y + 6, false, row_color);
+                    option_row(labels[i - shooting_target_row], values[i - shooting_target_row], row_color);
+                    continue;
+                }
+                if (state.content_id >= 4 && state.content_id <= 7 && i == 7) {
+                    option_row("ICE HOCKEY", state.ice_hockey ? "ON" : "OFF", color);
                     continue;
                 }
                 if (state.content_id >= state.opponent_modes.size()) continue;
@@ -393,17 +397,7 @@ void Renderer::render(const RenderState& state) {
                 char score_text[4];
                 std::snprintf(score_text, sizeof score_text, "%u", state.winning_score);
                 const char* value = mode ? modes[state.opponent_modes[state.content_id]] : score ? score_text : option == 0 ? (state.high_speed ? "HIGH" : "LOW") : (state.small_paddle[option - 1] ? "SMALL" : "LARGE");
-                if (mode) {
-                    text(87, y + 3, label, color);
-                    horizontal_arrow(151, y + 6, true, color);
-                    text(161, y + 3, value, color);
-                    horizontal_arrow(218, y + 6, false, color);
-                } else {
-                    text(87, y + 3, label, color);
-                    horizontal_arrow(151, y + 6, true, color);
-                    text(167, y + 3, value, color);
-                    horizontal_arrow(218, y + 6, false, color);
-                }
+                option_row(label, value, color);
             }
         }
         if (layout.scroll && first + layout.rows < count) arrow(181, false);

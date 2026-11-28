@@ -26,80 +26,47 @@ constexpr unsigned left = 1u << RETRO_DEVICE_ID_JOYPAD_LEFT;
 constexpr unsigned right = 1u << RETRO_DEVICE_ID_JOYPAD_RIGHT;
 }
 int descriptor_tests() {
-    static const retro_input_descriptor expected_paddle[] = {
-        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_A, "Confirm"},
-                {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_START, "Pause / resume"},
-        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_B, "Menu back"},
-        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_UP, "P1 up"},
-        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_DOWN, "P1 down"},
-        {1, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_UP, "P2 up"},
-        {1, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_DOWN, "P2 down"},
-        {0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_Y, "P1 paddle"},
-        {1, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_Y, "P2 paddle"},
-        {0, 0, 0, 0, nullptr}
-    };
-    static const retro_input_descriptor expected_shooting[] = {
-        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_A, "Confirm / fire"},
-                {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_START, "Pause / resume"},
-        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_Y, "Fire"},
-        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_B, "Menu back"},
-        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_UP, "Aim up"},
-        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_DOWN, "Aim down"},
-        {0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_Y, "Aim"},
-        {1, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_UP, "Manual target up"},
-        {1, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_DOWN, "Manual target down"},
-        {1, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_Y, "Manual target"},
-        {0, 0, 0, 0, nullptr}
-    };
-    static const retro_input_descriptor expected_racing[] = {
-        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_A, "Confirm"},
+    static const retro_input_descriptor expected[] = {
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_A, "Confirm/Fire"},
         {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_B, "Menu back"},
         {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_START, "Pause / resume"},
-        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_LEFT, "Steer left"},
-        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_RIGHT, "Steer right"},
-        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L2, "Low lever"},
-        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R2, "High lever"},
-        {0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_X, "Steering"},
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_Y, "Fire (Shooting)"},
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_UP, "P1 paddle/aim up"},
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_DOWN, "P1 paddle/aim down"},
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_LEFT, "P1 steer left"},
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_RIGHT, "P1 steer right"},
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L2, "Low gear (Racing 1P)"},
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R2, "High gear (Racing 1P)"},
+        {0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_Y, "P1 paddle/aim"},
+        {0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_X, "P1 steering"},
+        {1, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_UP, "P2 paddle/manual target up"},
+        {1, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_DOWN, "P2 paddle/manual target down"},
         {1, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_LEFT, "P2 steer left"},
         {1, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_RIGHT, "P2 steer right"},
+        {1, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_Y, "P2 paddle/manual target"},
         {1, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_X, "P2 steering"},
         {0, 0, 0, 0, nullptr}
     };
-    const auto* paddle = ctg::Controls::descriptors(0);
-    const auto* shooting = ctg::Controls::descriptors(14);
-    const auto* racing = ctg::Controls::descriptors(15);
-    CHECK(paddle != shooting && paddle != racing && shooting != racing);
+    const auto* shared = ctg::Controls::descriptors(0);
     for (unsigned id = 0; id <= 17; ++id) {
-        const auto* expected = id == 15 ? expected_racing : id == 14 ? expected_shooting : expected_paddle;
-        const unsigned count = id == 15 ? 11 : id == 14 ? 10 : 9;
         const auto* actual = ctg::Controls::descriptors(id);
-        CHECK(actual == (id == 15 ? racing : id == 14 ? shooting : paddle));
-        for (unsigned row = 0; row <= count; ++row) {
+        CHECK(actual == shared);
+        for (unsigned row = 0; row < sizeof(expected) / sizeof(expected[0]); ++row) {
             CHECK(actual[row].port == expected[row].port);
             CHECK(actual[row].device == expected[row].device);
             CHECK(actual[row].index == expected[row].index);
             CHECK(actual[row].id == expected[row].id);
-            if (row == count) CHECK(actual[row].description == nullptr);
+            if (!expected[row].description) CHECK(actual[row].description == nullptr);
             else {
                 CHECK(actual[row].description != nullptr);
                 CHECK(std::strcmp(actual[row].description, expected[row].description) == 0);
             }
         }
     }
-    CHECK(ctg::Controls::descriptors(~0u) == paddle);
-    {
-        ctg::Controls temporary;
-        temporary.reset_repeat();
-        temporary.reset_racing();
-        temporary.set_enabled(0, false);
-        CHECK(temporary.descriptors(14) == shooting);
-        CHECK(temporary.descriptors(15) == racing);
-    }
-    CHECK(ctg::Controls::descriptors(0) == paddle);
-    CHECK(ctg::Controls::descriptors(14) == shooting);
-    CHECK(ctg::Controls::descriptors(15) == racing);
-    CHECK(std::strcmp(shooting[0].description, "Confirm / fire") == 0);
-    CHECK(std::strcmp(racing[7].description, "Steering") == 0);
+    CHECK(ctg::Controls::descriptors(~0u) == shared);
+    ctg::Controls temporary;
+    temporary.reset_repeat(); temporary.reset_racing(); temporary.set_enabled(0, false);
+    CHECK(temporary.descriptors(14) == shared && temporary.descriptors(15) == shared);
     return 0;
 }
 int analog_movement_tests() {
@@ -264,7 +231,26 @@ int main() {
     CHECK(!controls.enabled(2) && controls.paddle_direction(2) == 0);
     controls.set_device(0, RETRO_DEVICE_JOYPAD);
 
-    values.clear();
+    for (unsigned port = 0; port < 2; ++port) {
+        for (unsigned id : {RETRO_DEVICE_ID_JOYPAD_LEFT, RETRO_DEVICE_ID_JOYPAD_RIGHT}) {
+            controls.reset_racing(); values.clear(); pad(port, id);
+            const auto direction = controls.racing_input(false, port);
+            CHECK(direction.left == (id == RETRO_DEVICE_ID_JOYPAD_LEFT));
+            CHECK(direction.right == (id == RETRO_DEVICE_ID_JOYPAD_RIGHT));
+        }
+        for (int sign : {-1, 1}) {
+            controls.reset_racing(); values.clear(); axis(port, RETRO_DEVICE_ID_ANALOG_X, sign * 9000);
+            const auto direction = controls.racing_input(false, port);
+            CHECK(direction.analog && direction.steering == sign * 9000);
+        }
+    }
+    for (unsigned id : {RETRO_DEVICE_ID_JOYPAD_L2, RETRO_DEVICE_ID_JOYPAD_R2}) {
+        values.clear(); pad(0, id);
+        const auto gear = controls.racing_input(false, 0);
+        CHECK(gear.select_low_speed == (id == RETRO_DEVICE_ID_JOYPAD_L2));
+        CHECK(gear.select_high_speed == (id == RETRO_DEVICE_ID_JOYPAD_R2));
+    }
+    controls.reset_racing(); values.clear();
     for (int value : {-8192, 8192}) {
         axis(0, RETRO_DEVICE_ID_ANALOG_X, value);
         CHECK(!controls.racing_input(false).analog);

@@ -16,6 +16,8 @@ struct DemoOptions {
     bool racing_more_cars = false;
     bool racing_zigzag = false;
     bool racing_bad_road = false;
+    bool ice_hockey = false;
+    bool original_features = false;
 };
 
 class Demo {

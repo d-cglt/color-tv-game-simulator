@@ -10,5 +10,6 @@ int main() {
     if (int result = core_test::menus_options_scenarios(context, snapshot)) return result;
     if (int result = core_test::persistence_selector_demo_scenarios(context)) return result;
     if (int result = core_test::video_rumble_scenarios(context)) return result;
+    if (int result = core_test::direct_launch_lock_scenarios(context)) return result;
     return 0;
 }

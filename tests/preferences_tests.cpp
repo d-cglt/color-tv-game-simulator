@@ -65,7 +65,7 @@ int main() {
     CHECK(output == sentinel);
     CHECK(write(path, golden, rng));
     const Bytes v9_bytes = get(path);
-    CHECK(v9_bytes.size() == 155 && v9_bytes[4] == 9);
+    CHECK(v9_bytes.size() == 160 && v9_bytes[4] == 9);
     CHECK(read(path, output));
     CHECK(output == golden);
     // Unknown IDs and arbitrary binary payloads survive a read-modify-write.
@@ -75,8 +75,9 @@ int main() {
     CHECK(put(path, extended));
     CHECK(read(path, output) && output == golden && unknown == opaque);
     output[33] = 1;
+    output[35] = 1;
     CHECK(write(path, output, rng));
-    CHECK(read(path, output) && output[33] == 1 && unknown == opaque);
+    CHECK(read(path, output) && output[33] == 1 && output[35] == 1 && unknown == opaque);
     auto malformed = extended;
     malformed.push_back(1); // incomplete header
     CHECK(put(path, malformed));
@@ -93,7 +94,17 @@ int main() {
     CHECK(put(path, {'C','T','G','P',9, 8,0,1,0,7, 33,0,1,0,1, 30,0,2,0,0,0}));
     CHECK(read(path, output));
     CHECK(output[8] == 15 && output[9] == 15 && output[10] == 2 && output[30] == 2 && output[33] == 1);
-    CHECK(unknown.empty());
+    CHECK(unknown == Bytes({8,0,1,0,7, 30,0,2,0,0,0}) && output[35] == 0);
+    CHECK(write(path, output, rng));
+    CHECK(read(path, output) && output[8] == 15 && unknown == Bytes({8,0,1,0,7, 30,0,2,0,0,0}));
+    auto before_change = output;
+    output[8] = 20;
+    pref::discard_changed(unknown, before_change, output);
+    CHECK(write(path, output, rng));
+    CHECK(read(path, output) && output[8] == 20 && unknown == Bytes({30,0,2,0,0,0}));
+    CHECK(put(path, {'C','T','G','P',9, 35,0,1,0,2, 200,0,1,0,42}));
+    CHECK(read(path, output) && output[35] == 0 && unknown == Bytes({35,0,1,0,2, 200,0,1,0,42}));
+    unknown.clear();
     auto two_player = golden;
     two_player[29] = 2;
     CHECK(write(path, two_player, rng));
